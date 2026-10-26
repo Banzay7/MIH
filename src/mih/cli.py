@@ -23,7 +23,7 @@ from mih.events import record_event, t
 from mih.export import export_catalog
 from mih.health.policy import HealthPolicy
 from mih.health.runner import run_checks
-from mih.lists import ListFilter, write_list
+from mih.lists import ListFilter, build_presets, load_presets, write_list
 from mih.scheduler import JOBS, JobBusy, run_job, status_snapshot
 from mih.search.engine import SearchRequest, search
 from mih.search.index import ensure_index
@@ -86,6 +86,8 @@ def main(argv: list[str] | None = None) -> int:
     lst.add_argument("--epg-only", action="store_true", help="only channels with a guide")
     lst.add_argument("--epg-url", help="guide URL for the playlist header (url-tvg)")
     lst.add_argument("--no-playlist", action="store_true", help="skip <name>.m3u (stream URLs)")
+    lst.add_argument("--presets", action="store_true",
+                     help="build every list of MIH_LISTS_FILE into <export>/lists")  # fmt: skip
     sub.add_parser("stats", help="print catalog counts")
     sub.add_parser("status", help="what the service is doing, recent events, the plan")
     job = sub.add_parser("run-job", help="run a background job now; the result is pushed")
@@ -152,6 +154,14 @@ def main(argv: list[str] | None = None) -> int:
         title = t(settings, "export", channels=stats["channels"])
         record_event(conn, settings, "export", "info", title, data=stats)
         print(json.dumps(stats, ensure_ascii=False, indent=2))
+    elif args.cmd == "list" and args.presets:
+        try:
+            built = build_presets(conn, args.out or settings.lists_dir,
+                                  load_presets(settings.lists_file))  # fmt: skip
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps([r.stats() for r in built], ensure_ascii=False, indent=2))
     elif args.cmd == "list":
         flt = ListFilter(countries=tuple(args.country), languages=tuple(args.lang),
                          categories=tuple(args.category),

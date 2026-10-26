@@ -44,6 +44,8 @@ class Settings:
     timezone: str = "UTC"
     # Where ``mih export`` writes; None means <data_dir>/export.
     export_dir_override: Path | None = None
+    # Named lists (JSON, see mih.lists.load_presets); None = one list of every valid channel.
+    lists_file: Path | None = None
     # Language of push notifications and of the event feed.
     lang: str = "en"
     # ntfy topic URL (https://ntfy.sh/<topic> or a self-hosted server); None = no pushes.
@@ -73,6 +75,10 @@ class Settings:
         return self.export_dir_override or self.data_dir / "export"
 
     @property
+    def lists_dir(self) -> Path:
+        return self.export_dir / "lists"
+
+    @property
     def snapshots_dir(self) -> Path:
         return self.data_dir / "snapshots"
 
@@ -94,6 +100,7 @@ class Settings:
             epg_scope=_choice(env.get("MIH_EPG_SCOPE", "tracked"), "MIH_EPG_SCOPE", EPG_SCOPES),
             timezone=env.get("MIH_TIMEZONE", "UTC"),
             export_dir_override=Path(env["MIH_EXPORT_DIR"]) if env.get("MIH_EXPORT_DIR") else None,
+            lists_file=Path(env["MIH_LISTS_FILE"]) if env.get("MIH_LISTS_FILE") else None,
             lang=_choice(env.get("MIH_LANG", "en"), "MIH_LANG", LANGS),
             ntfy_url=env.get("MIH_NTFY_URL") or None,
             ntfy_token=env.get("MIH_NTFY_TOKEN") or None,
