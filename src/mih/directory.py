@@ -30,6 +30,7 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass
 
 from mih.config import Settings
+from mih.epg.catalog import add_guide_channels
 from mih.identity.normalize import split_name, tvg_base
 from mih.ids import new_id, utc_now
 from mih.lists import normalize_country, normalize_lang
@@ -49,6 +50,7 @@ class DirectoryReport:
     linked: int = 0
     merged: int = 0
     created: int = 0
+    from_guides: int = 0
 
     def stats(self) -> dict:
         return asdict(self)
@@ -116,6 +118,7 @@ def import_directory(
                 "INSERT OR IGNORE INTO directory_names (key, directory_id) VALUES (?, ?)",
                 [(k, r["id"]) for k in keys if k],
             )
+        report.from_guides = add_guide_channels(conn, now)
         report.linked, report.merged = link_and_merge(conn)
         if countries:
             report.created = _add_missing(conn, countries, now)

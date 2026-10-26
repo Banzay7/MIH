@@ -10,6 +10,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from mih.config import Settings
+from mih.directory import link_and_merge
+from mih.epg.catalog import add_guide_channels
 from mih.epg.mapping import refresh_mappings
 from mih.epg.scope import FILTERED, build_scope
 from mih.epg.xmltv import XMLTVFormatError, XMLTVProgramme, open_content, parse_xmltv
@@ -38,6 +40,8 @@ class EPGImportReport:
     mapped: int = 0
     needs_review: int = 0
     unmapped: int = 0
+    # Catalog channels created for guide channels no playlist carries.
+    channels_added: int = 0
     parse_errors: list[str] = field(default_factory=list)
 
     def stats(self) -> dict:
@@ -145,6 +149,9 @@ def import_xmltv(
             " AND id NOT IN (SELECT target_id FROM favorites WHERE target_kind = 'programme')"
         )
         drop_orphans(conn)
+        # Guide channels no playlist carries still belong in the catalog.
+        report.channels_added = add_guide_channels(conn, now_s, epg_source_id=epg_source_id)
+        link_and_merge(conn)
 
         report.mapped = counts["auto"] + counts["approved"]
         report.needs_review, report.unmapped = counts["needs_review"], counts["unmapped"]
