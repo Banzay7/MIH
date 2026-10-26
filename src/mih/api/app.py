@@ -472,14 +472,21 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             out.append({"name": f.stem, "generated_at": doc.get("generated_at"),
                         "channels": doc.get("channels_total"), "entries": doc.get("entries"),
                         "by_level": doc.get("by_level"), "playlist": f"/lists/{f.stem}.m3u",
+                        "guide": f"/lists/{f.stem}.xml.gz" if doc.get("guide") else None,
+                        "with_guide": doc.get("with_guide"),
                         "excluded_by_reason": doc.get("excluded_by_reason")})  # fmt: skip
         return {"items": out}
 
     @app.get("/lists/{file}", dependencies=[Depends(require_token_or_query)])
-    def list_file(file: Annotated[str, Path(pattern=r"^[\w.-]+\.(m3u|jsonl?|csv)$")]):
+    def list_file(file: Annotated[str, Path(pattern=r"^[\w.-]+\.(m3u|jsonl?|csv|xml\.gz)$")]):
         path = settings.lists_dir / file
         if not path.is_file():
             raise ApiError("not_found", "no such list; see GET /api/v1/lists")
+        if file.endswith(".xml.gz"):
+            # Players unpack the guide themselves; a gzip Content-Encoding would make
+            # some of them get plain XML under a .gz name.
+            return FileResponse(path, media_type="application/gzip",
+                                headers={"Cache-Control": "no-store"})  # fmt: skip
         media = {"m3u": "audio/x-mpegurl", "json": "application/json",
                  "jsonl": "application/x-ndjson", "csv": "text/csv"}  # fmt: skip
         media = media[file.rsplit(".", 1)[1]]

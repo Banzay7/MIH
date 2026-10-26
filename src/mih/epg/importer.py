@@ -13,7 +13,7 @@ from mih.config import Settings
 from mih.directory import link_and_merge
 from mih.epg.catalog import add_guide_channels
 from mih.epg.mapping import refresh_mappings
-from mih.epg.scope import FILTERED, build_scope
+from mih.epg.scope import FILTERED, build_scope, listed_channels
 from mih.epg.xmltv import XMLTVFormatError, XMLTVProgramme, open_content, parse_xmltv
 from mih.identity.normalize import fold
 from mih.ids import new_id, utc_now
@@ -116,7 +116,8 @@ def import_xmltv(
         # Map first, so a guide channel the catalog gained since the last import is
         # already in scope for this one.
         mapped = refresh_mappings(conn, now_s, epg_source_id=epg_source_id)
-        scope = build_scope(conn, settings.epg_scope, list(ids.values()))
+        scope = build_scope(conn, settings.epg_scope, list(ids.values()),
+                            listed_channels(settings.lists_dir))  # fmt: skip
         wanted = {xid for xid in counts if ids[xid] in scope.channels}
         parsed = parse_xmltv(open_content(content, settings.epg_max_bytes),
                              keep=wanted.__contains__)  # fmt: skip

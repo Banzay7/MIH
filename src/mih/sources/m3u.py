@@ -32,6 +32,19 @@ class M3UParseResult:
     entries: list[M3UEntry]
     errors: list[str]
     has_header: bool
+    # Attributes of the #EXTM3U line, e.g. url-tvg (the guide the playlist comes with).
+    header_attrs: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def guide_urls(self) -> list[str]:
+        """url-tvg / x-tvg-url: one or several comma-separated guide URLs."""
+        urls: list[str] = []
+        for key in ("url-tvg", "x-tvg-url"):
+            for u in self.header_attrs.get(key, "").split(","):
+                u = u.strip()
+                if u.lower().startswith(("http://", "https://")) and u not in urls:
+                    urls.append(u)
+        return urls
 
 
 class M3UFormatError(ValueError):
@@ -44,6 +57,9 @@ def parse_m3u(content: bytes | str) -> M3UParseResult:
     lines = [line.strip() for line in text.splitlines()]
 
     has_header = bool(lines) and lines[0].upper().startswith("#EXTM3U")
+    header_attrs = (
+        {k.lower(): v.strip() for k, v in _ATTR_RE.findall(lines[0])} if has_header else {}
+    )
     entries: list[M3UEntry] = []
     errors: list[str] = []
 
@@ -102,7 +118,8 @@ def parse_m3u(content: bytes | str) -> M3UParseResult:
 
     if not has_header and not entries:
         raise M3UFormatError("content is not an M3U playlist")
-    return M3UParseResult(entries=entries, errors=errors, has_header=has_header)
+    return M3UParseResult(entries=entries, errors=errors, has_header=has_header,
+                          header_attrs=header_attrs)  # fmt: skip
 
 
 def _parse_extinf(line: str) -> tuple[dict[str, str], str]:
