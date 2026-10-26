@@ -198,6 +198,9 @@ def test_health_job_rebuilds_lists_and_api_serves_them(tmp_path):
         xml = c.get("/lists/all.xml.gz", params={"token": token})
         assert xml.status_code == 200 and xml.content[:2] == b"\x1f\x8b"
         assert c.get("/lists/nope.m3u", headers=auth).status_code == 404
+        everything = c.get("/lists/catalog.jsonl", headers=auth)
+        assert everything.headers["content-type"].startswith("application/x-ndjson")
+        assert len(everything.text.splitlines()) == 3 and "SECRET_A1" in everything.text
         assert c.get("/lists/..%2Fmih.sqlite3", headers=auth).status_code in (404, 422)
     conn.close()
 
@@ -245,3 +248,73 @@ def test_list_comes_with_its_guide(conn, settings, make_source, tmp_path):
     assert built[0].files[-2:] == ["all.xml.gz", "all.m3u"]
     head = (out / "all.m3u").read_text(encoding="utf-8").splitlines()[0]
     assert 'url-tvg="https://tv.example/lists/all.xml.gz?token=' in head
+
+
+def test_catalog_file_has_everything_in_one_place(conn, settings, make_source, tmp_path):
+    from mih.epg.importer import import_xmltv
+    from mih.epg.service import create_epg_source
+    from mih.lists import build_presets
+
+    _load(conn, settings, make_source)
+    now = datetime.now(UTC)
+    _set(conn, "Первый%", status="active", last_ok_at=format_ts(now))
+    _set(conn, "VTV1%", status="active", last_ok_at=format_ts(now))
+    guide_now = datetime(2026, 10, 26, 4, 0, tzinfo=UTC)  # Доброе утро 03:00-06:00Z
+    import_xmltv(conn, settings, create_epg_source(conn, settings, name="g", url=None),
+                 fixture_bytes("guide_a.xml"), now=guide_now)  # fmt: skip
+    out = tmp_path / "lists"
+    build_presets(conn, out, {"ru": {"country": ["RU"]}, "vn": {"country": ["VN"]}})
+
+    rows = [json.loads(line) for line in (out / "catalog.jsonl").read_text("utf-8").splitlines()]
+    by_name = {r["name"]: r for r in rows}
+    assert len(rows) == conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
+
+    perviy = by_name["Первый канал HD"]
+    assert perviy["lists"] == ["ru"] and perviy["level"] == "ok" and perviy["epg_available"]
+    assert {"первый", "первыйканал", "pervyykanal", "1tv"} <= set(perviy["search_keys"])
+    # The +2 copy is a stream of its own with its shift, never merged into the base one.
+    assert [(s["timeshift_min"], "SECRET_A1" in s["url"]) for s in perviy["streams"]] == [
+        (0, True), (120, False)]  # fmt: skip
+    assert all(s["stream_id"] and not s["requires_headers"] for s in perviy["streams"])
+
+    vtv = next(r for r in rows if r["name"].startswith("VTV1"))
+    assert vtv["lists"] == ["vn"]
+    assert vtv["streams"][0]["headers"] == {"user_agent": "SomePlayer/1.0",
+                                            "referer": "https://a.example/"}  # fmt: skip
+    assert vtv["streams"][0]["requires_headers"] is True
+
+    euronews = next(r for r in rows if r["name"].startswith("Euronews"))
+    assert euronews["lists"] == [] and euronews["level"] == "unknown"
+    assert euronews["reason"] == "unchecked"
+
+    table = list(csv.DictReader((out / "catalog.csv").read_text("utf-8-sig").splitlines()))
+    assert sum(r["channel_id"] == perviy["channel_id"] for r in table) == 2
+    assert {r["user_agent"] for r in table} >= {"SomePlayer/1.0"}
+    assert (out / "catalog.jsonl").stat().st_mode & 0o777 == 0o640
+
+    from mih.export import build_catalog
+    from mih.lists import catalog_rows
+
+    on_air = {r["name"]: r for r in catalog_rows(conn, build_catalog(conn), {}, now=guide_now)}
+    assert on_air["Первый канал HD"]["now"]["title"] == "Доброе утро"
+    assert on_air["Первый канал HD"]["next"] == {"title": "Новости",
+                                                 "start": "2026-10-26T06:00:00Z"}  # fmt: skip
+
+
+def test_search_keys_cover_spelling_latin_and_popular_names():
+    from mih.identity.search_keys import compact, search_keys
+
+    keys = set(search_keys(["Россия-24"], ["Russia24.ru"]))
+    assert {"россия24", "rossiya24", "russia24", "россия 24"} <= keys
+    assert compact("Россия 24") in keys and compact("РОССИЯ-24") in keys
+    assert "ртр" in search_keys(["Россия 1 HD"])
+    assert {"нтв", "ntv"} <= set(search_keys(["НТВ"]))
+
+
+def test_catalog_name_is_reserved(tmp_path):
+    from mih.lists import load_presets
+
+    f = tmp_path / "lists.json"
+    f.write_text('{"catalog": {}}')
+    with pytest.raises(ValueError):
+        load_presets(f)

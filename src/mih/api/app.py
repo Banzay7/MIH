@@ -478,7 +478,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         return {"items": out}
 
     @app.get("/lists/{file}", dependencies=[Depends(require_token_or_query)])
-    def list_file(file: Annotated[str, Path(pattern=r"^[\w.-]+\.(m3u|json|csv|xml\.gz)$")]):
+    def list_file(file: Annotated[str, Path(pattern=r"^[\w.-]+\.(m3u|jsonl?|csv|xml\.gz)$")]):
         path = settings.lists_dir / file
         if not path.is_file():
             raise ApiError("not_found", "no such list; see GET /api/v1/lists")
@@ -488,7 +488,8 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             return FileResponse(path, media_type="application/gzip",
                                 headers={"Cache-Control": "no-store"})  # fmt: skip
         media = {"m3u": "audio/x-mpegurl", "json": "application/json",
-                 "csv": "text/csv"}[file.rsplit(".", 1)[1]]  # fmt: skip
+                 "jsonl": "application/x-ndjson", "csv": "text/csv"}  # fmt: skip
+        media = media[file.rsplit(".", 1)[1]]
         return FileResponse(path, media_type=media + "; charset=utf-8",
                             headers={"Cache-Control": "no-store"})  # fmt: skip
 
