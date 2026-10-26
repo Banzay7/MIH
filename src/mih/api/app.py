@@ -24,6 +24,7 @@ from mih.epg import guide
 from mih.epg.importer import EPGImportReport, import_xmltv, iso
 from mih.epg.mapping import refresh_mappings, set_manual
 from mih.epg.service import create_epg_source, get_epg_source, import_epg_from_url
+from mih.health.policy import HealthPolicy
 from mih.identity.normalize import fold
 from mih.search.engine import SearchRequest, search
 from mih.search.index import ensure_index
@@ -98,7 +99,7 @@ def require_token(
 Conn = Annotated[sqlite3.Connection, Depends(get_conn)]
 
 
-def create_app(settings: Settings) -> FastAPI:
+def create_app(settings: Settings, health_policy: HealthPolicy | None = None) -> FastAPI:
     conn = db.connect(settings.db_path)
     db.migrate(conn)
     ensure_index(conn)
@@ -426,6 +427,10 @@ def create_app(settings: Settings) -> FastAPI:
                 "epg_coverage": round(with_epg / channels, 3) if channels else None,
                 "epg_mappings_needs_review": review}  # fmt: skip
 
+    # Imported here because the health routes reuse this module's error and connection.
+    from mih.health.api import build_router
+
+    app.include_router(build_router(settings, health_policy or HealthPolicy.from_env(), auth))
     personal.register(app, auth=auth, conn=Conn, error=ApiError)
     personal.mount_ui(app)  # last: it catches every path the API did not
     return app

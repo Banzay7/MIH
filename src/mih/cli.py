@@ -12,6 +12,8 @@ from mih import db
 from mih.config import ConfigError, Settings
 from mih.epg.importer import import_xmltv
 from mih.epg.service import create_epg_source
+from mih.health.policy import HealthPolicy
+from mih.health.runner import run_checks
 from mih.search.engine import SearchRequest, search
 from mih.search.index import ensure_index
 from mih.sources.importer import import_m3u
@@ -31,6 +33,11 @@ def main(argv: list[str] | None = None) -> int:
     epg.add_argument("path", type=Path)
     epg.add_argument("--source", required=True, help="EPG source name; created if missing")
     epg.add_argument("--force", action="store_true", help="skip the size-drop safety check")
+    hc = sub.add_parser("health-check", help="probe streams that are due for a check")
+    hc.add_argument(
+        "--limit", type=int, help="at most this many streams (default MIH_HEALTH_BATCH)"
+    )
+    hc.add_argument("--stream", action="append", help="check this stream id now; repeatable")
     find = sub.add_parser("search", help='search programmes and channels: "роботы завтра"')
     find.add_argument("query")
     find.add_argument("--tz", help="IANA time zone for today/tomorrow (default MIH_TIMEZONE)")
@@ -71,6 +78,11 @@ def main(argv: list[str] | None = None) -> int:
         report = import_xmltv(conn, settings, source_id, args.path.read_bytes(), force=args.force)
         print(json.dumps(report.stats(), ensure_ascii=False, indent=2))
         return 0 if report.status != "rejected" else 2
+    elif args.cmd == "health-check":
+        report = run_checks(conn, settings, HealthPolicy.from_env(), stream_ids=args.stream,
+                            limit=args.limit)  # fmt: skip
+        print(json.dumps(report.stats(), ensure_ascii=False, indent=2))
+        return 0 if report.status == "done" else 3
     elif args.cmd == "search":
         req = SearchRequest(query=args.query, tz=args.tz or settings.timezone, limit=args.limit)
         print(json.dumps(search(conn, req, datetime.now(UTC)), ensure_ascii=False, indent=2))

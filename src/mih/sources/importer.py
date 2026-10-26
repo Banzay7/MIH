@@ -222,7 +222,8 @@ def _upsert_stream(
     if stream_id:
         conn.execute(
             "UPDATE streams SET feed_id = ?, format = ?, quality_label = ?, last_seen_at = ?,"
-            " availability_reason = NULL WHERE id = ?",
+            # Back in the playlist; reasons found by the health check (DRM, geo) stay.
+            " availability_reason = nullif(availability_reason, 'source_absent') WHERE id = ?",
             (feed_id, fmt, parts.quality, now, stream_id),
         )
     else:
