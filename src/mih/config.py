@@ -35,10 +35,11 @@ class Settings:
     # snapshots) for history_days.
     epg_retention_days: int = 3
     history_days: int = 90
-    # Which guide channels get a stored schedule: tracked (favourite channels, plus
-    # programmes matching a tracked topic or favourite programme), mapped (every guide
-    # channel matched to the catalog) or all. tracked behaves as mapped while nothing
-    # is tracked yet, so a fresh install still has a guide.
+    # Which guide channels get a stored schedule: tracked (favourite channels and the
+    # channels of the named lists, plus programmes matching a tracked topic or favourite
+    # programme), mapped (every guide channel matched to the catalog) or all. tracked
+    # behaves as mapped while nothing is tracked or listed yet, so a fresh install still
+    # has a guide.
     epg_scope: str = "tracked"
     # IANA zone for "today", "tomorrow", "evening" in search when a request names none.
     timezone: str = "UTC"

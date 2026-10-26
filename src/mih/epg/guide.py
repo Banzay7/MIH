@@ -7,15 +7,17 @@ import sqlite3
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-
-from mih.epg.importer import iso
+from datetime import UTC, datetime, timedelta
 
 AIRING_COLS = (
     "a.id AS airing_id, a.epg_channel_id, a.start_utc, a.stop_utc, a.status, a.version,"
     " p.id AS programme_id, p.title, p.sub_title, p.episode_num, p.categories, p.lang,"
     " p.icon_url, p.rating"
 )
+
+
+def iso(dt: datetime) -> str:
+    return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 @dataclass(frozen=True)
@@ -40,15 +42,19 @@ def feed_guides(
         params = ids
     feeds = conn.execute(sql, params).fetchall()
 
+    # The first source by priority wins, but a guide with nothing stored for the feed
+    # (a guide that stopped listing it, or one out of MIH_EPG_SCOPE) gives way to one
+    # that has a schedule.
     direct: dict[str, str] = {}
     for r in conn.execute(
         "SELECT m.feed_id, m.epg_channel_id FROM epg_mappings m"
         " JOIN epg_channels ec ON ec.id = m.epg_channel_id"
         " JOIN epg_sources es ON es.id = ec.epg_source_id"
         " WHERE m.feed_id IS NOT NULL AND m.decision IN ('auto', 'approved') AND es.enabled = 1"
-        " ORDER BY es.priority, es.name"
+        " ORDER BY NOT EXISTS (SELECT 1 FROM airings a WHERE a.epg_channel_id = ec.id),"
+        " es.priority, es.name"
     ):
-        direct.setdefault(r["feed_id"], r["epg_channel_id"])  # first source by priority wins
+        direct.setdefault(r["feed_id"], r["epg_channel_id"])
 
     base = {(f["channel_id"], f["region"]): f["id"] for f in feeds if f["offset_minutes"] == 0}
     out: dict[str, FeedGuide] = {}

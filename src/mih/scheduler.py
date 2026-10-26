@@ -38,6 +38,9 @@ STALE_AFTER = timedelta(hours=6)
 # After a start, interval jobs wait this long, so a restart loop does not hammer sources.
 FIRST_RUN_DELAY = timedelta(minutes=2)
 _DOWN = ("suspect", "quarantine", "archived")
+# Between guide imports, a list's guide file is still rewritten this often, so the
+# day it starts with moves on.
+GUIDE_MAX_AGE = timedelta(hours=6)
 
 
 class JobBusy(Exception):
@@ -219,16 +222,21 @@ def _describe_guide(settings, r) -> tuple[str, bool]:
     return text, False  # a new day of guide is routine
 
 
-def _rebuild_lists(conn, settings, data: dict) -> str:
+def _rebuild_lists(conn, settings, data: dict, guide_max_age: timedelta = GUIDE_MAX_AGE) -> str:
     """Every finished part (a playlist, a guide, a batch of checks) is merged into the
     catalog by its importer; the lists are rebuilt right after, so they grow as the
-    work goes instead of waiting for a full pass."""
+    work goes instead of waiting for a full pass. A list's guide file is rewritten
+    after a guide import, and otherwise only now and then (see mih.lists.write_list)."""
     try:
-        built = build_presets(conn, settings.lists_dir, load_presets(settings.lists_file))
+        built = build_presets(conn, settings.lists_dir, load_presets(settings.lists_file),
+                              public_url=settings.public_url, token=settings.api_token,
+                              guide_max_age=guide_max_age)  # fmt: skip
     except (ValueError, OSError) as exc:
         return t(settings, "error", error=exc)
     data["lists"] = {r.name: r.channels for r in built}
-    return t(settings, "health.lists", lists=", ".join(f"{r.name} {r.channels}" for r in built))
+    data["lists_with_guide"] = {r.name: r.with_guide for r in built}
+    return t(settings, "health.lists",
+             lists=", ".join(f"{r.name} {r.channels} ({r.with_guide})" for r in built))  # fmt: skip
 
 
 def _job_sources(conn, settings, policy, now, transport) -> Outcome:
@@ -239,7 +247,7 @@ def _job_sources(conn, settings, policy, now, transport) -> Outcome:
 
 def _job_epg(conn, settings, policy, now, transport) -> Outcome:
     out = _refresh(conn, settings, "epg_sources", import_epg_from_url, _describe_guide, "job.epg")
-    out.lines.append(_rebuild_lists(conn, settings, out.data))
+    out.lines.append(_rebuild_lists(conn, settings, out.data, guide_max_age=timedelta(0)))
     return out
 
 

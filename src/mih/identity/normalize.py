@@ -128,3 +128,28 @@ def _best_quality(current: str | None, tokens: list[str]) -> str | None:
     if not found:
         return None
     return max(found, key=_QUALITY_ORDER.index)
+
+
+_TRANSLIT = {
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ж": "zh", "з": "z",
+    "и": "i", "й": "i", "к": "k", "л": "l", "м": "m", "н": "n", "о": "o", "п": "p",
+    "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f", "х": "h", "ц": "c", "ч": "ch",
+    "ш": "sh", "щ": "sh", "ъ": "", "ы": "y", "ь": "", "э": "e", "ю": "yu", "я": "ya",
+    "є": "e", "і": "i", "ї": "i", "ґ": "g", "ў": "u", "қ": "k", "ң": "n", "ү": "u",
+    "ұ": "u", "ө": "o", "һ": "h", "ә": "a", "ғ": "g",
+}  # fmt: skip
+# Spellings Latin transliterations of one Cyrillic name differ in: "Perviy"/"Pervyy",
+# "Pyatnitsa"/"Piatnitsa", "Kukhnya"/"Kuhnya", "2x2"/"2х2".
+_SPELLING = (("shch", "sh"), ("kh", "h"), ("x", "h"), ("ts", "c"), ("tz", "c"), ("j", "i"),
+             ("y", "i"), ("w", "v"))  # fmt: skip
+_REPEAT_RE = re.compile(r"(\w)\1+")
+
+
+def translit_key(key: str) -> str:
+    """A name key (``split_name().key``) in a Latin spelling that the usual
+    transliterations of one Cyrillic name share: "первый канал" and "perviy kanal"
+    both give "pervi kanal". Used only as a last resort when matching names."""
+    text = "".join(_TRANSLIT.get(ch, ch) for ch in key)
+    for old, new in _SPELLING:
+        text = text.replace(old, new)
+    return _REPEAT_RE.sub(r"\1", text)

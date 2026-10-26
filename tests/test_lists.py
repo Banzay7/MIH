@@ -125,7 +125,7 @@ def test_write_list_files_and_cli(conn, settings, make_source, tmp_path, monkeyp
     out = tmp_path / "lists"
     result = write_list(conn, out, "ru", ListFilter(countries=("RU",)),
                         epg_url="https://epg.example/g.xml")  # fmt: skip
-    assert result.files == ["ru.json", "ru.csv", "ru.m3u"]
+    assert result.files == ["ru.json", "ru.csv", "ru.xml.gz", "ru.m3u"]
     assert result.channels == 1 and result.entries == 1
 
     m3u = (out / "ru.m3u").read_text(encoding="utf-8")
@@ -194,12 +194,60 @@ def test_health_job_rebuilds_lists_and_api_serves_them(tmp_path):
         auth = {"Authorization": f"Bearer {token}"}
         index = c.get("/api/v1/lists", headers=auth).json()["items"]
         assert [(i["name"], i["channels"]) for i in index] == [("all", 2), ("ru", 1)]
+        assert index[0]["guide"] == "/lists/all.xml.gz" and index[0]["with_guide"] == 0
+        xml = c.get("/lists/all.xml.gz", params={"token": token})
+        assert xml.status_code == 200 and xml.content[:2] == b"\x1f\x8b"
         assert c.get("/lists/nope.m3u", headers=auth).status_code == 404
         everything = c.get("/lists/catalog.jsonl", headers=auth)
         assert everything.headers["content-type"].startswith("application/x-ndjson")
         assert len(everything.text.splitlines()) == 3 and "SECRET_A1" in everything.text
         assert c.get("/lists/..%2Fmih.sqlite3", headers=auth).status_code in (404, 422)
     conn.close()
+
+
+def test_list_comes_with_its_guide(conn, settings, make_source, tmp_path):
+    import gzip
+    import re as re_
+
+    from mih.epg.importer import import_xmltv
+    from mih.epg.service import create_epg_source
+    from mih.lists import build_presets
+
+    _load(conn, settings, make_source)
+    when = datetime(2026, 10, 26, 7, 0, tzinfo=UTC)
+    _set(conn, "%", status="active", last_ok_at=format_ts(when))
+    import_xmltv(conn, settings, create_epg_source(conn, settings, name="g", url=None),
+                 fixture_bytes("guide_a.xml"), now=when)  # fmt: skip
+    out = tmp_path / "lists"
+    result = write_list(conn, out, "ru", ListFilter(countries=("RU",), timeshift=True), now=when)
+    assert result.channels == 1 and result.entries == 2 and result.with_guide == 1
+
+    m3u = (out / "ru.m3u").read_text(encoding="utf-8")
+    ids = re_.findall(r'tvg-id="([^"]+)"', m3u)
+    assert ids == ["Perviy.ru", "Perviy.ru+2"]
+    xml = gzip.decompress((out / "ru.xml.gz").read_bytes()).decode()
+    for gid in ids:
+        assert f'<channel id="{gid}">' in xml
+    base = re_.findall(r'start="(\d+) \+0000" stop="\d+ \+0000" channel="Perviy.ru"', xml)
+    plus2 = re_.findall(r'start="(\d+) \+0000" stop="\d+ \+0000" channel="Perviy.ru\+2"', xml)
+    assert base and len(base) == len(plus2)
+    assert base[0] == "20261026030000" and plus2[0] == "20261026050000"
+    assert "<title>Новости</title>" in xml or '<title lang="ru">Новости</title>' in xml
+    doc = json.loads((out / "ru.json").read_text(encoding="utf-8"))
+    assert doc["with_guide"] == 1 and doc["channels"][0]["guide"] is True
+
+    # Rebuilt a minute later with the same channels: the guide file stays as it is.
+    mtime = (out / "ru.xml.gz").stat().st_mtime_ns
+    from datetime import timedelta as td
+
+    write_list(conn, out, "ru", ListFilter(countries=("RU",), timeshift=True), now=when,
+               guide_max_age=td(hours=6))  # fmt: skip
+    assert (out / "ru.xml.gz").stat().st_mtime_ns == mtime
+
+    built = build_presets(conn, out, {"all": {}}, public_url="https://tv.example", token="t" * 24)
+    assert built[0].files[-2:] == ["all.xml.gz", "all.m3u"]
+    head = (out / "all.m3u").read_text(encoding="utf-8").splitlines()[0]
+    assert 'url-tvg="https://tv.example/lists/all.xml.gz?token=' in head
 
 
 def test_catalog_file_has_everything_in_one_place(conn, settings, make_source, tmp_path):

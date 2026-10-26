@@ -148,7 +148,10 @@ TEXTS = {
     "health.failed": {"en": "not responding: {failed}", "ru": "не отвечают: {failed}"},
     "health.down": {"en": "became unavailable: {n}", "ru": "стали недоступны: {n}"},
     "health.up": {"en": "came back: {n}", "ru": "снова работают: {n}"},
-    "health.lists": {"en": "lists: {lists}", "ru": "списки: {lists}"},
+    "health.lists": {
+        "en": "lists (channels, with a guide): {lists}",
+        "ru": "списки (каналов, с программой): {lists}",
+    },
     "digest.catalog": {
         "en": "Catalog: {channels} channels, streams working {active} of {streams}",
         "ru": "Каталог: каналов {channels}, потоков работает {active} из {streams}",
