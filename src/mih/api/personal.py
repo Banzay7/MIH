@@ -1,0 +1,124 @@
+"""Favourites and playback commands (spec 22), and the web UI's static files."""
+
+from importlib import resources
+from typing import Annotated, Any
+
+from fastapi import FastAPI, Path
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+
+from mih import playback
+from mih.ids import utc_now
+
+ProfileId = Annotated[str, Path(pattern="^[a-z0-9_-]{1,32}$")]
+_KINDS = {"channel": "channels", "programme": "programmes"}
+
+
+class FavoriteIn(BaseModel):
+    target_kind: str = Field(pattern="^(channel|programme)$")
+    target_id: str = Field(min_length=1, max_length=64)
+
+
+class PlaybackTargetIn(BaseModel):
+    kind: str = Field(default="channel", pattern="^channel$")
+    channel_id: str = Field(min_length=1, max_length=64)
+    feed_id: str | None = Field(default=None, max_length=64)
+
+
+class PlaybackIn(BaseModel):
+    target: PlaybackTargetIn
+    device_id: str = Field(default="default", pattern="^[A-Za-z0-9_.-]{1,64}$")
+    idempotency_key: str | None = Field(default=None, min_length=8, max_length=100)
+
+
+def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> None:
+    """Add the routes. ``conn`` is the connection dependency, ``error`` the ApiError class."""
+    Conn = conn  # noqa: N806 - a type alias, as in app.py
+
+    @app.get("/api/v1/profiles/{profile_id}/favorites", dependencies=auth)
+    def list_favorites(profile_id: ProfileId, conn: Conn) -> dict:
+        rows = conn.execute(
+            "SELECT f.target_kind, f.target_id, f.position, f.created_at,"
+            " c.canonical_name AS channel_name, c.logo_url, c.country,"
+            " p.title AS programme_title"
+            " FROM favorites f"
+            " LEFT JOIN channels c ON f.target_kind = 'channel' AND c.id = f.target_id"
+            " LEFT JOIN programmes p ON f.target_kind = 'programme' AND p.id = f.target_id"
+            " WHERE f.profile_id = ? ORDER BY f.position",
+            (profile_id,),
+        ).fetchall()
+        items = []
+        for r in rows:
+            item = {"target_kind": r["target_kind"], "target_id": r["target_id"],
+                    "position": r["position"], "created_at": r["created_at"]}  # fmt: skip
+            if r["target_kind"] == "channel":
+                # None means the channel is gone for now; the favourite is kept.
+                item.update(name=r["channel_name"], logo_url=r["logo_url"], country=r["country"])
+            else:
+                item.update(name=r["programme_title"])
+            items.append(item)
+        return {"profile_id": profile_id, "items": items}
+
+    @app.post("/api/v1/profiles/{profile_id}/favorites", status_code=201, dependencies=auth)
+    def add_favorite(profile_id: ProfileId, body: FavoriteIn, conn: Conn) -> dict:
+        table = _KINDS[body.target_kind]
+        if not conn.execute(f"SELECT 1 FROM {table} WHERE id = ?", (body.target_id,)).fetchone():
+            raise error("not_found", f"{body.target_kind} not found")
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            pos = conn.execute(
+                "SELECT COALESCE(MAX(position), 0) + 1 FROM favorites WHERE profile_id = ?",
+                (profile_id,),
+            ).fetchone()[0]
+            conn.execute(
+                "INSERT INTO favorites (profile_id, target_kind, target_id, position, created_at)"
+                " VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+                (profile_id, body.target_kind, body.target_id, pos, utc_now()),
+            )
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+        return {"profile_id": profile_id, "target_kind": body.target_kind,
+                "target_id": body.target_id}  # fmt: skip
+
+    @app.delete(
+        "/api/v1/profiles/{profile_id}/favorites/{target_kind}/{target_id}",
+        status_code=204, dependencies=auth,
+    )  # fmt: skip
+    def remove_favorite(
+        profile_id: ProfileId,
+        target_kind: Annotated[str, Path(pattern="^(channel|programme)$")],
+        target_id: str,
+        conn: Conn,
+    ) -> None:
+        conn.execute(
+            "DELETE FROM favorites WHERE profile_id = ? AND target_kind = ? AND target_id = ?",
+            (profile_id, target_kind, target_id),
+        )
+
+    @app.post("/api/v1/playback/commands", status_code=202, dependencies=auth)
+    def play(body: PlaybackIn, conn: Conn) -> JSONResponse:
+        t = body.target
+        try:
+            cmd, created = playback.create_command(
+                conn, playback.Target(t.kind, t.channel_id, t.feed_id),
+                device_id=body.device_id, idempotency_key=body.idempotency_key,
+            )  # fmt: skip
+        except playback.PlaybackError as exc:
+            raise error(exc.code, str(exc)) from exc
+        return JSONResponse(status_code=202 if created else 200, content=cmd)
+
+    @app.get("/api/v1/playback/commands/{command_id}", dependencies=auth)
+    def playback_status(command_id: str, conn: Conn) -> dict:
+        try:
+            return playback.get_command(conn, command_id)
+        except playback.PlaybackError as exc:
+            raise error(exc.code, str(exc)) from exc
+
+
+def mount_ui(app: FastAPI) -> None:
+    """The PWA is static files; it holds no data, so it is served without a token."""
+    static = resources.files("mih.ui") / "static"
+    app.mount("/", StaticFiles(directory=str(static), html=True), name="ui")

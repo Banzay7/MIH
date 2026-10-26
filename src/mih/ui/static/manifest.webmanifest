@@ -1,0 +1,14 @@
+{
+  "name": "MIRTVONLINE",
+  "short_name": "MIRTV",
+  "description": "Каталог ТВ-каналов и передач с поиском и запуском на ТВ",
+  "lang": "ru",
+  "start_url": "./#/",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101217",
+  "theme_color": "#14161c",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -1,4 +1,6 @@
-"""REST API v1 (spec 22): health, sources, imports, the channel catalog and the EPG."""
+"""REST API v1 (spec 22): health, sources, imports, the channel catalog and the EPG.
+
+Favourites, playback and the web UI live in mih.api.personal."""
 
 from __future__ import annotations
 
@@ -16,6 +18,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from mih import __version__, db
+from mih.api import personal
 from mih.config import Settings
 from mih.epg import guide
 from mih.epg.importer import EPGImportReport, import_xmltv, iso
@@ -423,6 +426,8 @@ def create_app(settings: Settings) -> FastAPI:
                 "epg_coverage": round(with_epg / channels, 3) if channels else None,
                 "epg_mappings_needs_review": review}  # fmt: skip
 
+    personal.register(app, auth=auth, conn=Conn, error=ApiError)
+    personal.mount_ui(app)  # last: it catches every path the API did not
     return app
 
 
