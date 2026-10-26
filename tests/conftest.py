@@ -11,7 +11,8 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 @pytest.fixture
 def settings(tmp_path: Path) -> Settings:
-    return Settings(data_dir=tmp_path)
+    # Older EPG tests import guides without a catalog; scope has its own tests.
+    return Settings(data_dir=tmp_path, epg_scope="all")
 
 
 @pytest.fixture

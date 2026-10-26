@@ -7,6 +7,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+EPG_SCOPES = ("tracked", "mapped", "all")
+
 
 class ConfigError(ValueError):
     """Settings that would make the service unsafe or unusable."""
@@ -25,7 +27,15 @@ class Settings:
     allow_private_sources: bool = False
     # A guide is usually gzip; this caps the unpacked XML (decompression bombs).
     epg_max_bytes: int = 256 * 1024 * 1024
-    epg_retention_days: int = 14
+    # Past airings are kept this many days; other history (playlist and guide
+    # snapshots) for history_days.
+    epg_retention_days: int = 3
+    history_days: int = 90
+    # Which guide channels get a stored schedule: tracked (favourite channels, plus
+    # programmes matching a tracked topic or favourite programme), mapped (every guide
+    # channel matched to the catalog) or all. tracked behaves as mapped while nothing
+    # is tracked yet, so a fresh install still has a guide.
+    epg_scope: str = "tracked"
     # IANA zone for "today", "tomorrow", "evening" in search when a request names none.
     timezone: str = "UTC"
     # Where ``mih export`` writes; None means <data_dir>/export.
@@ -56,7 +66,9 @@ class Settings:
             fetch_max_bytes=int(env.get("MIH_FETCH_MAX_BYTES", str(50 * 1024 * 1024))),
             allow_private_sources=env.get("MIH_ALLOW_PRIVATE_SOURCES", "") == "1",
             epg_max_bytes=int(env.get("MIH_EPG_MAX_BYTES", str(256 * 1024 * 1024))),
-            epg_retention_days=int(env.get("MIH_EPG_RETENTION_DAYS", "14")),
+            epg_retention_days=int(env.get("MIH_EPG_RETENTION_DAYS", "3")),
+            history_days=int(env.get("MIH_HISTORY_DAYS", "90")),
+            epg_scope=_choice(env.get("MIH_EPG_SCOPE", "tracked"), "MIH_EPG_SCOPE", EPG_SCOPES),
             timezone=env.get("MIH_TIMEZONE", "UTC"),
             export_dir_override=Path(env["MIH_EXPORT_DIR"]) if env.get("MIH_EXPORT_DIR") else None,
         )
@@ -71,6 +83,12 @@ class Settings:
             raise ConfigError(
                 "MIH_API_TOKEN is required when MIH_BIND_HOST is not a loopback address"
             )
+
+
+def _choice(value: str, name: str, allowed: tuple[str, ...]) -> str:
+    if value not in allowed:
+        raise ConfigError(f"{name} must be one of: {', '.join(allowed)}")
+    return value
 
 
 def _is_loopback(host: str) -> bool:

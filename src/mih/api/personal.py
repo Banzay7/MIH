@@ -1,4 +1,4 @@
-"""Favourites and playback commands (spec 22), and the web UI's static files."""
+"""Favourites, tracked topics and playback commands (spec 22), and the web UI's static files."""
 
 from importlib import resources
 from typing import Annotated, Any
@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from mih import playback
+from mih.epg.scope import topic_key
 from mih.ids import utc_now
 
 ProfileId = Annotated[str, Path(pattern="^[a-z0-9_-]{1,32}$")]
@@ -18,6 +19,10 @@ _KINDS = {"channel": "channels", "programme": "programmes"}
 class FavoriteIn(BaseModel):
     target_kind: str = Field(pattern="^(channel|programme)$")
     target_id: str = Field(min_length=1, max_length=64)
+
+
+class TopicIn(BaseModel):
+    topic: str = Field(min_length=2, max_length=64)
 
 
 class PlaybackTargetIn(BaseModel):
@@ -96,6 +101,36 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
         conn.execute(
             "DELETE FROM favorites WHERE profile_id = ? AND target_kind = ? AND target_id = ?",
             (profile_id, target_kind, target_id),
+        )
+
+    # Topics decide which programmes the guide import keeps on channels that are not
+    # favourites (MIH_EPG_SCOPE=tracked); a change applies from the next import.
+    @app.get("/api/v1/profiles/{profile_id}/topics", dependencies=auth)
+    def list_topics(profile_id: ProfileId, conn: Conn) -> dict:
+        rows = conn.execute(
+            "SELECT topic, created_at FROM tracked_topics WHERE profile_id = ? ORDER BY topic",
+            (profile_id,),
+        ).fetchall()
+        return {"profile_id": profile_id, "items": [dict(r) for r in rows]}
+
+    @app.post("/api/v1/profiles/{profile_id}/topics", status_code=201, dependencies=auth)
+    def add_topic(profile_id: ProfileId, body: TopicIn, conn: Conn) -> dict:
+        topic = topic_key(body.topic)
+        if len(topic) < 2:
+            raise error("invalid_topic", "topic is too short")
+        conn.execute(
+            "INSERT INTO tracked_topics (profile_id, topic, created_at) VALUES (?, ?, ?)"
+            " ON CONFLICT DO NOTHING",
+            (profile_id, topic, utc_now()),
+        )
+        return {"profile_id": profile_id, "topic": topic}
+
+    @app.delete("/api/v1/profiles/{profile_id}/topics/{topic}", status_code=204,
+                dependencies=auth)  # fmt: skip
+    def remove_topic(profile_id: ProfileId, topic: str, conn: Conn) -> None:
+        conn.execute(
+            "DELETE FROM tracked_topics WHERE profile_id = ? AND topic = ?",
+            (profile_id, topic_key(topic)),
         )
 
     @app.post("/api/v1/playback/commands", status_code=202, dependencies=auth)
