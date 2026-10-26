@@ -11,9 +11,11 @@ from pathlib import Path
 
 from mih.config import Settings
 from mih.epg.mapping import refresh_mappings
+from mih.epg.scope import FILTERED, build_scope
 from mih.epg.xmltv import XMLTVFormatError, XMLTVProgramme, open_content, parse_xmltv
 from mih.identity.normalize import fold
 from mih.ids import new_id, utc_now
+from mih.retention import prune_snapshots
 from mih.search.index import drop_orphans, index_programme
 
 
@@ -29,6 +31,10 @@ class EPGImportReport:
     airings_unchanged: int = 0
     airings_cancelled: int = 0
     airings_pruned: int = 0
+    # Out of MIH_EPG_SCOPE: guide channels with nothing stored, programmes left out.
+    channels_skipped: int = 0
+    programmes_skipped: int = 0
+    snapshots_pruned: int = 0
     mapped: int = 0
     needs_review: int = 0
     unmapped: int = 0
@@ -104,20 +110,42 @@ def import_xmltv(
         )  # fmt: skip
         ids = {xid: _upsert_channel(conn, epg_source_id, xid, parsed.channels.get(xid), now_s)
                for xid in set(parsed.channels) | set(by_channel)}  # fmt: skip
+        # Map first, so a guide channel the catalog gained since the last import is
+        # already in scope for this one.
+        counts = refresh_mappings(conn, now_s, epg_source_id=epg_source_id)
+        scope = build_scope(conn, settings.epg_scope, list(ids.values()))
         for xid, items in by_channel.items():
-            _apply_schedule(conn, report, ids[xid], items, now_s)
+            cid = ids[xid]
+            mode = scope.channels.get(cid)
+            if mode is None:
+                report.channels_skipped += 1
+                report.programmes_skipped += len(items)
+                # Dropped from scope: forget what is still to come, keep the past.
+                conn.execute(
+                    "DELETE FROM airings WHERE epg_channel_id = ? AND start_utc >= ?",
+                    (cid, now_s),
+                )
+                continue
+            if mode == FILTERED:
+                kept = [p for p in items if scope.keeps(p)]
+                report.programmes_skipped += len(items) - len(kept)
+                _apply_schedule(conn, report, cid, kept, now_s, window=items, missing="delete")
+            else:
+                _apply_schedule(conn, report, cid, items, now_s)
 
         cutoff = iso(now_dt - timedelta(days=settings.epg_retention_days))
         report.airings_pruned = conn.execute(
             "DELETE FROM airings WHERE stop_utc < ?", (cutoff,)
         ).rowcount
+        # A favourite programme stays even between airings: its title is what
+        # MIH_EPG_SCOPE=tracked looks for in the next guide.
         conn.execute(
             "DELETE FROM programmes WHERE NOT EXISTS"
             " (SELECT 1 FROM airings a WHERE a.programme_id = programmes.id)"
+            " AND id NOT IN (SELECT target_id FROM favorites WHERE target_kind = 'programme')"
         )
         drop_orphans(conn)
 
-        counts = refresh_mappings(conn, now_s, epg_source_id=epg_source_id)
         report.mapped = counts["auto"] + counts["approved"]
         report.needs_review, report.unmapped = counts["needs_review"], counts["unmapped"]
         conn.execute(
@@ -128,6 +156,8 @@ def import_xmltv(
     except Exception:
         conn.execute("ROLLBACK")
         raise
+    report.snapshots_pruned = prune_snapshots(conn, settings, "epg_snapshots", epg_source_id,
+                                              now_dt)  # fmt: skip
     return report
 
 
@@ -160,6 +190,9 @@ def _apply_schedule(
     epg_channel_id: str,
     items: list[XMLTVProgramme],
     now: str,
+    *,
+    window: list[XMLTVProgramme] | None = None,
+    missing: str = "cancel",
 ) -> None:
     """Replace one channel's schedule inside the time window this snapshot covers.
 
@@ -167,9 +200,14 @@ def _apply_schedule(
     else at that start: a new version of the airing. A stored airing inside the window
     that the guide no longer lists is cancelled, not deleted, so history stays honest.
     Airings outside the window (older days, a longer horizon from before) are left alone.
+
+    With ``missing="delete"`` (a topic-filtered channel) ``items`` is the part of
+    ``window`` worth keeping; upcoming airings that are not kept are deleted instead,
+    since leaving them out was a choice, not a guide change.
     """
-    window_start = iso(min(p.start_utc for p in items))
-    window_stop = iso(max(p.stop_utc for p in items))
+    window = window or items
+    window_start = iso(min(p.start_utc for p in window))
+    window_stop = iso(max(p.stop_utc for p in window))
     existing = {
         r["start_utc"]: r
         for r in conn.execute(
@@ -208,7 +246,12 @@ def _apply_schedule(
             )
             report.airings_changed += 1
     for start, old in existing.items():
-        if start not in seen and old["status"] == "scheduled":
+        if start in seen:
+            continue
+        if missing == "delete":
+            if start >= now:
+                conn.execute("DELETE FROM airings WHERE id = ?", (old["id"],))
+        elif old["status"] == "scheduled":
             conn.execute(
                 "UPDATE airings SET status = 'cancelled', version = version + 1,"
                 " snapshot_id = ?, updated_at = ? WHERE id = ?",

@@ -98,3 +98,13 @@ def test_web_ui_is_served_without_a_token_and_api_still_needs_one(client):
     assert anon.get("/manifest.webmanifest").status_code == 200
     assert anon.get("/api/v1/channels").status_code == 401
     assert anon.get("/api/docs").status_code == 200
+
+
+def test_tracked_topics_are_folded_and_removable(client):
+    url = "/api/v1/profiles/default/topics"
+    assert client.post(url, json={"topic": "  Футбол  Ёлки "}).json()["topic"] == "футбол елки"
+    client.post(url, json={"topic": "ФУТБОЛ ЕЛКИ"})  # same topic once folded
+    assert [i["topic"] for i in client.get(url).json()["items"]] == ["футбол елки"]
+    assert client.delete(f"{url}/Футбол Ёлки").status_code == 204
+    assert client.get(url).json()["items"] == []
+    assert client.post(url, json={"topic": "x"}).status_code == 422

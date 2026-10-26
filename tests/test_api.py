@@ -91,7 +91,10 @@ def _channel_id(client, q):
 def test_epg_schedule_programme_and_coverage(client):
     epg_id = _upload_catalog_and_guide(client, fixture_bytes("guide_a.xml"))
     snaps = client.get(f"/api/v1/epg/sources/{epg_id}/snapshots").json()["items"]
-    assert snaps[0]["stats"]["airings_created"] == 9
+    # Nothing is tracked yet, so the default scope keeps every channel in the catalog:
+    # Россия 1 has no feed here and its programme is not stored.
+    assert snaps[0]["stats"]["airings_created"] == 8
+    assert snaps[0]["stats"]["channels_skipped"] == 1
 
     perviy = _channel_id(client, "первый")
     resp = client.get("/api/v1/airings", params={"channel_id": perviy,

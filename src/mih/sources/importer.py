@@ -13,6 +13,7 @@ from mih.epg.mapping import refresh_mappings
 from mih.identity.normalize import NameParts, split_name
 from mih.identity.resolver import Resolution, record_decision, resolve
 from mih.ids import new_id, utc_now
+from mih.retention import prune_snapshots
 from mih.sources.m3u import M3UEntry, M3UFormatError, parse_m3u
 
 
@@ -107,6 +108,7 @@ def import_m3u(
     except Exception:
         conn.execute("ROLLBACK")
         raise
+    prune_snapshots(conn, settings, "source_snapshots", source_id)
     return report
 
 
