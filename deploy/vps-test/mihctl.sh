@@ -177,6 +177,20 @@ dst.close()
   rm -rf "$tmp"
   LAST_BACKUP="$out"
   say "backup: $out ($(du -h "$out" | cut -f1))"
+  prune_backups
+}
+
+prune_backups() {
+  # Keep the newest MIH_BACKUP_KEEP archives (default 5) and always the pre-upgrade one,
+  # which rollback needs.
+  local keep pinned
+  keep="$(env_value MIH_BACKUP_KEEP)"; keep="${keep:-5}"
+  [[ "$keep" =~ ^[1-9][0-9]*$ ]] || die "MIH_BACKUP_KEEP must be a positive number"
+  pinned="$(cat "$STATE/pre_upgrade_backup" 2>/dev/null || true)"
+  ls -1t "$BACKUPS"/mih-*.tar.gz 2>/dev/null | tail -n +"$((keep + 1))" | while read -r old; do
+    [[ "$old" == "$pinned" ]] && continue
+    rm -f "$old" && say "removed old backup: $old"
+  done
 }
 
 cmd_restore() {
