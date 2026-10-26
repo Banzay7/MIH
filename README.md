@@ -26,6 +26,8 @@ MIRTVONLINE не поставляет каналы: он работает тол
 - веб-интерфейс (PWA, на русском, для телефона и компьютера) по адресу сервера `/`: «Сейчас в эфире» с прогрессом и «далее», «Скоро начнётся», поиск с фильтрами по времени, языку и типу, список каналов с фильтрами, карточки канала с расписанием по дням и карточки передачи, избранное. Токен API вводится в «Настройках» и хранится только в браузере;
 - избранное на сервере (`/api/v1/profiles/default/favorites`) и команды запуска (`/api/v1/playback/commands`). Кнопка «На ТВ» пока заглушка: сервер выбирает лучший живой поток и отвечает `no_adapter`, на устройство ничего не уходит.
 
+- выгрузка каталога в папку (`mih export`): `channels.json` (все каналы с категориями, исходными группами плейлистов, странами, языками, источниками, состоянием потоков `ok/grey/down` и наличием EPG, без ссылок на потоки), `channels.csv` (то же для таблицы) и `playlist.m3u` (по одному лучшему живому потоку на фид, сгруппированный по категориям, для любого плеера). `playlist.m3u` содержит ссылки на потоки и создаётся с правами `640`; `--no-playlist` его не пишет. Категории берутся из `group-title` плейлистов, затем из названия канала, затем из категорий передач в EPG (ru/en/vi).
+
 Темы (таксономия) и настоящий запуск на ТВ через Home Assistant — следующие шаги.
 
 ## Запуск для разработки
@@ -39,6 +41,8 @@ MIH_DATA_DIR=./data .venv/bin/mih import-file my.m3u --source home
 MIH_DATA_DIR=./data .venv/bin/mih import-epg-file guide.xml.gz --source home-epg
 MIH_DATA_DIR=./data .venv/bin/mih search "новости завтра вечером" --tz Europe/Moscow
 MIH_DATA_DIR=./data .venv/bin/mih stats
+# выгрузка каталога с категориями в папку (по умолчанию MIH_EXPORT_DIR или ./data/export)
+MIH_DATA_DIR=./data .venv/bin/mih export --out /path/to/folder
 # проверить потоки, которым пора (удобно запускать по cron/systemd-таймеру)
 MIH_DATA_DIR=./data .venv/bin/mih health-check
 
@@ -71,6 +75,7 @@ docker compose -f docker-compose.example.yml up -d --build
 | `MIH_FETCH_TIMEOUT_S`, `MIH_FETCH_MAX_BYTES` | `30`, 50 МБ | Ограничения загрузки |
 | `MIH_EPG_MAX_BYTES` | 256 МБ | Предел распакованного XMLTV |
 | `MIH_EPG_RETENTION_DAYS` | `14` | Сколько дней хранить прошедшие эфиры |
+| `MIH_EXPORT_DIR` | `<MIH_DATA_DIR>/export` | Папка для `mih export` |
 | `MIH_TIMEZONE` | `UTC` | Часовой пояс для «сегодня/завтра/вечером» в поиске (IANA, например `Europe/Berlin`) |
 | `MIH_HEALTH_VANTAGE` | `server` | Где стоит проверка: `server` (удалённый сервер) или `home` (домашняя сеть) |
 | `MIH_HEALTH_CONCURRENCY` | `8` | Сколько потоков проверять одновременно |

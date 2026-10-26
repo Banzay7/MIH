@@ -12,6 +12,7 @@ from mih import db
 from mih.config import ConfigError, Settings
 from mih.epg.importer import import_xmltv
 from mih.epg.service import create_epg_source
+from mih.export import export_catalog
 from mih.health.policy import HealthPolicy
 from mih.health.runner import run_checks
 from mih.search.engine import SearchRequest, search
@@ -42,6 +43,13 @@ def main(argv: list[str] | None = None) -> int:
     find.add_argument("query")
     find.add_argument("--tz", help="IANA time zone for today/tomorrow (default MIH_TIMEZONE)")
     find.add_argument("--limit", type=int, default=10)
+    exp = sub.add_parser("export", help="write channels with categories to a folder")
+    exp.add_argument("--out", type=Path, help="folder (default MIH_EXPORT_DIR)")
+    exp.add_argument(
+        "--no-playlist",
+        action="store_true",
+        help="skip playlist.m3u, the only file with stream URLs",
+    )
     sub.add_parser("stats", help="print catalog counts")
     args = parser.parse_args(argv)
 
@@ -86,6 +94,10 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "search":
         req = SearchRequest(query=args.query, tz=args.tz or settings.timezone, limit=args.limit)
         print(json.dumps(search(conn, req, datetime.now(UTC)), ensure_ascii=False, indent=2))
+    elif args.cmd == "export":
+        result = export_catalog(conn, args.out or settings.export_dir,
+                                with_playlist=not args.no_playlist)  # fmt: skip
+        print(json.dumps(result.stats(), ensure_ascii=False, indent=2))
     elif args.cmd == "stats":
         counts = {
             t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]

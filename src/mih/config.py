@@ -28,10 +28,16 @@ class Settings:
     epg_retention_days: int = 14
     # IANA zone for "today", "tomorrow", "evening" in search when a request names none.
     timezone: str = "UTC"
+    # Where ``mih export`` writes; None means <data_dir>/export.
+    export_dir_override: Path | None = None
 
     @property
     def db_path(self) -> Path:
         return self.data_dir / "mih.sqlite3"
+
+    @property
+    def export_dir(self) -> Path:
+        return self.export_dir_override or self.data_dir / "export"
 
     @property
     def snapshots_dir(self) -> Path:
@@ -52,6 +58,7 @@ class Settings:
             epg_max_bytes=int(env.get("MIH_EPG_MAX_BYTES", str(256 * 1024 * 1024))),
             epg_retention_days=int(env.get("MIH_EPG_RETENTION_DAYS", "14")),
             timezone=env.get("MIH_TIMEZONE", "UTC"),
+            export_dir_override=Path(env["MIH_EXPORT_DIR"]) if env.get("MIH_EXPORT_DIR") else None,
         )
 
     def validate_for_serving(self) -> None:
