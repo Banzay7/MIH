@@ -391,3 +391,31 @@ def test_tracked_scope_keeps_listed_channels_only(conn, settings, catalog, epg_s
     assert _airings(conn, "Perviy.ru")
     assert not _airings(conn, "vtv1.vn")  # mapped, but in no list
     assert report.channels_skipped >= 1
+
+
+def test_unchanged_guide_is_imported_again_when_the_catalog_changed(
+    conn, settings, make_source, monkeypatch
+):
+    from dataclasses import replace
+
+    from mih.epg import service
+    from mih.sources.fetch import FetchResult
+
+    settings = replace(settings, epg_scope="tracked")
+    content = fixture_bytes("guide_a.xml")
+
+    def fetch(url, s, etag=None, last_modified=None):
+        return FetchResult(content, None, None)
+
+    monkeypatch.setattr(service, "fetch_source", fetch)
+    monkeypatch.setattr(service, "check_destination", lambda *a, **k: None)
+    src = create_epg_source(conn, settings, name="g", url="https://epg.example/g.xml")
+    first = service.import_epg_from_url(conn, settings, src)
+    assert first.status == "applied" and first.mapped == 0
+    # Same guide, nothing new in the catalog: nothing to do.
+    assert service.import_epg_from_url(conn, settings, src) is None
+
+    import_m3u(conn, settings, make_source("a"), fixture_bytes("provider_a.m3u"))
+    again = service.import_epg_from_url(conn, settings, src)
+    assert again is not None and again.status == "applied" and again.mapped == 2
+    assert again.airings_created > 0

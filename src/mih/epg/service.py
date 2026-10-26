@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
+from pathlib import Path
 
 from mih.config import Settings
-from mih.epg.importer import EPGImportReport, import_xmltv
+from mih.epg.importer import EPGImportReport, current_scope_key, import_xmltv
 from mih.ids import new_id, utc_now
 from mih.sources.fetch import check_destination, fetch_source
 from mih.sources.service import SourceError
@@ -47,12 +49,32 @@ def import_epg_from_url(
         etag=None if force else source["etag"],
         last_modified=None if force else source["last_modified"],
     )
-    if result.content is None:
+    if result.content is not None:
+        report = import_xmltv(conn, settings, source_id, result.content, force=force)
+        if report.status == "applied":
+            conn.execute(
+                "UPDATE epg_sources SET etag = ?, last_modified = ? WHERE id = ?",
+                (result.etag, result.last_modified, source_id),
+            )
+        if report.status != "unchanged":
+            return report
+    # The guide did not change, but the catalog may have: channels newly matched to it,
+    # or channels that joined or left the lists. Then the stored copy is imported again.
+    return _rescope(conn, settings, source_id)
+
+
+def _rescope(
+    conn: sqlite3.Connection, settings: Settings, source_id: str
+) -> EPGImportReport | None:
+    last = conn.execute(
+        "SELECT blob_path, stats FROM epg_snapshots WHERE epg_source_id = ? AND status = 'applied'"
+        " ORDER BY fetched_at DESC, rowid DESC LIMIT 1",
+        (source_id,),
+    ).fetchone()
+    if last is None or not last["blob_path"] or not Path(last["blob_path"]).is_file():
         return None
-    report = import_xmltv(conn, settings, source_id, result.content, force=force)
-    if report.status == "applied":
-        conn.execute(
-            "UPDATE epg_sources SET etag = ?, last_modified = ? WHERE id = ?",
-            (result.etag, result.last_modified, source_id),
-        )
-    return report
+    stored = json.loads(last["stats"] or "{}").get("scope_key")
+    if stored == current_scope_key(conn, settings, source_id):
+        return None
+    content = Path(last["blob_path"]).read_bytes()
+    return import_xmltv(conn, settings, source_id, content, rescope=True)
