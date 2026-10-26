@@ -4,3 +4,4 @@ data
 tests
 docs
 **/__pycache__
+deploy

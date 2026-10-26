@@ -1,0 +1,55 @@
+# Test stand on a shared server: every name, the port, the volume and the network belong to
+# this stand only, so nothing here can collide with containers that already run on the host.
+# Use it through ./mihctl.sh, which sets MIH_IMAGE and keeps the backup/rollback state.
+name: mirtvonline-test
+
+services:
+  mih:
+    image: ${MIH_IMAGE:?run ./mihctl.sh deploy instead of docker compose directly}
+    container_name: mirtvonline-test
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MIH_DATA_DIR: /data
+      MIH_BIND_HOST: 0.0.0.0
+      MIH_BIND_PORT: "8765"
+    # Loopback by default; set MIH_PUBLISH_ADDR to the host's Tailscale/LAN address for access
+    # from other devices. Never 0.0.0.0 on a VPS with a public address.
+    ports:
+      - "${MIH_PUBLISH_ADDR:-127.0.0.1}:${MIH_PUBLISH_PORT:-18765}:8765"
+    volumes:
+      - data:/data
+    networks:
+      - net
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: ${MIH_MEM_LIMIT:-512m}
+    cpus: ${MIH_CPUS:-1.0}
+    pids_limit: 256
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/api/v1/health/live', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  data:
+    name: mirtvonline-test-data
+
+networks:
+  net:
+    name: mirtvonline-test-net

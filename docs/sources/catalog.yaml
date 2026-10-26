@@ -1,0 +1,312 @@
+# MIRTVONLINE source catalog (draft, research 2026-10-26).
+# Describes well-known public sources of channel metadata and EPG.
+# Nothing here is enabled by default; the user picks entries during onboarding.
+# No stream playlists are listed (BYOC). See README.md for the model and statuses.
+#
+# Fields:
+#   id             stable catalog id (never reused)
+#   kind           provider_epg | tuner_eit | xmltv_aggregator | xmltv_fast | grabber | licensed_api | channel_db
+#   url_template   {cc}: upper-case ISO 3166-1 alpha-2 unless noted; {region}: source-specific name
+#   variants       known values for the template placeholder
+#   countries      ISO codes the entry is useful for ("*" = worldwide)
+#   languages      ISO 639-1
+#   id_scheme      what the XMLTV channel ids look like (affects mapping)
+#   horizon_days   observed [past, future]
+#   refresh        observed refresh, not a promise from the source
+#   license        spdx id, "none" (no published licence), or "tos" (terms of service)
+#   usage          personal | open | subscription
+#   status_hint    ok | grey | down | retired : starting hint only, real status is measured per install
+#   notes          known quirks
+
+version: 1
+updated: 2026-10-26
+
+sources:
+
+  # --- Automatic, from the user's own setup -------------------------------
+
+  - id: provider-url-tvg
+    kind: provider_epg
+    name: "EPG from the playlist header (url-tvg / x-tvg-url)"
+    url_template: null
+    countries: ["*"]
+    id_scheme: matches playlist tvg-id
+    license: tos
+    usage: personal
+    status_hint: ok
+    notes: Taken automatically from the M3U header. Highest mapping priority.
+
+  - id: provider-xtream-xmltv
+    kind: provider_epg
+    name: "Xtream Codes provider XMLTV (xmltv.php)"
+    url_template: "{base}/xmltv.php?username={user}&password={pass}"
+    countries: ["*"]
+    id_scheme: matches playlist tvg-id
+    license: tos
+    usage: personal
+    status_hint: ok
+    notes: Credentials are secrets; store via config_ref, never in the catalog or logs.
+
+  - id: tvheadend-xmltv
+    kind: tuner_eit
+    name: "tvheadend XMLTV export (EIT from DVB tuner)"
+    url_template: "http://{host}:9981/xmltv/channels"
+    countries: ["*"]
+    license: none
+    usage: personal
+    status_hint: ok
+    notes: Private network address; needs allow_private_sources.
+
+  # --- Public XMLTV aggregators -------------------------------------------
+
+  - id: epgshare01
+    kind: xmltv_aggregator
+    name: "epgshare01 (EPG ripper, community)"
+    url_template: "https://epgshare01.online/epgshare01/epg_ripper_{region}.xml.gz"
+    variants: [US2, US_LOCALS1, CA2, UK1, IE1, AU1, NZ1, IN1, DE1, FR1, ES1, IT1, NL1, PT1, PL1, RO1, TR1, BR1, MX1, ZA1, NG1, KE1, AE1]
+    countries: [US, CA, GB, IE, AU, NZ, IN, DE, FR, ES, IT, NL, PT, PL, RO, TR, BR, MX, ZA, NG, KE, AE, SA]
+    id_scheme: readable names with suffix, change on file rename
+    horizon_days: [1, 3]
+    refresh: daily
+    license: none
+    usage: personal
+    status_hint: grey
+    notes: >
+      Variant names are approximate and change without notice (US1->US2, CA1->CA2 in 2026,
+      every channel id changed). Some files are empty shells (PK, 310 bytes) or frozen
+      (SA unchanged since 2024-08). ALL file is ~200 MB gz. US_LOCALS1 ~56 MB gz.
+
+  - id: epg-pw
+    kind: xmltv_aggregator
+    name: "epg.pw"
+    url_template: "https://epg.pw/xmltv/epg_{cc}.xml.gz"
+    variants: [AU, BR, CA, CN, DE, FR, GB, HK, ID, IN, JP, MY, NZ, PH, RU, SG, TW, US, VN, ZA]
+    countries: [AU, BR, CA, CN, DE, FR, GB, HK, ID, IN, JP, MY, NZ, PH, RU, SG, TW, US, VN, ZA]
+    id_scheme: numeric (map by name only)
+    horizon_days: [0, 7]
+    refresh: daily
+    license: none
+    usage: personal
+    status_hint: ok
+    notes: >
+      Site says "for testing purposes only" and data is "processed by AI". Dense 2-3 days,
+      thin after. Also epg.xml.gz (all) and epg_lite.xml.gz. US file ~20 MB gz.
+
+  - id: open-epg
+    kind: xmltv_aggregator
+    name: "Open-EPG"
+    url_template: "https://www.open-epg.com/files/{region}.xml.gz"
+    variants: [unitedkingdom, canada, unitedstates1, unitedstates2, unitedstates3, unitedstates4, unitedstates5, unitedstates6, unitedstates7, unitedstates8, unitedstates9, unitedstates10, unitedstates11]
+    countries: [GB, US, CA]
+    id_scheme: free text with spaces, brackets, commas
+    horizon_days: [1, 2]
+    refresh: daily
+    license: none
+    usage: personal
+    status_hint: ok
+    notes: >
+      /files/ answers 302 even for missing files, so a probe must check the body,
+      not the status code. More countries exist; variant list to be filled by the probe.
+
+  - id: globetvapp
+    kind: xmltv_aggregator
+    name: "globetvapp/epg (GitHub)"
+    url_template: "https://raw.githubusercontent.com/globetvapp/epg/main/{region}"
+    variants: ["Australia/australia1.xml", "Unitedkingdom/unitedkingdom1.xml"]
+    countries: ["*"]
+    id_scheme: readable names
+    refresh: "daily 03:00 UTC"
+    license: GPL-3.0
+    usage: open
+    status_hint: ok
+    notes: About 97 country folders. Licence covers the repository; rights to the listings themselves are unclear.
+
+  - id: dp247-freeview
+    kind: xmltv_aggregator
+    name: "dp247 Freeview-EPG (UK FTA)"
+    url_template: "https://raw.githubusercontent.com/dp247/Freeview-EPG/master/epg.xml"
+    countries: [GB]
+    languages: [en]
+    refresh: every 12 h
+    license: none
+    usage: personal
+    status_hint: ok
+    notes: UK free-to-air TV and radio. Exact file path to be confirmed by the probe.
+
+  - id: xmltvfr
+    kind: xmltv_aggregator
+    name: "xmltvfr.fr"
+    url_template: "https://xmltvfr.fr/xmltv/xmltv.xml.gz"
+    countries: [FR, BE, CH]
+    languages: [fr]
+    license: none
+    usage: personal
+    status_hint: ok
+    notes: Strong for French channels; "complete" file is ~145 MB with little non-French coverage.
+
+  - id: xmltv-net-au
+    kind: xmltv_aggregator
+    name: "xmltv.net (Australia)"
+    url_template: "https://www.xmltv.net/xml_files/{region}.xml"
+    countries: [AU]
+    languages: [en]
+    license: none
+    usage: personal
+    status_hint: grey
+    notes: Mentioned by users, not verified; path pattern to be confirmed.
+
+  # --- FAST channels -------------------------------------------------------
+
+  - id: mjh-pluto
+    kind: xmltv_fast
+    name: "i.mjh.nz Pluto TV"
+    url_template: "https://i.mjh.nz/PlutoTV/{cc_lower}.xml.gz"
+    variants: [us, gb, ca, de, fr, es, it, mx, br]
+    countries: [US, GB, CA, DE, FR, ES, IT, MX, BR]
+    id_scheme: opaque platform ids
+    horizon_days: [0, 1]
+    refresh: several times a day
+    license: none
+    usage: personal
+    status_hint: ok
+
+  - id: mjh-samsung
+    kind: xmltv_fast
+    name: "i.mjh.nz Samsung TV Plus"
+    url_template: "https://i.mjh.nz/SamsungTVPlus/{cc_lower}.xml.gz"
+    variants: [us, gb, ca, de, fr, es, it, in, kr]
+    countries: [US, GB, CA, DE, FR, ES, IT, IN, KR]
+    id_scheme: opaque platform ids
+    horizon_days: [0, 1]
+    license: none
+    usage: personal
+    status_hint: ok
+
+  - id: mjh-plex
+    kind: xmltv_fast
+    name: "i.mjh.nz Plex"
+    url_template: "https://i.mjh.nz/Plex/{cc_lower}.xml.gz"
+    variants: [us, gb, ca, au, nz, es, fr, mx]
+    countries: [US, GB, CA, AU, NZ, ES, FR, MX]
+    license: none
+    usage: personal
+    status_hint: ok
+
+  - id: mjh-roku
+    kind: xmltv_fast
+    name: "i.mjh.nz The Roku Channel"
+    url_template: "https://i.mjh.nz/Roku/all.xml.gz"
+    countries: [US]
+    license: none
+    usage: personal
+    status_hint: ok
+
+  - id: mjh-au-freeview
+    kind: xmltv_fast
+    name: "i.mjh.nz Australia free-to-air by city"
+    url_template: "https://i.mjh.nz/au/{region}/epg.xml.gz"
+    variants: [Sydney, Melbourne, Brisbane, Perth, Adelaide, Hobart, Darwin, Canberra]
+    countries: [AU]
+    license: none
+    usage: personal
+    status_hint: ok
+
+  # --- Self-hosted grabber ---------------------------------------------------
+
+  - id: iptv-org-grabber
+    kind: grabber
+    name: "iptv-org/epg grabber (Docker sidecar)"
+    url_template: "http://{host}:3000/guide.xml"
+    countries: ["*"]
+    license: Unlicense
+    usage: open
+    status_hint: ok
+    notes: >
+      ~251 broadcaster/operator sites, 248 green in SITES.md (tvprofil.com and tvtv.us broken,
+      ziggogo.tv warning). Image ghcr.io/iptv-org/epg:master, default cron 00:00 UTC.
+      Sites may block on high concurrency. Only way to first-party EPG for VN (xem.kplus.vn),
+      JP, KR, Nordics. Prebuilt iptv-org.github.io/epg/guides/* is gone (404 since 2023).
+    sites_by_country:
+      VN: [xem.kplus.vn]
+      RU: [ctc.ru, tv.mail.ru]
+      KZ: [galamtv.kz]
+      JP: [nhkworldpremium.com, www3.nhk.or.jp, ntv.co.jp, s.mxtv.jp, skyperfectv.co.jp, tvguide.myjcom.jp, www.tv-tokyo.co.jp]
+      KR: [berrymedia.co.kr, ena.skylifetv.co.kr, mediagenie.co.kr, m.tving.com, skylife.co.kr, wavve.com]
+      CN: [tv.cctv.com]
+      TH: [gigatv.3bbtv.co.th, tv.trueid.net]
+      ID: [mncvision.id, moji.id, tivie.id, visionplus.id]
+      IN: [airtelxstream.in, dishtv.in, jiotv.com, tataplay.com]
+      TR: [digiturk.com.tr, dsmart.com.tr, tvplus.com.tr, turksatkablo.com.tr]
+      DE: [web.magentatv.de, www.magenta.tv]
+      FR: [canalplus.com, chaines-tv.orange.fr, france.tv, guidetnt.com, programme-tv.net, tv.sfr.fr, tvcesoir.fr, tv-programme.telecablesat.fr]
+      GB: [freeview.co.uk, mytelly.co.uk, player.ee.co.uk, sky.com, tv24.co.uk, virgintvgo.virginmedia.com]
+      ES: [movistarplus.es, orangetv.orange.es, programacion-tv.elpais.com]
+      IT: [guidatv.sky.it, mediasetinfinity.mediaset.it, raiplay.it, superguidatv.it]
+      NL: [tvgids.nl, webtv.delta.nl, ziggogo.tv]
+      SE: [allente.se, tv.nu, tv24.se]
+      NO: [allente.no, rikstv.no]
+      FI: [allente.fi, dna.fi, telsu.fi]
+      DK: [allente.dk]
+      BR: [claro.com.br, clarotvmais.com.br, vivoplay.com.br]
+      AR: [directv.com.ar, reportv.com.ar]
+      US: [tvguide.com, zap2it.com, tvpassport.com, directv.com, pluto.tv, plex.tv, xumo.tv, distro.tv]
+      CA: [watch.sportsnet.ca, tvhebdo.com]
+      AU: [abc.net.au, foxtel.com.au, foxsports.com.au]
+      MENA: [aljazeera.com, bein.com, osn.com, shahid.mbc.net, rotana.net, elcinema.com]
+      IL: [yes.co.il, mako.co.il, 9tv.co.il]
+      ZA: [dstv.com]
+
+  # --- Licensed ------------------------------------------------------------
+
+  - id: schedules-direct
+    kind: licensed_api
+    name: "Schedules Direct (Gracenote data)"
+    url_template: "https://json.schedulesdirect.org/20141201/"
+    countries: [US, CA]
+    horizon_days: [0, 14]
+    refresh: daily
+    license: tos
+    usage: subscription
+    status_hint: ok
+    notes: >
+      USD 35/year or 9 per 2 months, natural persons only, data only for Approved
+      Applications. MIH must be accepted as an approved app before offering this.
+      More data regions exist; list to be confirmed.
+
+  # --- Channel identity (no EPG) --------------------------------------------
+
+  - id: iptv-org-database
+    kind: channel_db
+    name: "iptv-org database / API"
+    url_template: "https://iptv-org.github.io/api/{file}.json"
+    variants: [channels, feeds, logos, guides, categories, languages, countries, subdivisions, cities, regions, timezones, blocklist]
+    countries: ["*"]
+    license: CC0-1.0
+    usage: open
+    status_hint: ok
+    notes: >
+      Identity reference only (D-04). streams.json is deliberately not used.
+      guides.json maps channels to grabber sites and helps choose iptv-org-grabber sites.
+
+  - id: wikidata
+    kind: channel_db
+    name: "Wikidata (television channels)"
+    url_template: "https://query.wikidata.org/sparql"
+    countries: ["*"]
+    license: CC0-1.0
+    usage: open
+    status_hint: ok
+    notes: Optional enrichment for networks, owners, native-language names and logos.
+
+# Known sources deliberately NOT in the catalog. Users may add any URL themselves.
+excluded:
+  - names: [epg.it999.ru (edem/ilook), myott.top (OTTCLUB), sharavoz, shara-tv, topiptv, cbilling, cineman, minimax]
+    reason: EPG published by or for IPTV stream services; association with unlicensed streams.
+  - names: [iptvx.one, teleguide.info, programtv.ru]
+    reason: RU listing aggregators, no published licence; candidates for a separate opt-in community list after owner decision.
+  - names: [epg.51zmt.top, frankwuzp/iptv-cn]
+    reason: CN community sources, availability from outside CN unverified.
+  - names: [iptv-org.github.io/epg/guides/*]
+    reason: Retired in 2023, returns 404.
+  - names: [lyngsat.com, kingofsat.net]
+    reason: No licence, scraping only.
