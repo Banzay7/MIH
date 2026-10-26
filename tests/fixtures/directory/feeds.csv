@@ -1,0 +1,5 @@
+channel,id,name,alt_names,is_main,broadcast_area,timezones,languages,format
+ChannelOne.ru,HD,HD,,FALSE,c/RU,Europe/Moscow,rus,1080i
+ChannelOne.ru,SD,SD,,TRUE,c/RU,Europe/Moscow,rus,576i
+NTV.ru,SD,SD,,TRUE,c/RU,Europe/Moscow,rus,576i
+VTV1.vn,SD,SD,,TRUE,c/VN,Asia/Ho_Chi_Minh,vie;eng,576i

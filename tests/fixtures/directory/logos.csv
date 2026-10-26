@@ -1,0 +1,4 @@
+channel,feed,in_use,tags,width,height,format,url
+ChannelOne.ru,HD,TRUE,,512,512,PNG,https://img.example/1tv-hd.png
+ChannelOne.ru,,TRUE,,512,512,PNG,https://img.example/1tv.png
+NTV.ru,,TRUE,,512,512,PNG,https://img.example/ntv.png

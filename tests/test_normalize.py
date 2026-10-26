@@ -31,3 +31,15 @@ def test_brand_display_drops_offset_marker_only():
 def test_fold_keeps_russian_letters_and_strips_latin_diacritics():
     assert fold("Ёлки и Йошкар-Ола") == "елки и йошкар-ола"
     assert fold("Đài Truyền hình") == "dai truyen hinh"
+
+
+def test_iptv_org_and_free_tv_name_labels():
+    from mih.identity.normalize import split_name
+
+    p = split_name("Channel One (576i) [Geo-blocked]")
+    assert (p.key, p.region, p.quality, p.brand_display) == ("channel one", "", "sd", "Channel One")
+    p = split_name("Саров (406p)")
+    assert (p.key, p.region, p.quality) == ("саров", "", "sd")
+    p = split_name("Пятый канал Ⓢ")
+    assert (p.key, p.brand_display) == ("пятый канал", "Пятый канал")
+    assert split_name("RBK-TV (1080p) [Not 24/7]").quality == "fhd"

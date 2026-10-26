@@ -1,0 +1,7 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="ChannelOne.ru@SD" tvg-logo="https://img.example/1tv.png" group-title="General",Channel One (576i)
+https://d.example/1tv_sd.m3u8
+#EXTINF:-1 tvg-id="ChannelOne.ru@HD" group-title="General",Channel One HD (1080i)
+https://d.example/1tv_hd.m3u8
+#EXTINF:-1 tvg-id="VTV1.vn@SD" group-title="General",VTV1 (576i)
+https://d.example/vtv1.m3u8
