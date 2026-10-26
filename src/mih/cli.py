@@ -8,13 +8,15 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from mih import db
+from mih import db, notify
 from mih.config import ConfigError, Settings
 from mih.epg.importer import import_xmltv
 from mih.epg.service import create_epg_source
+from mih.events import record_event, t
 from mih.export import export_catalog
 from mih.health.policy import HealthPolicy
 from mih.health.runner import run_checks
+from mih.scheduler import JOBS, JobBusy, run_job, status_snapshot
 from mih.search.engine import SearchRequest, search
 from mih.search.index import ensure_index
 from mih.sources.importer import import_m3u
@@ -51,6 +53,10 @@ def main(argv: list[str] | None = None) -> int:
         help="skip playlist.m3u, the only file with stream URLs",
     )
     sub.add_parser("stats", help="print catalog counts")
+    sub.add_parser("status", help="what the service is doing, recent events, the plan")
+    job = sub.add_parser("run-job", help="run a background job now; the result is pushed")
+    job.add_argument("name", choices=JOBS)
+    sub.add_parser("notify-test", help="send a test push to MIH_NTFY_URL")
     args = parser.parse_args(argv)
 
     settings = Settings.from_env()
@@ -72,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         report = import_m3u(conn, settings, source_id, args.path.read_bytes(), force=args.force)
+        _import_event(conn, settings, args.source, report)
         print(json.dumps(report.stats(), ensure_ascii=False, indent=2))
         return 0 if report.status != "rejected" else 2
     elif args.cmd == "import-epg-file":
@@ -84,6 +91,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         report = import_xmltv(conn, settings, source_id, args.path.read_bytes(), force=args.force)
+        _import_event(conn, settings, args.source, report)
         print(json.dumps(report.stats(), ensure_ascii=False, indent=2))
         return 0 if report.status != "rejected" else 2
     elif args.cmd == "health-check":
@@ -97,7 +105,10 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "export":
         result = export_catalog(conn, args.out or settings.export_dir,
                                 with_playlist=not args.no_playlist)  # fmt: skip
-        print(json.dumps(result.stats(), ensure_ascii=False, indent=2))
+        stats = result.stats()
+        title = t(settings, "export", channels=stats["channels"])
+        record_event(conn, settings, "export", "info", title, data=stats)
+        print(json.dumps(stats, ensure_ascii=False, indent=2))
     elif args.cmd == "stats":
         counts = {
             t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
@@ -108,7 +119,36 @@ def main(argv: list[str] | None = None) -> int:
             "SELECT COUNT(*) FROM match_decisions WHERE decision = 'needs_review'"
         ).fetchone()[0]
         print(json.dumps(counts, indent=2))
+    elif args.cmd == "status":
+        print(json.dumps(status_snapshot(conn, settings), ensure_ascii=False, indent=2))
+    elif args.cmd == "run-job":
+        try:
+            event = run_job(conn, settings, args.name, manual=True)
+        except JobBusy:
+            print(f"error: job {args.name} is already running", file=sys.stderr)
+            return 4
+        print(event["title"])
+        if event["body"]:
+            print(event["body"])
+        return 0 if event["data"]["status"] != "error" else 3
+    elif args.cmd == "notify-test":
+        if not settings.ntfy_url:
+            print("error: MIH_NTFY_URL is not set", file=sys.stderr)
+            return 1
+        result = notify.send(settings, t(settings, "notify.test"),
+                             t(settings, "notify.test.body"))  # fmt: skip
+        print(result)
+        return 0 if result == "sent" else 5
     return 0
+
+
+def _import_event(conn, settings: Settings, source: str, report) -> None:
+    if report.status == "rejected":
+        status, level = t(settings, "rejected", reason=report.reason), "warning"
+    else:
+        status, level = t(settings, report.status), "info"
+    record_event(conn, settings, "import", level, t(settings, "import", source=source,
+                 status=status), data=report.stats())  # fmt: skip
 
 
 def _serve(settings: Settings) -> int:

@@ -537,6 +537,65 @@ async function viewSettings() {
     <p class="small"><a href="/api/docs">Документация API</a></p>`;
 }
 
+// ---------- Status: what the service does, did and plans ----------
+
+const JOB_NAMES = { sources: "Обновление плейлистов", epg: "Обновление телепрограммы",
+  health: "Проверка потоков", digest: "Сводка за сутки" };
+const LEVEL_ICON = { routine: "·", info: "●", warning: "▲", error: "✖" };
+const JOB_STATUS = { ok: "успешно", warning: "с предупреждениями", error: "ошибка" };
+
+function whenShort(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const day = dayLabel(d);
+  return `${day === "Сегодня" ? "" : day + ", "}${time(iso)}`;
+}
+
+function everyText(min) {
+  if (min % 1440 === 0) return min === 1440 ? "сутки" : `${min / 1440} дн.`;
+  if (min % 60 === 0) return `${min / 60} ч`;
+  return `${min} мин`;
+}
+
+function eventItem(e) {
+  return html`<li class="event ${e.level}">
+    <span class="lvl" aria-hidden="true">${LEVEL_ICON[e.level] || "·"}</span>
+    <div><div><time class="muted">${whenShort(e.at)}</time> ${e.title}</div>
+    ${e.body ? html`<div class="small muted description">${e.body}</div>` : ""}</div></li>`;
+}
+
+async function viewStatus() {
+  const s = await api("/status");
+  const running = s.running.length
+    ? html`<ul class="plain">${s.running.map((r) => html`<li><span class="live">●</span> ${JOB_NAMES[r.job] || r.job}, с ${time(r.since)}</li>`)}</ul>`
+    : html`<p class="muted">Сейчас ничего не выполняется.</p>`;
+  const n = s.notifications;
+  return html`<h1>Статус</h1>
+    <div class="kv small">
+      <span class="muted">Версия</span><span>${s.version}</span>
+      <span class="muted">Запущен</span><span>${whenShort(s.started_at)}</span>
+      <span class="muted">Планировщик</span><span>${s.scheduler ? "включён" : "выключен (MIH_SCHEDULER=0)"}</span>
+      <span class="muted">Пуши</span><span>${n.channel ? `ntfy, от уровня «${n.level}»` : "не настроены (MIH_NTFY_URL)"}</span>
+    </div>
+    ${n.channel ? html`<p><button class="btn" type="button" id="push-test">Отправить тестовый пуш</button></p>` : ""}
+    <h2>Сейчас</h2>${running}
+    <h2>Задачи</h2>
+    <div class="grid">${s.jobs.map((j) => html`<article class="card">
+      <div class="body"><div class="title">${JOB_NAMES[j.name] || j.name}</div>
+        <div class="small">${j.last_summary || "ещё не запускалась"}</div>
+        <div class="small muted">${j.last_finished_at ? `Последний запуск: ${whenShort(j.last_finished_at)}, ${JOB_STATUS[j.last_status] || j.last_status}` : ""}</div>
+        <div class="small muted">Следующий: ${j.running_since ? "выполняется сейчас" : (j.next_run_at ? (Date.parse(j.next_run_at) <= Date.now() ? "в ближайшую минуту" : whenShort(j.next_run_at)) : "только вручную")}</div></div>
+      <div class="actions"><button class="btn" type="button" data-run-job="${j.name}" ${j.running_since ? raw("disabled") : ""}>Запустить</button></div>
+    </article>`)}</div>
+    <h2>План на сутки</h2>
+    ${s.plan.length ? html`<ul class="schedule">${s.plan.map((p) => html`<li><time>${time(p.next_at)}</time><span>${JOB_NAMES[p.job] || p.job}${p.every_minutes && p.runs.length > 4
+        ? `, каждые ${everyText(p.every_minutes)}`
+        : (p.runs.length > 1 ? `, затем ${p.runs.slice(1).map(time).join(", ")}` : (dayLabel(new Date(p.next_at)) === "Сегодня" ? "" : `, ${dayLabel(new Date(p.next_at)).toLowerCase()}`))}</span></li>`)}</ul>`
+      : html`<p class="muted">${s.scheduler ? "На ближайшие сутки ничего не запланировано." : "Планировщик выключен: задачи запускаются только вручную."}</p>`}
+    <h2>События</h2>
+    ${s.events.length ? html`<ul class="events">${s.events.map(eventItem)}</ul>` : html`<div class="empty">Событий пока нет.</div>`}`;
+}
+
 // ---------- Router ----------
 
 let renderSeq = 0;
@@ -560,6 +619,7 @@ async function route() {
   else if (parts[0] === "programme" && parts[1]) { tab = "search"; fn = () => viewProgramme(parts[1]); }
   else if (parts[0] === "favorites") { tab = "favorites"; fn = viewFavorites; }
   else if (parts[0] === "settings") { tab = "settings"; fn = viewSettings; }
+  else if (parts[0] === "status") { tab = "status"; fn = viewStatus; }
   else fn = async () => html`<div class="empty">Страница не найдена. <a href="#/">На главную</a></div>`;
   setTab(tab);
   try {
@@ -611,6 +671,20 @@ document.addEventListener("click", (e) => {
     const cur = new URLSearchParams(location.hash.split("?")[1] || "");
     cur.set(chip.dataset.filter, chip.dataset.value);
     go("/search", Object.fromEntries(cur));
+    return;
+  }
+  const runBtn = e.target.closest("[data-run-job]");
+  if (runBtn) {
+    runBtn.disabled = true;
+    api(`/jobs/${enc(runBtn.dataset.runJob)}/run`, { method: "POST" })
+      .then(() => { toast("Задача запущена. Результат появится в событиях и придёт пушем."); setTimeout(route, 1500); })
+      .catch((err) => { runBtn.disabled = false; toast(errorText(err), 5000); });
+    return;
+  }
+  if (e.target.id === "push-test") {
+    api("/notifications/test", { method: "POST" })
+      .then((r) => toast(r.result === "sent" ? "Тестовый пуш отправлен" : "Пуш не отправился: проверьте MIH_NTFY_URL", 5000))
+      .catch((err) => toast(errorText(err), 5000));
     return;
   }
   if (e.target.id === "token-clear") {
@@ -673,6 +747,10 @@ setInterval(() => {
   const h = location.hash;
   if (document.visibilityState === "visible" && (h === "" || h === "#/" || h.startsWith("#/favorites"))) route();
 }, 60000);
+// The status screen follows running jobs more closely.
+setInterval(() => {
+  if (document.visibilityState === "visible" && location.hash.startsWith("#/status")) route();
+}, 15000);
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => { /* http on a LAN address: no PWA, still works */ });
