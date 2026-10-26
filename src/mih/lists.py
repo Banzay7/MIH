@@ -266,12 +266,13 @@ def write_list(
     with_playlist: bool = True,
     now: datetime | None = None,
     fresh: Freshness = DEFAULT_FRESHNESS,
+    catalog: list[dict] | None = None,
 ) -> ListResult:
     """Write <name>.json, <name>.csv and, unless told not to, <name>.m3u (stream URLs)."""
     if not re.fullmatch(r"[\w.-]+", name):
         raise ValueError("list name may contain letters, digits, '.', '_' and '-' only")
     out_dir.mkdir(parents=True, exist_ok=True)
-    doc = build_list(conn, flt, now=now, fresh=fresh)
+    doc = build_list(conn, flt, now=now, fresh=fresh, catalog=catalog)
     included = doc.pop("_included")
     files = [f"{name}.json", f"{name}.csv"]
     write_atomic(out_dir / files[0], json.dumps(doc, ensure_ascii=False, indent=2))
@@ -326,3 +327,56 @@ def _csv(channels: list[dict]) -> str:
                     len(ch["feeds"]), ch["last_ok_at"] or ""])  # fmt: skip
     # BOM so Excel opens Cyrillic and Vietnamese correctly.
     return "﻿" + buf.getvalue()
+
+
+# ---------- Presets ----------
+
+DEFAULT_PRESETS = {"valid": {}}
+_PRESET_KEYS = {"country", "lang", "category", "exclude_category", "level", "timeshift",
+                "adult", "epg_only", "epg_url"}  # fmt: skip
+
+
+def load_presets(path: Path | None) -> dict[str, dict]:
+    """Named lists from a JSON file, e.g. {"ru-news": {"country": ["RU"], "category":
+    ["news"]}}. Without a file there is one list, "valid": every channel that plays."""
+    if path is None:
+        return DEFAULT_PRESETS
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"cannot read lists file: {exc}") from exc
+    if not isinstance(data, dict) or not data:
+        raise ValueError("lists file must be a JSON object of named lists")
+    for name, spec in data.items():
+        if not re.fullmatch(r"[\w.-]+", name) or not isinstance(spec, dict):
+            raise ValueError(f"bad list {name!r}")
+        unknown = set(spec) - _PRESET_KEYS
+        if unknown:
+            raise ValueError(f"list {name!r}: unknown keys {sorted(unknown)}")
+        preset_filter(spec)  # validates the level
+    return data
+
+
+def preset_filter(spec: dict) -> ListFilter:
+    def many(key: str) -> tuple[str, ...]:
+        v = spec.get(key, [])
+        return tuple([v] if isinstance(v, str) else v)
+
+    excluded = many("exclude_category") + (() if spec.get("adult") else ("adult",))
+    return ListFilter(countries=many("country"), languages=many("lang"),
+                      categories=many("category"), exclude_categories=excluded,
+                      min_level=spec.get("level", "ok"), timeshift=bool(spec.get("timeshift")),
+                      epg_only=bool(spec.get("epg_only")))  # fmt: skip
+
+
+def build_presets(
+    conn: sqlite3.Connection, out_dir: Path, presets: dict[str, dict]
+) -> list[ListResult]:
+    """Write every named list into ``out_dir``; the catalog is built once for all."""
+    catalog = build_catalog(conn)
+    return [
+        write_list(
+            conn, out_dir, name, preset_filter(spec), epg_url=spec.get("epg_url"), catalog=catalog
+        )  # fmt: skip
+        for name, spec in presets.items()
+    ]

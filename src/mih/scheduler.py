@@ -26,6 +26,7 @@ from mih.events import list_events, record_event, t
 from mih.health.policy import HealthPolicy
 from mih.health.runner import run_checks
 from mih.ids import utc_now
+from mih.lists import build_presets, load_presets
 from mih.sources.fetch import FetchError
 from mih.sources.service import SourceError, import_from_url
 
@@ -232,6 +233,14 @@ def _job_health(conn, settings, policy, now, transport) -> Outcome:
     data.pop("run_id", None)
     if report.status == "vantage_offline":
         return Outcome("warning", "warning", t(settings, "job.health.offline"), data=data)
+    # Fresh results and the passing of time change what is valid: rebuild the lists.
+    try:
+        built = build_presets(conn, settings.lists_dir, load_presets(settings.lists_file))
+        data["lists"] = {r.name: r.channels for r in built}
+        lists_line = t(settings, "health.lists",
+                       lists=", ".join(f"{r.name} {r.channels}" for r in built))  # fmt: skip
+    except (ValueError, OSError) as exc:
+        lists_line = t(settings, "error", error=exc)
     if not report.checked:
         return Outcome("ok", "routine", t(settings, "job.health.idle"), data=data)
     down = sum(n for k, n in report.transitions.items() if k.split("->")[1] in _DOWN
@@ -243,6 +252,7 @@ def _job_health(conn, settings, policy, now, transport) -> Outcome:
         lines.append(t(settings, "health.down", n=down))
     if up:
         lines.append(t(settings, "health.up", n=up))
+    lines.append(lists_line)
     return Outcome("ok", "routine", t(settings, "job.health", ok=report.ok, checked=report.checked),
                    lines, data)  # fmt: skip
 

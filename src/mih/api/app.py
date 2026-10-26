@@ -13,8 +13,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, File, HTTPException, Path, Query, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
@@ -96,6 +96,19 @@ def require_token(
         return  # loopback-only development mode, enforced by Settings.validate_for_serving
     if creds is None or not hmac.compare_digest(creds.credentials, token):
         raise HTTPException(status_code=401, detail="invalid or missing token")
+
+
+def require_token_or_query(
+    request: Request,
+    creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    token: Annotated[str | None, Query()] = None,
+) -> None:
+    """Like require_token, but a player that cannot send headers may pass ?token=."""
+    if token is not None and request.app.state.settings.api_token is not None:
+        if hmac.compare_digest(token, request.app.state.settings.api_token):
+            return
+        raise HTTPException(status_code=401, detail="invalid or missing token")
+    require_token(request, creds)
 
 
 Conn = Annotated[sqlite3.Connection, Depends(get_conn)]
@@ -446,6 +459,31 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         return {"channels": channels, "channels_with_epg": with_epg,
                 "epg_coverage": round(with_epg / channels, 3) if channels else None,
                 "epg_mappings_needs_review": review}  # fmt: skip
+
+    @app.get("/api/v1/lists", dependencies=auth)
+    def lists_index() -> dict:
+        """Named lists built so far (MIH_LISTS_FILE), rebuilt after every stream check."""
+        out = []
+        for f in sorted(settings.lists_dir.glob("*.json")):
+            try:
+                doc = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            out.append({"name": f.stem, "generated_at": doc.get("generated_at"),
+                        "channels": doc.get("channels_total"), "entries": doc.get("entries"),
+                        "by_level": doc.get("by_level"), "playlist": f"/lists/{f.stem}.m3u",
+                        "excluded_by_reason": doc.get("excluded_by_reason")})  # fmt: skip
+        return {"items": out}
+
+    @app.get("/lists/{file}", dependencies=[Depends(require_token_or_query)])
+    def list_file(file: Annotated[str, Path(pattern=r"^[\w.-]+\.(m3u|json|csv)$")]):
+        path = settings.lists_dir / file
+        if not path.is_file():
+            raise ApiError("not_found", "no such list; see GET /api/v1/lists")
+        media = {"m3u": "audio/x-mpegurl", "json": "application/json",
+                 "csv": "text/csv"}[file.rsplit(".", 1)[1]]  # fmt: skip
+        return FileResponse(path, media_type=media + "; charset=utf-8",
+                            headers={"Cache-Control": "no-store"})  # fmt: skip
 
     # Imported here because the health routes reuse this module's error and connection.
     from mih.api import status

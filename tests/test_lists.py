@@ -145,3 +145,55 @@ def test_write_list_files_and_cli(conn, settings, make_source, tmp_path, monkeyp
     assert main(["list", "--name", "news", "--category", "news", "--no-playlist"]) == 0
     assert (tmp_path / "cli" / "news.json").exists()
     assert not (tmp_path / "cli" / "news.m3u").exists()
+
+
+def test_presets_file(tmp_path):
+    from mih.lists import DEFAULT_PRESETS, load_presets, preset_filter
+
+    assert load_presets(None) == DEFAULT_PRESETS
+    f = tmp_path / "lists.json"
+    f.write_text('{"ru-news": {"country": "RU", "category": ["news"], "level": "doubtful"}}')
+    flt = preset_filter(load_presets(f)["ru-news"])
+    assert flt.countries == ("RU",) and flt.min_level == "doubtful"
+    assert flt.exclude_categories == ("adult",)
+    for bad in ('{"a b": {}}', '{"x": {"colour": 1}}', '{"x": {"level": "dead"}}', "[]", "{"):
+        f.write_text(bad)
+        with pytest.raises(ValueError):
+            load_presets(f)
+
+
+def test_health_job_rebuilds_lists_and_api_serves_them(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from mih import db
+    from mih.api.app import create_app
+    from mih.config import Settings
+    from mih.scheduler import run_job
+    from mih.sources.service import create_source
+
+    token = "t" * 32
+    (tmp_path / "lists.json").write_text('{"ru": {"country": ["RU"]}, "all": {}}')
+    settings = Settings(data_dir=tmp_path, api_token=token, lists_file=tmp_path / "lists.json")
+    conn = db.connect(settings.db_path)
+    db.migrate(conn)
+    import_m3u(conn, settings, create_source(conn, settings, name="a", url=None),
+               fixture_bytes("provider_a.m3u"))  # fmt: skip
+    _set(conn, "Первый%", status="active", last_ok_at=format_ts(datetime.now(UTC)))
+    _set(conn, "VTV1%", status="active", last_ok_at=format_ts(datetime.now(UTC)))
+    conn.execute("UPDATE streams SET next_check_at = '2999-01-01'")
+
+    event = run_job(conn, settings, "health")
+    assert event["data"]["lists"] == {"ru": 1, "all": 2}
+
+    with TestClient(create_app(settings)) as c:
+        assert c.get("/lists/ru.m3u").status_code == 401
+        assert c.get("/lists/ru.m3u", params={"token": "nope"}).status_code == 401
+        m3u = c.get("/lists/ru.m3u", params={"token": token})
+        assert m3u.status_code == 200 and "SECRET_A1" in m3u.text
+        assert m3u.headers["content-type"].startswith("audio/x-mpegurl")
+        auth = {"Authorization": f"Bearer {token}"}
+        index = c.get("/api/v1/lists", headers=auth).json()["items"]
+        assert [(i["name"], i["channels"]) for i in index] == [("all", 2), ("ru", 1)]
+        assert c.get("/lists/nope.m3u", headers=auth).status_code == 404
+        assert c.get("/lists/..%2Fmih.sqlite3", headers=auth).status_code in (404, 422)
+    conn.close()
