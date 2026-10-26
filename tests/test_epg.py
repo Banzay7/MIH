@@ -278,3 +278,23 @@ def make_source_c(conn, settings):
     from mih.sources.service import create_source
 
     return create_source(conn, settings, name="r", url=None)
+
+
+def test_only_programmes_in_scope_are_built(conn, settings, catalog, monkeypatch):
+    from dataclasses import replace
+
+    from mih.epg import xmltv
+
+    built = []
+    real = xmltv._programme
+
+    def spy(elem):
+        built.append(elem.get("channel"))
+        return real(elem)
+
+    monkeypatch.setattr(xmltv, "_programme", spy)
+    mapped_only = replace(settings, epg_scope="mapped")
+    source = create_epg_source(conn, mapped_only, name="g2", url=None)
+    import_xmltv(conn, mapped_only, source, fixture_bytes("guide_a.xml"), now=NOW)
+    # Россия 1 has no feed, so its programmes are counted but never built.
+    assert built and "Russia1.ru" not in built

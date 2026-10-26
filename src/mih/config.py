@@ -62,7 +62,7 @@ class Settings:
     # How often each job runs; None = never on its own (still runs on request).
     every_sources: timedelta | None = timedelta(hours=6)
     every_epg: timedelta | None = timedelta(hours=12)
-    every_health: timedelta | None = timedelta(minutes=30)
+    every_health: timedelta | None = timedelta(minutes=10)
     # Local time (MIH_TIMEZONE) of the daily digest push; None = no digest.
     digest_at: time | None = time(9, 0)
 
@@ -111,7 +111,7 @@ class Settings:
             scheduler_enabled=env.get("MIH_SCHEDULER", "1") != "0",
             every_sources=parse_every(env.get("MIH_EVERY_SOURCES", "6h"), "MIH_EVERY_SOURCES"),
             every_epg=parse_every(env.get("MIH_EVERY_EPG", "12h"), "MIH_EVERY_EPG"),
-            every_health=parse_every(env.get("MIH_EVERY_HEALTH", "30m"), "MIH_EVERY_HEALTH"),
+            every_health=parse_every(env.get("MIH_EVERY_HEALTH", "10m"), "MIH_EVERY_HEALTH"),
             digest_at=_parse_clock(env.get("MIH_DIGEST_AT", "09:00"), "MIH_DIGEST_AT"),
         )
 

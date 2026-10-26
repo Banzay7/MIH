@@ -5,6 +5,8 @@ from __future__ import annotations
 import gzip
 import io
 import re
+from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, timezone
 from typing import BinaryIO
@@ -48,6 +50,8 @@ class XMLTVParseResult:
     channels: dict[str, XMLTVChannel]
     programmes: list[XMLTVProgramme]
     errors: list[str]
+    # <programme> elements per guide channel id, kept or not.
+    counts: Counter = field(default_factory=Counter)
 
 
 def parse_time(value: str) -> datetime:
@@ -74,10 +78,16 @@ def open_content(content: bytes, max_bytes: int) -> BinaryIO:
     return _Capped(raw, max_bytes)
 
 
-def parse_xmltv(stream: BinaryIO) -> XMLTVParseResult:
+def parse_xmltv(stream: BinaryIO, keep: Callable[[str], bool] | None = None) -> XMLTVParseResult:
+    """Channels, and the programmes of the channels ``keep`` accepts (all by default).
+
+    Programmes of other channels are only counted, never built: a 4000-channel guide
+    of which the catalog stores 100 channels costs the memory of 100 channels.
+    """
     channels: dict[str, XMLTVChannel] = {}
     programmes: list[XMLTVProgramme] = []
     errors: list[str] = []
+    counts: Counter = Counter()
     saw_root = False
     try:
         for event, elem in iterparse(stream, events=("start", "end")):
@@ -93,10 +103,13 @@ def parse_xmltv(stream: BinaryIO) -> XMLTVParseResult:
                     channels[ch.xmltv_id] = ch
                 elem.clear()
             elif elem.tag == "programme":
-                try:
-                    programmes.append(_programme(elem))
-                except ValueError as exc:
-                    errors.append(str(exc))
+                channel = (elem.get("channel") or "").strip()
+                counts[channel] += 1
+                if keep is None or keep(channel):
+                    try:
+                        programmes.append(_programme(elem))
+                    except ValueError as exc:
+                        errors.append(str(exc))
                 elem.clear()
     except XMLTVFormatError:
         raise
@@ -108,7 +121,8 @@ def parse_xmltv(stream: BinaryIO) -> XMLTVParseResult:
     if not saw_root:
         raise XMLTVFormatError("empty document")
     _fill_missing_stops(programmes, errors)
-    return XMLTVParseResult(channels, programmes, errors)
+    counts.pop("", None)
+    return XMLTVParseResult(channels, programmes, errors, counts)
 
 
 def _channel(elem) -> XMLTVChannel | None:
