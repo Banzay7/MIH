@@ -74,6 +74,18 @@ curl -fsS -H "$H" "$B/now"
 ./mihctl.sh status
 ```
 
+## Статус и пуши
+
+Планировщик стенда сам обновляет источники по URL, проверяет потоки и утром присылает сводку. Что он делает сейчас и что запланировано, видно на экране «Статус» веб-интерфейса или так:
+
+```bash
+docker exec mirtvonline-test mih status
+docker exec mirtvonline-test mih run-job digest   # прислать сводку сейчас
+docker exec mirtvonline-test mih notify-test      # проверить пуши после настройки MIH_NTFY_URL
+```
+
+Настройка ntfy описана в [docs/notifications.md](../../docs/notifications.md). После правки `.env` выполните `./mihctl.sh deploy`, чтобы контейнер перечитал настройки.
+
 ## Обслуживание
 
 | Команда | Что делает |

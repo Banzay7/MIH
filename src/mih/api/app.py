@@ -7,7 +7,8 @@ from __future__ import annotations
 import hmac
 import json
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -26,6 +27,7 @@ from mih.epg.mapping import refresh_mappings, set_manual
 from mih.epg.service import create_epg_source, get_epg_source, import_epg_from_url
 from mih.health.policy import HealthPolicy
 from mih.identity.normalize import fold
+from mih.ids import utc_now
 from mih.search.engine import SearchRequest, search
 from mih.search.index import ensure_index
 from mih.sources.fetch import FetchError
@@ -104,9 +106,27 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     db.migrate(conn)
     ensure_index(conn)
     conn.close()
+    health_policy = health_policy or HealthPolicy.from_env()
+    started_at = utc_now()
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        # Imported here: the scheduler pulls in every job, the API module stays light.
+        from mih.scheduler import Scheduler, service_event
+
+        scheduler = Scheduler(settings, health_policy) if settings.scheduler_enabled else None
+        service_event(settings, "service.started")
+        if scheduler:
+            scheduler.start()
+        try:
+            yield
+        finally:
+            if scheduler:
+                scheduler.stop()
+            service_event(settings, "service.stopped")
 
     app = FastAPI(title="MIRTVONLINE API", version=__version__, docs_url="/api/docs",
-                  openapi_url="/api/v1/openapi.json")  # fmt: skip
+                  openapi_url="/api/v1/openapi.json", lifespan=lifespan)  # fmt: skip
     app.state.settings = settings
     auth = [Depends(require_token)]
 
@@ -428,9 +448,11 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
                 "epg_mappings_needs_review": review}  # fmt: skip
 
     # Imported here because the health routes reuse this module's error and connection.
+    from mih.api import status
     from mih.health.api import build_router
 
-    app.include_router(build_router(settings, health_policy or HealthPolicy.from_env(), auth))
+    app.include_router(build_router(settings, health_policy, auth))
+    app.include_router(status.build_router(settings, health_policy, auth, started_at))
     personal.register(app, auth=auth, conn=Conn, error=ApiError)
     personal.mount_ui(app)  # last: it catches every path the API did not
     return app
