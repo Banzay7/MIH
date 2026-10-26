@@ -181,7 +181,7 @@ def run_job(
 def _refresh(conn, settings, table: str, importer: Callable, describe: Callable,
              key: str) -> Outcome:  # fmt: skip
     rows = conn.execute(
-        f"SELECT id, name FROM {table} WHERE url IS NOT NULL ORDER BY name"
+        f"SELECT id, name FROM {table} WHERE url IS NOT NULL AND enabled = 1 ORDER BY name"
     ).fetchall()
     if not rows:
         return Outcome("ok", "routine", t(settings, f"{key}.none"))
