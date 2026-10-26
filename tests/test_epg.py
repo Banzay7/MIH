@@ -250,3 +250,31 @@ def test_xml_entities_and_external_references_are_refused():
     xxe = b'<!DOCTYPE tv [<!ENTITY x SYSTEM "file:///etc/passwd">]><tv>&x;</tv>'
     with pytest.raises(XMLTVFormatError):
         parse_xmltv(open_content(xxe, 10**6))
+
+
+def test_guide_channels_join_the_catalog_without_a_schedule(conn, settings, catalog, epg_source):
+    before = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
+    report = import_xmltv(conn, settings, epg_source, fixture_bytes("guide_a.xml"), now=NOW)
+    # Россия 1 is new; "Первый канал +4" is a version of a channel the catalog has.
+    assert report.channels_added == 1
+    names = [r[0] for r in conn.execute("SELECT canonical_name FROM channels")]
+    assert len(names) == before + 1 and "Россия 1" in names
+    added = conn.execute("SELECT id FROM channels WHERE canonical_name = 'Россия 1'").fetchone()
+    # No feed, so no guide mapping (MIH_EPG_SCOPE=tracked then stores no schedule).
+    assert not conn.execute("SELECT 1 FROM feeds WHERE channel_id = ?", (added["id"],)).fetchone()
+
+    again = import_xmltv(conn, settings, epg_source, fixture_bytes("guide_a.xml"), now=NOW,
+                         force=True)  # fmt: skip
+    assert again.channels_added == 0
+
+    # A playlist that brings a stream for it lands on the same channel.
+    import_m3u(conn, settings, make_source_c(conn, settings),
+               "#EXTM3U\n#EXTINF:-1,Россия 1 HD\nhttps://r.example/r1.m3u8\n".encode())  # fmt: skip
+    assert conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0] == before + 1
+    assert conn.execute("SELECT 1 FROM feeds WHERE channel_id = ?", (added["id"],)).fetchone()
+
+
+def make_source_c(conn, settings):
+    from mih.sources.service import create_source
+
+    return create_source(conn, settings, name="r", url=None)
