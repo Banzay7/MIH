@@ -298,3 +298,96 @@ def test_only_programmes_in_scope_are_built(conn, settings, catalog, monkeypatch
     import_xmltv(conn, mapped_only, source, fixture_bytes("guide_a.xml"), now=NOW)
     # Россия 1 has no feed, so its programmes are counted but never built.
     assert built and "Russia1.ru" not in built
+
+
+def test_translit_key_bridges_spellings():
+    from mih.identity.normalize import split_name, translit_key
+
+    def k(name):
+        return translit_key(split_name(name).key)
+
+    assert k("Первый канал") == k("Perviy Kanal") == k("Pervyy kanal")
+    assert k("Пятница!") == k("Pyatnitsa") == k("Piatnitsa")
+    assert k("Кухня ТВ") == k("Kukhnya TV") == k("Kuhnya TV")
+    assert k("2х2") == k("2x2")
+    assert k("Россия 1") != k("Россия 24")
+
+
+def _guide(*channels: tuple[str, str]) -> bytes:
+    xml = "<tv>"
+    for xid, name in channels:
+        xml += f'<channel id="{xid}"><display-name>{name}</display-name></channel>'
+    for xid, _ in channels:
+        xml += (f'<programme start="20261026060000" stop="20261026070000" channel="{xid}">'
+                "<title>Новости</title></programme>")  # fmt: skip
+    return (xml + "</tv>").encode()
+
+
+def test_guide_names_find_channels_named_differently(conn, settings, make_source, epg_source):
+    playlist = (
+        "#EXTM3U\n"
+        '#EXTINF:-1 tvg-id="Pyatnitsa.ru@SD",Pyatnitsa (Russia) (576p)\nhttps://p.example/1\n'
+        '#EXTINF:-1 tvg-id="Domashniy.ru@SD",Domashniy (576p)\nhttps://p.example/2\n'
+        '#EXTINF:-1 tvg-id="Euronews.fr",Euronews (Europe)\nhttps://p.example/3\n'
+        '#EXTINF:-1 tvg-id="Euronews.fr",Euronews (Asia)\nhttps://p.example/4\n'
+        "#EXTINF:-1,Zvezda\nhttps://p.example/5\n"
+    )
+    import_m3u(conn, settings, make_source("p"), playlist.encode())
+    import_xmltv(conn, settings, epg_source, _guide(
+        ("friday", "Пятница"),  # transliteration; "(Russia)" is the only feed's region
+        ("Domashniy.ru", "Домашний"),  # the id without the feed part
+        ("eu", "Euronews"),  # two regional feeds: a person chooses
+        ("zv", "Звезда +2"),  # no +2 feed: never the base one
+    ), now=NOW)  # fmt: skip
+    rows = {r["xmltv_id"]: r for r in conn.execute(
+        "SELECT ec.xmltv_id, m.feed_id, m.rule, m.decision FROM epg_channels ec"
+        " LEFT JOIN epg_mappings m ON m.epg_channel_id = ec.id"
+    )}  # fmt: skip
+    assert (rows["friday"]["rule"], rows["friday"]["decision"]) == ("translit", "auto")
+    assert rows["friday"]["feed_id"] == _feed(conn, "pyatnitsa", region="russia")
+    assert rows["Domashniy.ru"]["decision"] == "auto"
+    assert rows["eu"]["decision"] == "needs_review"
+    assert rows["zv"]["decision"] is None
+
+
+def test_directory_names_bridge_scripts(conn, settings, make_source, epg_source):
+    from mih.directory import import_directory
+
+    import_m3u(conn, settings, make_source("p"),
+               b'#EXTM3U\n#EXTINF:-1,NTV (Russia)\nhttps://p.example/ntv\n')  # fmt: skip
+    import_directory(conn, {"channels": (
+        "id,name,alt_names,country\nNTV.ru,NTV,НТВ,RU\n").encode()})  # fmt: skip
+    import_xmltv(conn, settings, epg_source, _guide(("n", "НТВ")), now=NOW)
+    row = conn.execute("SELECT feed_id, rule FROM epg_mappings").fetchone()
+    assert row["feed_id"] == _feed(conn, "ntv", region="russia")
+    assert row["rule"] in ("directory-name", "channel-epg", "channel-name")
+
+
+def test_playlist_url_tvg_becomes_an_epg_source(conn, settings, make_source, monkeypatch):
+    from mih.sources import importer
+
+    monkeypatch.setattr(importer, "check_destination", lambda url, allow_private: None)
+    src = make_source("prov")
+    report = import_m3u(conn, settings, src, fixture_bytes("provider_a.m3u"))
+    assert report.guides_added == 1
+    row = conn.execute("SELECT name, url, priority FROM epg_sources").fetchone()
+    assert (row["name"], row["url"]) == ("prov (url-tvg)", "https://epg.example/guide.xml")
+    assert row["priority"] < 100
+    report = import_m3u(conn, settings, src, fixture_bytes("provider_a.m3u"), force=True)
+    assert report.guides_added == 0 and count(conn, "epg_sources") == 1
+
+
+def test_tracked_scope_keeps_listed_channels_only(conn, settings, catalog, epg_source):
+    import json
+    from dataclasses import replace
+
+    tracked = replace(settings, epg_scope="tracked")
+    perviy = conn.execute(
+        "SELECT channel_id FROM feeds WHERE id = ?", (_feed(conn, "первый канал"),)
+    ).fetchone()[0]
+    tracked.lists_dir.mkdir(parents=True)
+    (tracked.lists_dir / "mine.json").write_text(json.dumps({"channels": [{"id": perviy}]}))
+    report = import_xmltv(conn, tracked, epg_source, fixture_bytes("guide_a.xml"), now=NOW)
+    assert _airings(conn, "Perviy.ru")
+    assert not _airings(conn, "vtv1.vn")  # mapped, but in no list
+    assert report.channels_skipped >= 1

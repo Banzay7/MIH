@@ -15,6 +15,7 @@ from mih.identity.normalize import NameParts, split_name, tvg_base
 from mih.identity.resolver import Resolution, record_decision, resolve
 from mih.ids import new_id, utc_now
 from mih.retention import prune_snapshots
+from mih.sources.fetch import FetchError, check_destination
 from mih.sources.m3u import M3UEntry, M3UFormatError, parse_m3u
 
 
@@ -29,6 +30,8 @@ class ImportReport:
     streams_absent: int = 0
     needs_review: int = 0
     channels_merged: int = 0
+    # Guides named by the playlist (url-tvg) that were added as EPG sources.
+    guides_added: int = 0
     parse_errors: list[str] = field(default_factory=list)
 
     def stats(self) -> dict:
@@ -112,7 +115,42 @@ def import_m3u(
         conn.execute("ROLLBACK")
         raise
     prune_snapshots(conn, settings, "source_snapshots", source_id)
+    report.guides_added = add_playlist_guides(conn, settings, source_id, parsed.guide_urls)
     return report
+
+
+# A guide the playlist names is made for its tvg-ids: it goes before public guides.
+PLAYLIST_GUIDE_PRIORITY = 50
+
+
+def add_playlist_guides(
+    conn: sqlite3.Connection, settings: Settings, source_id: str, urls: list[str]
+) -> int:
+    """Register the guides a playlist names (url-tvg) as EPG sources, once per URL. The
+    next guide refresh imports them. Returns how many were added."""
+    name = conn.execute("SELECT name FROM sources WHERE id = ?", (source_id,)).fetchone()[0]
+    added = 0
+    for i, url in enumerate(urls, start=1):
+        if conn.execute("SELECT 1 FROM epg_sources WHERE url = ?", (url,)).fetchone():
+            continue
+        try:
+            check_destination(url, allow_private=settings.allow_private_sources)
+        except (FetchError, ValueError):
+            continue
+        label = f"{name} (url-tvg)" if len(urls) == 1 else f"{name} (url-tvg {i})"
+        if conn.execute("SELECT 1 FROM epg_sources WHERE name = ?", (label,)).fetchone():
+            label += f" {new_id()[:6]}"
+        conn.execute(
+            "INSERT INTO epg_sources (id, name, url, priority, created_at) VALUES (?, ?, ?, ?, ?)",
+            (new_id(), label, url, PLAYLIST_GUIDE_PRIORITY, utc_now()),
+        )
+        added += 1
+    if added:
+        # Do not wait half a day for the guide refresh (it stays off if switched off).
+        now = utc_now()
+        conn.execute("UPDATE jobs SET next_run_at = ? WHERE name = 'epg'"
+                     " AND next_run_at > ?", (now, now))  # fmt: skip
+    return added
 
 
 def _import_entry(

@@ -30,9 +30,10 @@ import re
 import sqlite3
 from collections import Counter
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from mih.epg.publish import GuideEntry, guide_coverage, write_guide
 from mih.export import build_catalog, m3u_entry, write_atomic
 from mih.health.policy import parse_ts
 from mih.identity.normalize import fold
@@ -104,6 +105,8 @@ class ListResult:
     channels: int
     entries: int
     excluded: dict[str, int] = field(default_factory=dict)
+    # Channels whose guide (<name>.xml.gz) has programmes.
+    with_guide: int = 0
 
     def stats(self) -> dict:
         return asdict(self)
@@ -256,6 +259,12 @@ def matches(ch: dict, flt: ListFilter) -> bool:
     return not (flt.epg_only and not ch["has_epg"])
 
 
+# How far back a list's guide goes; players show it as the past of the timeline.
+GUIDE_PAST = timedelta(days=1)
+# A list whose channels changed waits this long before its guide is rewritten.
+GUIDE_MIN_INTERVAL = timedelta(minutes=30)
+
+
 def write_list(
     conn: sqlite3.Connection,
     out_dir: Path,
@@ -264,24 +273,104 @@ def write_list(
     *,
     epg_url: str | None = None,
     with_playlist: bool = True,
+    with_guide: bool = True,
+    guide_max_age: timedelta = timedelta(0),
     now: datetime | None = None,
     fresh: Freshness = DEFAULT_FRESHNESS,
     catalog: list[dict] | None = None,
 ) -> ListResult:
-    """Write <name>.json, <name>.csv and, unless told not to, <name>.m3u (stream URLs)."""
+    """Write <name>.json, <name>.csv, <name>.xml.gz (the guide of the list, XMLTV) and,
+    unless told not to, <name>.m3u (stream URLs). The playlist's tvg-id values are the
+    guide's channel ids.
+
+    The guide is rewritten when the file is older than ``guide_max_age``, or when the
+    list's channels changed and the file is older than GUIDE_MIN_INTERVAL: stream checks
+    rebuild the lists every few minutes, guides change twice a day."""
     if not re.fullmatch(r"[\w.-]+", name):
         raise ValueError("list name may contain letters, digits, '.', '_' and '-' only")
     out_dir.mkdir(parents=True, exist_ok=True)
     doc = build_list(conn, flt, now=now, fresh=fresh, catalog=catalog)
     included = doc.pop("_included")
+    entries = guide_entries(included)
     files = [f"{name}.json", f"{name}.csv"]
+    since = (now or datetime.now(UTC)) - GUIDE_PAST
+    covered: set[str] | None = None
+    if with_guide:
+        guide_path = out_dir / f"{name}.xml.gz"
+        pairs = sorted(f"{e.guide_id}={e.feed_id}" for e in entries)
+        signature = ",".join(pairs)
+        written = (_read_json(out_dir / files[0]).get("guide") or {}).get("signature")
+        age = _age(guide_path) if guide_path.exists() else None
+        if (
+            age is None
+            or age >= guide_max_age
+            or (written != signature and age >= GUIDE_MIN_INTERVAL)
+        ):
+            covered = write_guide(conn, guide_path, entries, since=since).with_guide
+            written = signature
+        else:
+            # The file is the older one: only entries it has count as covered.
+            in_file = set((written or "").split(","))
+            covered = {e.guide_id for e in entries if f"{e.guide_id}={e.feed_id}" in in_file}
+            covered &= guide_coverage(conn, entries, since=since)
+        files.append(guide_path.name)
+        doc["guide"] = {"file": guide_path.name, "signature": written}
+    if covered is None:
+        covered = guide_coverage(conn, entries, since=since)
+    with_programmes = {e.channel_id for e in entries if e.guide_id in covered}
+    for ch in doc["channels"]:
+        ch["guide"] = ch["id"] in with_programmes
+    doc["with_guide"] = len(with_programmes)
     write_atomic(out_dir / files[0], json.dumps(doc, ensure_ascii=False, indent=2))
     write_atomic(out_dir / files[1], _csv(doc["channels"]))
     if with_playlist:
         write_atomic(out_dir / f"{name}.m3u", playlist(conn, included, epg_url=epg_url))
         files.append(f"{name}.m3u")
     return ListResult(name, files, doc["channels_total"], doc["entries"],
-                      doc["excluded_by_reason"])  # fmt: skip
+                      doc["excluded_by_reason"], len(with_programmes))  # fmt: skip
+
+
+def guide_entries(included: list[dict]) -> list[GuideEntry]:
+    """One guide channel per playlist entry. The base feed keeps the channel's tvg-id
+    (players and other guides know it); other versions add their region or offset."""
+    out, seen = [], set()
+    for x in included:
+        ch = x["channel"]
+        base = ch["tvg_ids"][0] if ch["tvg_ids"] else f"mih.{ch['id']}"
+        for f in x["feeds"]:
+            feed = f["feed"]
+            gid = base
+            if feed["region"]:
+                gid += "." + re.sub(r"\W+", "-", fold(feed["region"])).strip("-")
+            if feed["offset_minutes"]:
+                gid += f"{feed['offset_minutes'] // 60:+d}"
+            while gid in seen:  # two channels sharing a tvg-id
+                gid += "~"
+            seen.add(gid)
+            out.append(GuideEntry(gid, entry_name(ch, feed), ch["logo_url"], feed["id"],
+                                  ch["id"]))  # fmt: skip
+            f["guide_id"] = gid
+    return out
+
+
+def entry_name(ch: dict, feed: dict) -> str:
+    name = ch["name"]
+    if feed["region"] and fold(feed["region"]) not in fold(name):
+        name += f" ({feed['region'].upper()})"
+    if feed["offset_minutes"]:
+        name += f" {feed['offset_minutes'] // 60:+d}"
+    return name
+
+
+def _read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _age(path: Path) -> timedelta:
+    return datetime.now(UTC) - datetime.fromtimestamp(path.stat().st_mtime, UTC)
 
 
 def playlist(conn: sqlite3.Connection, included: list[dict], *, epg_url: str | None) -> str:
@@ -291,7 +380,8 @@ def playlist(conn: sqlite3.Connection, included: list[dict], *, epg_url: str | N
     lines = [head]
     for x in included:
         for f in x["feeds"]:
-            entry = m3u_entry(conn, x["channel"], f["feed"], f["stream_id"])
+            entry = m3u_entry(conn, x["channel"], f["feed"], f["stream_id"],
+                              tvg_id=f.get("guide_id"))  # fmt: skip
             if entry:
                 lines.extend(entry)
     return "\n".join(lines) + "\n"
@@ -309,6 +399,7 @@ def _channel_out(x: dict) -> dict:
         "logo_url": ch["logo_url"],
         "tvg_ids": ch["tvg_ids"],
         "has_epg": ch["has_epg"],
+        "guide": False,
         "last_ok_at": max((f["last_ok_at"] or "" for f in x["feeds"]), default="") or None,
         "feeds": [{"id": f["feed"]["id"], "region": f["feed"]["region"],
                    "offset_minutes": f["feed"]["offset_minutes"], "level": f["level"]}
@@ -320,11 +411,11 @@ def _csv(channels: list[dict]) -> str:
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["id", "name", "level", "categories", "countries", "languages", "has_epg",
-                "feeds", "last_ok_at"])  # fmt: skip
+                "guide", "feeds", "last_ok_at"])  # fmt: skip
     for ch in channels:
         w.writerow([ch["id"], ch["name"], ch["level"], ";".join(ch["categories"]),
                     ";".join(ch["countries"]), ";".join(ch["languages"]), int(ch["has_epg"]),
-                    len(ch["feeds"]), ch["last_ok_at"] or ""])  # fmt: skip
+                    int(ch["guide"]), len(ch["feeds"]), ch["last_ok_at"] or ""])  # fmt: skip
     # BOM so Excel opens Cyrillic and Vietnamese correctly.
     return "﻿" + buf.getvalue()
 
@@ -370,13 +461,24 @@ def preset_filter(spec: dict) -> ListFilter:
 
 
 def build_presets(
-    conn: sqlite3.Connection, out_dir: Path, presets: dict[str, dict]
+    conn: sqlite3.Connection,
+    out_dir: Path,
+    presets: dict[str, dict],
+    *,
+    public_url: str | None = None,
+    token: str | None = None,
+    guide_max_age: timedelta = timedelta(0),
 ) -> list[ListResult]:
-    """Write every named list into ``out_dir``; the catalog is built once for all."""
+    """Write every named list into ``out_dir``; the catalog is built once for all.
+
+    A list's playlist points players to its own guide (url-tvg) when the service knows
+    its public address (MIH_PUBLIC_URL), unless the list names another ``epg_url``."""
     catalog = build_catalog(conn)
-    return [
-        write_list(
-            conn, out_dir, name, preset_filter(spec), epg_url=spec.get("epg_url"), catalog=catalog
-        )  # fmt: skip
-        for name, spec in presets.items()
-    ]
+    results = []
+    for name, spec in presets.items():
+        epg_url = spec.get("epg_url")
+        if not epg_url and public_url:
+            epg_url = f"{public_url}/lists/{name}.xml.gz" + (f"?token={token}" if token else "")
+        results.append(write_list(conn, out_dir, name, preset_filter(spec), epg_url=epg_url,
+                                  guide_max_age=guide_max_age, catalog=catalog))  # fmt: skip
+    return results

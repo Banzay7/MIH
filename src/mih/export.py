@@ -309,8 +309,11 @@ def _playlist(conn: sqlite3.Connection, catalog: list[dict]) -> tuple[str, int]:
     return "\n".join(lines) + "\n", n
 
 
-def m3u_entry(conn: sqlite3.Connection, ch: dict, feed: dict, stream_id: str) -> list[str] | None:
-    """#EXTINF, player options and URL of one stream of a catalog channel's feed."""
+def m3u_entry(
+    conn: sqlite3.Connection, ch: dict, feed: dict, stream_id: str, *, tvg_id: str | None = None
+) -> list[str] | None:
+    """#EXTINF, player options and URL of one stream of a catalog channel's feed.
+    ``tvg_id`` overrides the channel's own, to match a guide written with the list."""
     loc = conn.execute(
         "SELECT url, headers FROM stream_locators WHERE stream_id = ?", (stream_id,)
     ).fetchone()
@@ -321,7 +324,7 @@ def m3u_entry(conn: sqlite3.Connection, ch: dict, feed: dict, stream_id: str) ->
         name += f" ({feed['region'].upper()})"
     if feed["offset_minutes"]:
         name += f" {feed['offset_minutes'] // 60:+d}"
-    attrs = {"tvg-id": ch["tvg_ids"][0] if ch["tvg_ids"] else "",
+    attrs = {"tvg-id": tvg_id or (ch["tvg_ids"][0] if ch["tvg_ids"] else ""),
              "tvg-name": name, "tvg-logo": ch["logo_url"] or "",
              "tvg-country": ";".join(ch["countries"]),
              "tvg-language": ";".join(ch["languages"]),
