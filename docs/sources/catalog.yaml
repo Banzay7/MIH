@@ -1,11 +1,13 @@
 # MIRTVONLINE source catalog (draft, research 2026-10-26).
-# Describes well-known public sources of channel metadata and EPG.
+# Describes well-known public sources of channel metadata, EPG and public playlists.
 # Nothing here is enabled by default; the user picks entries during onboarding.
-# No stream playlists are listed (BYOC). See README.md for the model and statuses.
+# Playlists (kind m3u_playlist) are listed for their channel information. They import
+# in metadata_only mode by default; taking their streams is a separate user opt-in.
+# Every entry says what metadata it carries (see "metadata"). See README.md.
 #
 # Fields:
 #   id             stable catalog id (never reused)
-#   kind           provider_epg | tuner_eit | xmltv_aggregator | xmltv_fast | grabber | licensed_api | channel_db
+#   kind           provider_epg | tuner_eit | xmltv_aggregator | xmltv_fast | grabber | licensed_api | channel_db | m3u_playlist | playlist_tool
 #   url_template   {cc}: upper-case ISO 3166-1 alpha-2 unless noted; {region}: source-specific name
 #   variants       known values for the template placeholder
 #   countries      ISO codes the entry is useful for ("*" = worldwide)
@@ -17,8 +19,21 @@
 #   usage          personal | open | subscription
 #   status_hint    ok | grey | down | retired : starting hint only, real status is measured per install
 #   notes          known quirks
+#   tied_to_stream_service  true when the EPG is published by or for an IPTV stream service
+#
+# Playlist-only fields (m3u_playlist, playlist_tool):
+#   contains_streams  always true for playlists; shown to the user
+#   metadata_level    rich | partial | none : the note the UI shows ("no metadata" for none)
+#                     rich = tvg-id + logo + group on (almost) every entry, or EPG in the header
+#   metadata          measured share of entries with tvg_id / tvg_logo / group_title,
+#                     tvg_id scheme, and EPG url from the header (url-tvg / x-tvg-url)
+#   entries           #EXTINF count when measured
+#   measured          date of the measurement
+#   health_checked    whether the publisher removes dead streams itself
+#   derived_from      catalog id of the upstream list (for dedup; forks add little new info)
+#   import_mode       default import mode: metadata_only (channels, ids, logos, groups, EPG link)
 
-version: 1
+version: 2
 updated: 2026-10-26
 
 sources:
@@ -63,8 +78,10 @@ sources:
     kind: xmltv_aggregator
     name: "epgshare01 (EPG ripper, community)"
     url_template: "https://epgshare01.online/epgshare01/epg_ripper_{region}.xml.gz"
-    variants: [US2, US_LOCALS1, CA2, UK1, IE1, AU1, NZ1, IN1, DE1, FR1, ES1, IT1, NL1, PT1, PL1, RO1, TR1, BR1, MX1, ZA1, NG1, KE1, AE1]
-    countries: [US, CA, GB, IE, AU, NZ, IN, DE, FR, ES, IT, NL, PT, PL, RO, TR, BR, MX, ZA, NG, KE, AE, SA]
+    # Variant list as referenced by the Free-TV/IPTV playlist header on 2026-10-26; may lag renames
+    # (an article from 2026-09 already saw US2 and CA2 instead of US1 and CA1).
+    variants: [AL1, AR1, AT1, AU1, BA1, BE2, BG1, BR1, CA1, CA2, CH1, CL1, CO1, CR1, CY1, CZ1, DE1, DK1, DO1, EC1, EG1, ES1, FI1, FR1, GR1, HK1, HR1, HU1, ID1, IE1, IL1, IN1, IN4, IT1, JM1, JP1, JP2, KE1, KR1, LT1, LV1, MT1, MX1, MY1, NG1, NL1, NO1, NZ1, PA1, PE1, PH1, PH2, PK1, PL1, PT1, RO1, RO2, RS1, SA1, SA2, SE1, SG1, SK1, SV1, TR1, TR3, UK1, US1, US2, US_LOCALS1, US_LOCALS2, US_SPORTS1, UY1, VN1, ZA1, ALJAZEERA1, BEIN1, PLEX1, DISTROTV1, RAKUTEN1, VOA1, ALL_SOURCES1]
+    countries: [AL, AR, AT, AU, BA, BE, BG, BR, CA, CH, CL, CO, CR, CY, CZ, DE, DK, DO, EC, EG, ES, FI, FR, GB, GR, HK, HR, HU, ID, IE, IL, IN, IT, JM, JP, KE, KR, LT, LV, MT, MX, MY, NG, NL, NO, NZ, PA, PE, PH, PK, PL, PT, RO, RS, SA, SE, SG, SK, SV, TR, US, UY, VN, ZA]
     id_scheme: readable names with suffix, change on file rename
     horizon_days: [1, 3]
     refresh: daily
@@ -298,15 +315,403 @@ sources:
     status_hint: ok
     notes: Optional enrichment for networks, owners, native-language names and logos.
 
-# Known sources deliberately NOT in the catalog. Users may add any URL themselves.
+
+  - id: lyngsat-kingofsat
+    kind: channel_db
+    name: "LyngSat / KingOfSat (satellite channel listings)"
+    url_template: "https://www.lyngsat.com/"
+    countries: ["*"]
+    license: none
+    usage: personal
+    status_hint: ok
+    notes: HTML pages only, no API or published licence. Useful for satellite packages and frequencies; scraping only.
+
+  # --- More XMLTV: regional and community -------------------------------------
+
+  - id: vn-epg-io
+    kind: xmltv_aggregator
+    name: "epg.io.vn (Vietnam, vnepg ids)"
+    url_template: "https://epg.io.vn/epg.xml"
+    countries: [VN]
+    languages: [vi]
+    id_scheme: vnepg short ids (vtv1hd, htv7hd)
+    license: none
+    usage: personal
+    status_hint: grey
+    notes: Found in the All-In-One-IPTV playlist header. Not probed yet. Ids match that playlist.
+
+  - id: vn-vnepg-site
+    kind: xmltv_aggregator
+    name: "vnepg.site (Vietnam)"
+    url_template: "https://vnepg.site/epg.xml"
+    countries: [VN]
+    languages: [vi]
+    id_scheme: vnepg short ids
+    license: none
+    usage: personal
+    status_hint: grey
+    notes: Second VN EPG referenced by All-In-One-IPTV (iptv.m3u8). Not probed yet.
+
+  - id: tdtchannels-epg
+    kind: xmltv_aggregator
+    name: "TDTChannels EPG (Spain)"
+    url_template: "https://www.tdtchannels.com/epg/TV.xml.gz"
+    countries: [ES]
+    languages: [es, ca, eu, gl]
+    license: tos
+    usage: personal
+    status_hint: ok
+    notes: Repository is Apache-2.0; hosted files fall under the site's legal notice. Radio EPG at ondachannels.com/epg/RADIO.xml.gz.
+
+  - id: cn-fanmingming-epg
+    kind: xmltv_aggregator
+    name: "live.fanmingming.cn EPG (China)"
+    url_template: "https://live.fanmingming.cn/e.xml"
+    countries: [CN]
+    languages: [zh]
+    license: none
+    usage: personal
+    status_hint: grey
+    notes: Referenced by the fanmingming/live playlist header. Availability outside CN not verified.
+
+  - id: cn-yang-epg
+    kind: xmltv_aggregator
+    name: "iptv.yang-1989.xyz EPG (China)"
+    url_template: "https://iptv.yang-1989.xyz/epg.xml.gz"
+    countries: [CN, HK, TW]
+    languages: [zh]
+    license: none
+    usage: personal
+    status_hint: grey
+    notes: Referenced by the YanG-1989/m3u playlist header.
+
+  - id: cn-51zmt-epg
+    kind: xmltv_aggregator
+    name: "epg.51zmt.top (China)"
+    url_template: "http://epg.51zmt.top:8000/e.xml"
+    countries: [CN]
+    languages: [zh]
+    license: none
+    usage: personal
+    status_hint: grey
+    notes: Community source, non-standard port, availability outside CN unverified.
+
+  - id: ru-iptvx-one
+    kind: xmltv_aggregator
+    name: "iptvx.one EPG (RU/CIS)"
+    url_template: "https://iptvx.one/epg/{region}.xml.gz"
+    variants: [epg, epg_lite]
+    countries: [RU, BY, UA, KZ]
+    languages: [ru]
+    horizon_days: [7, 7]
+    license: none
+    usage: personal
+    status_hint: grey
+    notes: Times in +0300. Full file has categories and logos; lite has titles only.
+
+  - id: ru-teleguide
+    kind: xmltv_aggregator
+    name: "teleguide.info (RU)"
+    url_template: "http://www.teleguide.info/download/new3/xmltv.xml.gz"
+    countries: [RU]
+    languages: [ru]
+    license: none
+    usage: personal
+    status_hint: grey
+    notes: Weekly schedule with descriptions. Plain HTTP.
+
+  - id: ru-programtv
+    kind: xmltv_aggregator
+    name: "programtv.ru (RU)"
+    url_template: "http://programtv.ru/xmltv.xml.gz"
+    countries: [RU]
+    languages: [ru]
+    license: none
+    usage: personal
+    status_hint: grey
+    notes: Times in +0300. Plain HTTP.
+
+  - id: ru-provider-epgs
+    kind: xmltv_aggregator
+    name: "RU IPTV-service EPGs (it999/edem, ottclub, shara-tv, cbilling and others)"
+    url_template: null
+    variants:
+      - "http://epg.it999.ru/edem.xml.gz"
+      - "http://epg.it999.ru/epg2.xml.gz"
+      - "http://myott.top/api/epg.xml.gz"
+      - "http://stb.shara-tv.org/epg/epgtv.xml.gz"
+      - "http://epg.iptvx.tv/xmltv.xml.gz"
+      - "http://topiptv.info/download/topiptv.xml.gz"
+      - "http://st.kineskop.tv/epg.xml.gz"
+      - "http://epg.cineman.fun/epg/epg_cineman.xml.gz"
+      - "http://epg.zuram.net/xmltv.xml.gz"
+    countries: [RU, BY, UA, KZ, MD]
+    languages: [ru]
+    license: none
+    usage: personal
+    tied_to_stream_service: true
+    status_hint: grey
+    notes: >
+      Published by or for IPTV stream services. Rich and matching those services' tvg-ids.
+      Shown with a "tied to an IPTV service" note. zuram.net is Moldovan channels.
+
+  # --- Public playlists (contain streams) ---------------------------------------
+  # Listed for their channel information. Default import is metadata_only.
+
+  - id: iptv-org-playlists
+    kind: m3u_playlist
+    name: "iptv-org/iptv (by country, language, category, region)"
+    url_template: "https://iptv-org.github.io/iptv/{group}/{code}.m3u"
+    variants: ["index", "countries/{cc_lower}", "languages/{iso639_3}", "categories/{category}", "regions/{region}"]
+    countries: ["*"]
+    contains_streams: true
+    metadata_level: rich
+    metadata:
+      tvg_id: "100% (vn 112/112, ru 700/703), iptv-org ids with feed suffix, e.g. 2x2.ru@SD"
+      tvg_logo: "in generated playlists; not in raw streams/*.m3u"
+      group_title: "in generated playlists"
+      epg_header: none
+    entries: "~11000 total; vn 112, ru 703 (raw streams files)"
+    measured: 2026-10-26
+    health_checked: false
+    license: CC0-1.0
+    usage: open
+    import_mode: metadata_only
+    status_hint: ok
+    notes: >
+      User-submitted links; the project no longer checks liveness. Entries carry
+      [Geo-blocked] / [Not 24/7] labels in names. tvg-id joins directly to iptv-org-database.
+
+  - id: free-tv
+    kind: m3u_playlist
+    name: "Free-TV/IPTV (free-to-air, curated)"
+    url_template: "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8"
+    countries: ["*"]
+    contains_streams: true
+    metadata_level: rich
+    metadata:
+      tvg_id: "73% (1489/2052), epgshare01-style ids"
+      tvg_logo: "94% (1939/2052)"
+      group_title: "100%"
+      epg_header: "x-tvg-url lists ~100 epgshare01 files"
+    entries: 2052
+    measured: 2026-10-26
+    health_checked: true
+    license: none
+    usage: personal
+    import_mode: metadata_only
+    status_hint: ok
+    notes: Only free-to-air channels by policy. Header is the best public map of current epgshare01 file names.
+
+  - id: vn-all-in-one
+    kind: m3u_playlist
+    name: "All-In-One-IPTV (Vietnam, khanh71)"
+    url_template: "https://raw.githubusercontent.com/khanh71/All-In-One-IPTV/main/{file}"
+    variants: [http-iptv.m3u, iptv.m3u8]
+    countries: [VN]
+    languages: [vi]
+    contains_streams: true
+    metadata_level: rich
+    metadata:
+      tvg_id: "100% (76/76), vnepg short ids (vtv1hd)"
+      tvg_logo: "100%"
+      group_title: "100% (VTV, HTV/HTVC, regional north to south, ANTV/QPVN)"
+      epg_header: "https://epg.io.vn/epg.xml (http-iptv.m3u), https://vnepg.site/epg.xml (iptv.m3u8)"
+    entries: "76 / 78"
+    measured: 2026-10-26
+    health_checked: false
+    refresh: "daily 01:00 ICT (GitHub Actions)"
+    license: none
+    usage: personal
+    import_mode: metadata_only
+    status_hint: ok
+    notes: Streams are restreams of Vietnamese OTT services; best VN channel list with matching EPG ids.
+
+  - id: free-codecs-finder
+    kind: m3u_playlist
+    name: "Free-Codecs IPTV Finder (health-checked iptv-org subset)"
+    url_template: "https://www.free-codecs.com/app/iptv-finder/playlist/?c={cc_lower}"
+    countries: ["*"]
+    contains_streams: true
+    metadata_level: partial
+    metadata:
+      tvg_id: unknown (not probed)
+      epg_header: unknown
+    entries: "vn: 69 verified working (site, 2026-10-26)"
+    health_checked: true
+    derived_from: iptv-org-playlists
+    license: tos
+    usage: personal
+    import_mode: metadata_only
+    status_hint: grey
+    notes: Adds liveness filtering on top of iptv-org, little new metadata. Not reachable from the research sandbox.
+
+  - id: world-ip-tv
+    kind: m3u_playlist
+    name: "world_ip_tv (Romaxa55, health-checked)"
+    url_template: "https://romaxa55.github.io/world_ip_tv/output/index.m3u"
+    countries: ["*"]
+    contains_streams: true
+    metadata_level: partial
+    metadata:
+      tvg_id: unknown (not probed)
+    health_checked: true
+    refresh: "every 6 h (GitHub Actions), site also says daily"
+    license: MIT
+    usage: personal
+    import_mode: metadata_only
+    status_hint: grey
+    notes: Dead streams removed each run (HTTP check, 10 s timeout).
+
+  - id: tdtchannels
+    kind: m3u_playlist
+    name: "TDTChannels (Spain, official free-to-air streams)"
+    url_template: "https://www.tdtchannels.com/lists/{file}"
+    variants: [tv.m3u8, tv.m3u, tv.json, radio.m3u8, tvradio.m3u8]
+    countries: [ES]
+    languages: [es, ca, eu, gl]
+    contains_streams: true
+    metadata_level: rich
+    metadata:
+      epg_header: "https://www.tdtchannels.com/epg/TV.xml.gz (integrated)"
+    health_checked: true
+    license: tos
+    usage: personal
+    import_mode: metadata_only
+    status_hint: ok
+    notes: Also a JSON list with channel metadata. Repository Apache-2.0, hosted lists under the site's legal notice.
+
+  - id: kodinerds
+    kind: m3u_playlist
+    name: "kodinerds-iptv (DE/AT/CH)"
+    url_template: "https://raw.githubusercontent.com/jnk22/kodinerds-iptv/master/iptv/clean/{file}"
+    variants: [clean_tv.m3u, clean_radio.m3u, clean_tv_main.m3u]
+    countries: [DE, AT, CH]
+    languages: [de]
+    contains_streams: true
+    metadata_level: rich
+    metadata:
+      tvg_id: "65% (206/315)"
+      tvg_logo: "100%"
+      group_title: "100%"
+      epg_header: none
+    entries: 315
+    measured: 2026-10-26
+    health_checked: false
+    license: none
+    usage: personal
+    import_mode: metadata_only
+    status_hint: ok
+
+  - id: it-tundrak
+    kind: m3u_playlist
+    name: "IPTV-Italia (Tundrak)"
+    url_template: "https://raw.githubusercontent.com/Tundrak/IPTV-Italia/main/iptvitaplus.m3u"
+    countries: [IT]
+    languages: [it]
+    contains_streams: true
+    metadata_level: rich
+    metadata:
+      tvg_id: "100% (71/71)"
+      tvg_logo: "100%"
+      group_title: "100%"
+      epg_header: none
+    entries: 71
+    measured: 2026-10-26
+    license: none
+    usage: personal
+    import_mode: metadata_only
+    status_hint: ok
+
+  - id: cn-fanmingming
+    kind: m3u_playlist
+    name: "fanmingming/live (China, IPv6)"
+    url_template: "https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/{file}"
+    variants: [ipv6.m3u]
+    countries: [CN]
+    languages: [zh]
+    contains_streams: true
+    metadata_level: partial
+    metadata:
+      tvg_id: "0% (matches EPG by name)"
+      tvg_logo: "100%"
+      group_title: "100%"
+      epg_header: "https://live.fanmingming.cn/e.xml"
+    entries: 82
+    measured: 2026-10-26
+    license: none
+    usage: personal
+    import_mode: metadata_only
+    status_hint: grey
+    notes: IPv6-only streams; catchup template in header.
+
+  - id: cn-yang
+    kind: m3u_playlist
+    name: "YanG-1989/m3u (China, HK, TW)"
+    url_template: "https://raw.githubusercontent.com/YanG-1989/m3u/main/Gather.m3u"
+    countries: [CN, HK, TW]
+    languages: [zh]
+    contains_streams: true
+    metadata_level: partial
+    metadata:
+      tvg_id: "34% (42/123)"
+      tvg_logo: "100%"
+      group_title: "100%"
+      epg_header: "https://iptv.yang-1989.xyz/epg.xml.gz"
+    entries: 123
+    measured: 2026-10-26
+    license: none
+    usage: personal
+    import_mode: metadata_only
+    status_hint: grey
+
+  - id: mjh-fast-playlists
+    kind: m3u_playlist
+    name: "i.mjh.nz FAST playlists (Pluto, Samsung TV Plus, Plex, Roku, AU free-to-air)"
+    url_template: "https://i.mjh.nz/{service}/{cc_lower}.m3u8"
+    variants: [PlutoTV, SamsungTVPlus, Plex, Roku]
+    countries: [US, GB, CA, DE, FR, ES, IT, MX, BR, IN, KR, AU, NZ]
+    contains_streams: true
+    metadata_level: rich
+    metadata:
+      epg_header: "matching i.mjh.nz XMLTV (see mjh-* entries)"
+    license: none
+    usage: personal
+    import_mode: metadata_only
+    status_hint: ok
+    notes: Free ad-supported channels published by the platforms themselves; ids match the mjh-* EPG entries.
+
+  # --- Playlist tools (self-hosted generators, produce playlists) ---------------
+
+  - id: guovin-iptv-api
+    kind: playlist_tool
+    name: "Guovin/iptv-api (collector with speed test)"
+    url_template: "http://{host}:{port}/"
+    countries: [CN]
+    contains_streams: true
+    metadata_level: partial
+    license: MIT
+    usage: open
+    status_hint: ok
+    notes: >
+      Aggregates many subscription sources, validates and speed-tests streams, filters ad loops,
+      outputs M3U/TXT with EPG. Docker/CLI/GUI. CN-centric templates.
+
+  - id: fastchannels
+    kind: playlist_tool
+    name: "kineticman/FastChannels (FAST aggregator)"
+    url_template: "http://{host}:{port}/"
+    countries: [US]
+    contains_streams: true
+    metadata_level: rich
+    license: none
+    usage: personal
+    status_hint: ok
+    notes: Self-hosted manager that builds M3U + XMLTV for FAST services (Pluto, Samsung, Plex, Tubi, Roku and others).
+
+# Known sources not in the catalog.
 excluded:
-  - names: [epg.it999.ru (edem/ilook), myott.top (OTTCLUB), sharavoz, shara-tv, topiptv, cbilling, cineman, minimax]
-    reason: EPG published by or for IPTV stream services; association with unlicensed streams.
-  - names: [iptvx.one, teleguide.info, programtv.ru]
-    reason: RU listing aggregators, no published licence; candidates for a separate opt-in community list after owner decision.
-  - names: [epg.51zmt.top, frankwuzp/iptv-cn]
-    reason: CN community sources, availability from outside CN unverified.
   - names: [iptv-org.github.io/epg/guides/*]
     reason: Retired in 2023, returns 404.
-  - names: [lyngsat.com, kingofsat.net]
-    reason: No licence, scraping only.
+  - names: ["Blog 'free M3U' roundups, Telegram/Discord link dumps"]
+    reason: Copies of the entries above with dead links; no stable URL to track.
