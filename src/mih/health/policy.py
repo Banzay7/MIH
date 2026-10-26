@@ -64,6 +64,7 @@ class HealthPolicy:
             concurrency=max(1, int(env.get("MIH_HEALTH_CONCURRENCY", "8"))),
             per_source_concurrency=max(1, int(env.get("MIH_HEALTH_PER_SOURCE", "1"))),
             batch_limit=max(1, int(env.get("MIH_HEALTH_BATCH", "200"))),
+            device_trust_hours=max(1, int(env.get("MIH_HEALTH_DEVICE_TRUST_HOURS", "72"))),
             canary_urls=DEFAULT_CANARIES if canaries is None else tuple(canaries.split()),
         )
 

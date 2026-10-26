@@ -341,12 +341,14 @@ def _attr(value: str) -> str:
     return value.replace('"', "'").replace("\n", " ")
 
 
-def write_atomic(path: Path, text: str) -> None:
+def write_atomic(path: Path, text: str, *, private: bool = False) -> None:
+    """Replace ``path`` in one step. Files with stream URLs (.m3u, or ``private``) are not
+    readable by other users."""
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
             fh.write(text)
-        os.chmod(tmp, 0o640 if path.suffix == ".m3u" else 0o644)
+        os.chmod(tmp, 0o640 if private or path.suffix == ".m3u" else 0o644)
         os.replace(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
