@@ -24,7 +24,13 @@ from mih.config import Settings
 from mih.epg import guide
 from mih.epg.importer import EPGImportReport, import_xmltv, iso
 from mih.epg.mapping import refresh_mappings, set_manual
-from mih.epg.service import create_epg_source, get_epg_source, import_epg_from_url
+from mih.epg.service import (
+    create_epg_source,
+    delete_epg_source,
+    get_epg_source,
+    import_epg_from_url,
+    set_epg_source_enabled,
+)
 from mih.health.policy import HealthPolicy
 from mih.identity.normalize import fold
 from mih.ids import utc_now
@@ -46,6 +52,10 @@ class ApiError(Exception):
 class EPGSourceIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     url: str | None = Field(default=None, max_length=4000)
+
+
+class EPGSourcePatch(BaseModel):
+    enabled: bool
 
 
 class SearchFilters(BaseModel):
@@ -268,6 +278,18 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     def list_epg_sources(conn: Conn) -> dict:
         rows = conn.execute("SELECT * FROM epg_sources ORDER BY name").fetchall()
         return {"items": [_source_out(r, kind="xmltv") for r in rows]}
+
+    @app.patch("/api/v1/epg/sources/{source_id}", dependencies=auth)
+    def patch_epg_source(source_id: str, body: EPGSourcePatch, conn: Conn) -> dict:
+        """Switch a guide off (kept, not refreshed, not used for schedules) or on again."""
+        _require_epg_source(conn, source_id)
+        set_epg_source_enabled(conn, source_id, body.enabled)
+        return _source_out(get_epg_source(conn, source_id), kind="xmltv")
+
+    @app.delete("/api/v1/epg/sources/{source_id}", dependencies=auth)
+    def remove_epg_source(source_id: str, conn: Conn) -> dict:
+        _require_epg_source(conn, source_id)
+        return {"deleted": delete_epg_source(conn, settings, source_id)}
 
     @app.get("/api/v1/epg/sources/{source_id}/snapshots", dependencies=auth)
     def list_epg_snapshots(source_id: str, conn: Conn) -> dict:

@@ -176,3 +176,20 @@ def test_search_endpoint(client):
     bad_type = client.post("/api/v1/search", json={"query": "x", "target_types": ["stream"]})
     assert bad_type.status_code == 422
     assert "SECRET" not in client.post("/api/v1/search", json={"query": "первый"}).text
+
+
+def test_epg_source_can_be_switched_off_and_deleted(client, tmp_path):
+    epg_id = _upload_catalog_and_guide(client, fixture_bytes("guide_a.xml"))
+    blobs = tmp_path / "snapshots" / "epg" / epg_id
+    assert blobs.exists()
+    assert client.get("/api/v1/metrics/summary").json()["channels_with_epg"] > 0
+
+    off = client.patch(f"/api/v1/epg/sources/{epg_id}", json={"enabled": False}).json()
+    assert off["enabled"] is False
+
+    gone = client.delete(f"/api/v1/epg/sources/{epg_id}").json()["deleted"]
+    assert gone["guide_channels"] == 5 and gone["programmes"] > 0
+    assert client.get("/api/v1/epg/sources").json()["items"] == []
+    assert client.get("/api/v1/metrics/summary").json()["channels_with_epg"] == 0
+    assert client.delete(f"/api/v1/epg/sources/{epg_id}").status_code == 404
+    assert not blobs.exists()
