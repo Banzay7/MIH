@@ -42,6 +42,9 @@ class EPGImportReport:
     unmapped: int = 0
     # Catalog channels created for guide channels no playlist carries.
     channels_added: int = 0
+    # Which guide channels were stored and how (see scope_key): a later run with the
+    # same guide but other mappings or lists imports it again.
+    scope_key: str | None = None
     parse_errors: list[str] = field(default_factory=list)
 
     def stats(self) -> dict:
@@ -61,10 +64,14 @@ def import_xmltv(
     content: bytes,
     *,
     force: bool = False,
+    rescope: bool = False,
     now: datetime | None = None,
 ) -> EPGImportReport:
     """Import a guide snapshot. Like playlists, a broken, empty or much smaller guide is
-    recorded as rejected and the schedule already stored stays in place."""
+    recorded as rejected and the schedule already stored stays in place.
+
+    ``rescope``: the content is the one already imported, but what is stored of it
+    changed (new mappings, other channels in the lists); import it again."""
     now_dt = now or datetime.now(UTC)
     now_s = iso(now_dt) if now else utc_now()
     content_hash = hashlib.sha256(content).hexdigest()
@@ -73,7 +80,7 @@ def import_xmltv(
         " AND status = 'applied' ORDER BY fetched_at DESC, rowid DESC LIMIT 1",
         (epg_source_id,),
     ).fetchone()
-    if last and last["content_hash"] == content_hash and not force:
+    if last and last["content_hash"] == content_hash and not (force or rescope):
         return _store_snapshot(conn, epg_source_id, now_s, content_hash,
                                EPGImportReport(new_id(), "unchanged"))  # fmt: skip
 
@@ -119,6 +126,7 @@ def import_xmltv(
         scope = build_scope(conn, settings.epg_scope, list(ids.values()),
                             listed_channels(settings.lists_dir))  # fmt: skip
         wanted = {xid for xid in counts if ids[xid] in scope.channels}
+        report.scope_key = scope_key(scope, ids.values())
         parsed = parse_xmltv(open_content(content, settings.epg_max_bytes),
                              keep=wanted.__contains__)  # fmt: skip
         report.parse_errors = parsed.errors
@@ -177,6 +185,26 @@ def import_xmltv(
     report.snapshots_pruned = prune_snapshots(conn, settings, "epg_snapshots", epg_source_id,
                                               now_dt)  # fmt: skip
     return report
+
+
+def scope_key(scope, epg_channel_ids) -> str:
+    """A fingerprint of what an import of this guide stores: channels and their mode,
+    and the topics and titles that filter the rest."""
+    parts = sorted(f"{cid}:{scope.channels[cid]}" for cid in epg_channel_ids
+                   if cid in scope.channels)  # fmt: skip
+    parts.append(scope.topics.pattern if scope.topics else "")
+    parts.extend(sorted(scope.titles))
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:16]
+
+
+def current_scope_key(conn: sqlite3.Connection, settings: Settings, epg_source_id: str) -> str:
+    """scope_key an import of this guide would have now, after mapping its channels to
+    the catalog as it is now."""
+    refresh_mappings(conn, utc_now(), epg_source_id=epg_source_id)
+    ids = [r[0] for r in conn.execute(
+        "SELECT id FROM epg_channels WHERE epg_source_id = ?", (epg_source_id,))]  # fmt: skip
+    scope = build_scope(conn, settings.epg_scope, ids, listed_channels(settings.lists_dir))
+    return scope_key(scope, ids)
 
 
 def _upsert_channel(conn, epg_source_id: str, xmltv_id: str, ch, now: str) -> str:
