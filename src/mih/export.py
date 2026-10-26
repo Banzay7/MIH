@@ -188,12 +188,12 @@ def export_catalog(
         "channels": catalog,
     }
     files = ["channels.json", "channels.csv"]
-    _write_atomic(out_dir / "channels.json", json.dumps(doc, ensure_ascii=False, indent=2))
-    _write_atomic(out_dir / "channels.csv", _csv(catalog))
+    write_atomic(out_dir / "channels.json", json.dumps(doc, ensure_ascii=False, indent=2))
+    write_atomic(out_dir / "channels.csv", _csv(catalog))
     entries = 0
     if with_playlist:
         text, entries = _playlist(conn, catalog)
-        _write_atomic(out_dir / "playlist.m3u", text)
+        write_atomic(out_dir / "playlist.m3u", text)
         files.append("playlist.m3u")
     return ExportResult(out_dir, files, len(catalog), entries)
 
@@ -261,40 +261,46 @@ def _playlist(conn: sqlite3.Connection, catalog: list[dict]) -> tuple[str, int]:
             # pick_streams ranks the named feed first; only take a stream of this feed.
             mine = {s["id"] for s in f["streams"]}
             best = next((i for i in ids if i in mine), None)
-            if best is None:
-                continue
-            loc = conn.execute(
-                "SELECT url, headers FROM stream_locators WHERE stream_id = ?", (best,)
-            ).fetchone()
-            if loc is None:
-                continue
-            name = ch["name"]
-            if f["region"] and fold(f["region"]) not in fold(name):
-                name += f" ({f['region'].upper()})"
-            if f["offset_minutes"]:
-                name += f" {f['offset_minutes'] // 60:+d}"
-            attrs = {"tvg-id": ch["tvg_ids"][0] if ch["tvg_ids"] else "",
-                     "tvg-name": name, "tvg-logo": ch["logo_url"] or "",
-                     "tvg-country": ";".join(ch["countries"]),
-                     "tvg-language": ";".join(ch["languages"]),
-                     "group-title": ";".join(ch["categories"])}  # fmt: skip
-            attr_s = " ".join(f'{k}="{_attr(v)}"' for k, v in attrs.items() if v)
-            lines.append(f"#EXTINF:-1 {attr_s},{name}")
-            for k, v in json.loads(loc["headers"] or "{}").items():
-                opt = {"user-agent": "http-user-agent", "referer": "http-referrer",
-                       "referrer": "http-referrer"}.get(k.casefold())  # fmt: skip
-                if opt:
-                    lines.append(f"#EXTVLCOPT:{opt}={v}")
-            lines.append(loc["url"])
-            n += 1
+            entry = m3u_entry(conn, ch, f, best) if best else None
+            if entry:
+                lines.extend(entry)
+                n += 1
     return "\n".join(lines) + "\n", n
+
+
+def m3u_entry(conn: sqlite3.Connection, ch: dict, feed: dict, stream_id: str) -> list[str] | None:
+    """#EXTINF, player options and URL of one stream of a catalog channel's feed."""
+    loc = conn.execute(
+        "SELECT url, headers FROM stream_locators WHERE stream_id = ?", (stream_id,)
+    ).fetchone()
+    if loc is None:
+        return None
+    name = ch["name"]
+    if feed["region"] and fold(feed["region"]) not in fold(name):
+        name += f" ({feed['region'].upper()})"
+    if feed["offset_minutes"]:
+        name += f" {feed['offset_minutes'] // 60:+d}"
+    attrs = {"tvg-id": ch["tvg_ids"][0] if ch["tvg_ids"] else "",
+             "tvg-name": name, "tvg-logo": ch["logo_url"] or "",
+             "tvg-country": ";".join(ch["countries"]),
+             "tvg-language": ";".join(ch["languages"]),
+             "group-title": ";".join(ch["categories"])}  # fmt: skip
+    attr_s = " ".join(f'{k}="{_attr(v)}"' for k, v in attrs.items() if v)
+    lines = [f"#EXTINF:-1 {attr_s},{name}"]
+    for k, v in json.loads(loc["headers"] or "{}").items():
+        opt = {"user-agent": "http-user-agent", "referer": "http-referrer",
+               "referrer": "http-referrer"}.get(k.casefold())  # fmt: skip
+        if opt:
+            lines.append(f"#EXTVLCOPT:{opt}={v}")
+    lines.append(loc["url"])
+    return lines
 
 
 def _attr(value: str) -> str:
     return value.replace('"', "'").replace("\n", " ")
 
 
-def _write_atomic(path: Path, text: str) -> None:
+def write_atomic(path: Path, text: str) -> None:
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
