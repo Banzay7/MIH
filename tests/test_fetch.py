@@ -75,3 +75,13 @@ def test_size_limit_and_not_modified(fake_dns, tmp_path):
     result = fetch_source("http://public.example/a", settings, etag='"v1"',
                           transport=httpx.MockTransport(not_modified))  # fmt: skip
     assert result.content is None
+
+
+def test_a_hanging_source_is_a_fetch_error(fake_dns, tmp_path):
+    def hang(request):
+        raise httpx.ReadTimeout("timed out", request=request)
+
+    with pytest.raises(FetchError) as exc:
+        fetch_source("http://public.example/guide.xml.gz", Settings(data_dir=tmp_path),
+                     transport=httpx.MockTransport(hang))  # fmt: skip
+    assert exc.value.code == "network" and "ReadTimeout" in str(exc.value)
