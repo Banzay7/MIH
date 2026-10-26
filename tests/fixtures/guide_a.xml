@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tv SYSTEM "xmltv.dtd">
+<tv generator-info-name="synthetic test guide">
+  <channel id="Perviy.ru">
+    <display-name lang="ru">Первый канал</display-name>
+    <icon src="https://img.example/1tv.png"/>
+  </channel>
+  <channel id="Euronews.fr">
+    <display-name>Euronews</display-name>
+  </channel>
+  <channel id="vtv1.vn">
+    <display-name lang="vi">VTV1</display-name>
+  </channel>
+  <channel id="Russia1.ru">
+    <display-name lang="ru">Россия 1</display-name>
+  </channel>
+  <channel id="1tv-plus4">
+    <display-name lang="ru">Первый канал +4</display-name>
+  </channel>
+
+  <programme start="20261026060000 +0300" stop="20261026090000 +0300" channel="Perviy.ru">
+    <title lang="ru">Доброе утро</title>
+    <category lang="ru">Развлекательные</category>
+  </programme>
+  <programme start="20261026090000 +0300" stop="20261026091500 +0300" channel="Perviy.ru">
+    <title lang="ru">Новости</title>
+    <desc lang="ru">Выпуск новостей</desc>
+    <category lang="ru">Новости</category>
+  </programme>
+  <programme start="20261026091500 +0300" stop="20261026101500 +0300" channel="Perviy.ru">
+    <title lang="ru">Жить здорово!</title>
+    <desc lang="ru">Медицинское ток-шоу</desc>
+  </programme>
+  <programme start="20261026120000 +0300" stop="20261026121500 +0300" channel="Perviy.ru">
+    <title lang="ru">Новости</title>
+    <desc lang="ru">Выпуск новостей</desc>
+    <category lang="ru">Новости</category>
+  </programme>
+  <programme start="20261026121500 +0300" channel="Perviy.ru">
+    <title lang="ru">Время покажет</title>
+  </programme>
+  <programme start="20261026150000 +0300" channel="Perviy.ru">
+    <title lang="ru">Новости</title>
+  </programme>
+
+  <programme start="20261026080000 +0000" stop="20261026083000 +0000" channel="Euronews.fr">
+    <title lang="en">Euronews Now</title>
+  </programme>
+  <programme start="20261026083000 +0000" stop="20261026090000 +0000" channel="Euronews.fr">
+    <title lang="en">Business Line</title>
+    <desc lang="en">Markets and the economy.</desc>
+  </programme>
+
+  <programme start="20261026190000 +0700" stop="20261026194500 +0700" channel="vtv1.vn">
+    <title lang="vi">Thời sự</title>
+    <title lang="en">Evening News</title>
+    <episode-num system="xmltv_ns">0.11.</episode-num>
+    <episode-num system="onscreen">E12</episode-num>
+  </programme>
+  <programme start="20261026194500 +0700" stop="20261026193000 +0700" channel="vtv1.vn">
+    <title lang="vi">Broken slot</title>
+  </programme>
+
+  <programme start="20261026110000 +0300" stop="20261026113000 +0300" channel="Russia1.ru">
+    <title lang="ru">Вести</title>
+  </programme>
+</tv>

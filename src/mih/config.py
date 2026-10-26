@@ -23,6 +23,9 @@ class Settings:
     fetch_timeout_s: float = 30.0
     fetch_max_bytes: int = 50 * 1024 * 1024
     allow_private_sources: bool = False
+    # A guide is usually gzip; this caps the unpacked XML (decompression bombs).
+    epg_max_bytes: int = 256 * 1024 * 1024
+    epg_retention_days: int = 14
 
     @property
     def db_path(self) -> Path:
@@ -44,6 +47,8 @@ class Settings:
             fetch_timeout_s=float(env.get("MIH_FETCH_TIMEOUT_S", "30")),
             fetch_max_bytes=int(env.get("MIH_FETCH_MAX_BYTES", str(50 * 1024 * 1024))),
             allow_private_sources=env.get("MIH_ALLOW_PRIVATE_SOURCES", "") == "1",
+            epg_max_bytes=int(env.get("MIH_EPG_MAX_BYTES", str(256 * 1024 * 1024))),
+            epg_retention_days=int(env.get("MIH_EPG_RETENTION_DAYS", "14")),
         )
 
     def validate_for_serving(self) -> None:

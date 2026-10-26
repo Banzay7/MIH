@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from mih.config import Settings
+from mih.epg.mapping import refresh_mappings
 from mih.identity.normalize import NameParts, split_name
 from mih.identity.resolver import Resolution, record_decision, resolve
 from mih.ids import new_id, utc_now
@@ -96,6 +97,8 @@ def import_m3u(
             seen.add(_import_entry(conn, report, source_id, entry, now))
 
         report.streams_absent = _mark_absent(conn, source_id, seen)
+        # New feeds may be what a guide channel was waiting for.
+        refresh_mappings(conn, now)
         conn.execute(
             "UPDATE source_snapshots SET stats = ? WHERE id = ?",
             (json.dumps(report.stats()), report.snapshot_id),
@@ -168,6 +171,11 @@ def _import_entry(
         record_decision(conn, resolution=resolution, record_id=record_id, parts=parts,
                         tvg_id=tvg_id, now=now)  # fmt: skip
 
+    if tvg_id:
+        conn.execute(
+            "INSERT OR IGNORE INTO feed_aliases (feed_id, kind, value) VALUES (?, 'tvg-id', ?)",
+            (feed_id, tvg_id.casefold()),
+        )
     stream_id = _upsert_stream(conn, existing["id"] if existing else None, feed_id, source_id,
                                locator_hash, entry, parts, now)  # fmt: skip
     if not existing:

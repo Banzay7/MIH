@@ -1,4 +1,4 @@
-"""Command line: run the server, import a playlist file, print catalog stats."""
+"""Command line: run the server, import a playlist or guide file, print catalog stats."""
 
 from __future__ import annotations
 
@@ -9,6 +9,8 @@ from pathlib import Path
 
 from mih import db
 from mih.config import ConfigError, Settings
+from mih.epg.importer import import_xmltv
+from mih.epg.service import create_epg_source
 from mih.sources.importer import import_m3u
 from mih.sources.service import SourceError, create_source
 
@@ -22,6 +24,10 @@ def main(argv: list[str] | None = None) -> int:
     imp.add_argument("path", type=Path)
     imp.add_argument("--source", required=True, help="source name; created if missing")
     imp.add_argument("--force", action="store_true", help="skip the size-drop safety check")
+    epg = sub.add_parser("import-epg-file", help="import a local XMLTV file (.xml or .xml.gz)")
+    epg.add_argument("path", type=Path)
+    epg.add_argument("--source", required=True, help="EPG source name; created if missing")
+    epg.add_argument("--force", action="store_true", help="skip the size-drop safety check")
     sub.add_parser("stats", help="print catalog counts")
     args = parser.parse_args(argv)
 
@@ -45,11 +51,24 @@ def main(argv: list[str] | None = None) -> int:
         report = import_m3u(conn, settings, source_id, args.path.read_bytes(), force=args.force)
         print(json.dumps(report.stats(), ensure_ascii=False, indent=2))
         return 0 if report.status != "rejected" else 2
+    elif args.cmd == "import-epg-file":
+        row = conn.execute("SELECT id FROM epg_sources WHERE name = ?", (args.source,)).fetchone()
+        try:
+            source_id = (
+                row["id"] if row else create_epg_source(conn, settings, name=args.source, url=None)
+            )
+        except SourceError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        report = import_xmltv(conn, settings, source_id, args.path.read_bytes(), force=args.force)
+        print(json.dumps(report.stats(), ensure_ascii=False, indent=2))
+        return 0 if report.status != "rejected" else 2
     elif args.cmd == "stats":
         counts = {
             t: conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
-            for t in ("sources", "channels", "feeds", "streams")
-        }
+            for t in ("sources", "channels", "feeds", "streams", "epg_sources", "programmes",
+                      "airings")
+        }  # fmt: skip
         counts["needs_review"] = conn.execute(
             "SELECT COUNT(*) FROM match_decisions WHERE decision = 'needs_review'"
         ).fetchone()[0]

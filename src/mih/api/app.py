@@ -1,4 +1,4 @@
-"""REST API v1 (spec 22): health, sources, imports and the channel catalog."""
+"""REST API v1 (spec 22): health, sources, imports, the channel catalog and the EPG."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import hmac
 import json
 import sqlite3
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
@@ -15,6 +16,10 @@ from pydantic import BaseModel, Field
 
 from mih import __version__, db
 from mih.config import Settings
+from mih.epg import guide
+from mih.epg.importer import EPGImportReport, import_xmltv, iso
+from mih.epg.mapping import refresh_mappings, set_manual
+from mih.epg.service import create_epg_source, get_epg_source, import_epg_from_url
 from mih.identity.normalize import fold
 from mih.sources.fetch import FetchError
 from mih.sources.importer import ImportReport, import_m3u
@@ -27,6 +32,16 @@ _STATUS = {"not_found": 404, "conflict": 409, "validation_error": 422,
 class ApiError(Exception):
     def __init__(self, code: str, message: str):
         self.code, self.message = code, message
+
+
+class EPGSourceIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    url: str | None = Field(default=None, max_length=4000)
+
+
+class MappingIn(BaseModel):
+    # null means "this guide channel is none of my feeds".
+    feed_id: str | None
 
 
 class SourceIn(BaseModel):
@@ -146,12 +161,14 @@ def create_app(settings: Settings) -> FastAPI:
             "SELECT c.id, c.canonical_name, c.country, c.logo_url,"
             " (SELECT COUNT(*) FROM feeds f WHERE f.channel_id = c.id) AS feeds,"
             " (SELECT COUNT(*) FROM streams s JOIN feeds f ON f.id = s.feed_id"
-            "   WHERE f.channel_id = c.id AND s.availability_reason IS NULL) AS streams"
+            "   WHERE f.channel_id = c.id AND s.availability_reason IS NULL) AS streams,"
+            f" EXISTS ({_HAS_EPG}) AS has_epg"
             f" FROM channels c{where} ORDER BY c.canonical_name COLLATE NOCASE"
             " LIMIT ? OFFSET ?",
             (*params, limit, offset),
         ).fetchall()
-        return {"items": [dict(r) for r in rows], "limit": limit, "offset": offset}
+        items = [{**dict(r), "has_epg": bool(r["has_epg"])} for r in rows]
+        return {"items": items, "limit": limit, "offset": offset}
 
     @app.get("/api/v1/channels/{channel_id}", dependencies=auth)
     def channel_detail(channel_id: str, conn: Conn) -> dict:
@@ -163,6 +180,7 @@ def create_app(settings: Settings) -> FastAPI:
             " ORDER BY offset_minutes, region",
             (channel_id,),
         ).fetchall()
+        guides = guide.feed_guides(conn, [channel_id])
         out_feeds = []
         for f in feeds:
             # Locators are deliberately not selected: URLs never leave the server here.
@@ -172,14 +190,246 @@ def create_app(settings: Settings) -> FastAPI:
                 " FROM streams s WHERE s.feed_id = ? ORDER BY s.first_seen_at",
                 (f["id"],),
             ).fetchall()
-            out_feeds.append({**dict(f), "streams": [dict(s) for s in streams]})
+            out_feeds.append({**dict(f), "epg": _epg_out(guides.get(f["id"])),
+                              "streams": [dict(s) for s in streams]})  # fmt: skip
         aliases = conn.execute(
             "SELECT kind, display FROM channel_aliases WHERE channel_id = ? ORDER BY kind",
             (channel_id,),
         ).fetchall()
         return {**dict(ch), "aliases": [dict(a) for a in aliases], "feeds": out_feeds}
 
+    @app.post("/api/v1/epg/sources", status_code=201, dependencies=auth)
+    def add_epg_source(body: EPGSourceIn, conn: Conn) -> dict:
+        try:
+            source_id = create_epg_source(conn, settings, name=body.name, url=body.url)
+        except (SourceError, FetchError) as exc:
+            raise ApiError(exc.code, str(exc)) from exc
+        return _source_out(get_epg_source(conn, source_id), kind="xmltv")
+
+    @app.get("/api/v1/epg/sources", dependencies=auth)
+    def list_epg_sources(conn: Conn) -> dict:
+        rows = conn.execute("SELECT * FROM epg_sources ORDER BY name").fetchall()
+        return {"items": [_source_out(r, kind="xmltv") for r in rows]}
+
+    @app.get("/api/v1/epg/sources/{source_id}/snapshots", dependencies=auth)
+    def list_epg_snapshots(source_id: str, conn: Conn) -> dict:
+        _require_epg_source(conn, source_id)
+        rows = conn.execute(
+            "SELECT id, fetched_at, content_hash, channel_count, programme_count, status,"
+            " reason, stats FROM epg_snapshots WHERE epg_source_id = ?"
+            " ORDER BY fetched_at DESC, rowid DESC",
+            (source_id,),
+        ).fetchall()
+        return {"items": [{**dict(r), "stats": json.loads(r["stats"] or "{}")} for r in rows]}
+
+    @app.post("/api/v1/epg/sources/{source_id}/import", dependencies=auth)
+    def run_epg_import(source_id: str, conn: Conn, force: bool = False) -> dict:
+        _require_epg_source(conn, source_id)
+        try:
+            report = import_epg_from_url(conn, settings, source_id, force=force)
+        except (SourceError, FetchError) as exc:
+            raise ApiError(exc.code, str(exc)) from exc
+        if report is None:
+            return {"status": "not_modified"}
+        return _report_out(report)
+
+    @app.post("/api/v1/epg/sources/{source_id}/upload", dependencies=auth)
+    def upload_epg(
+        source_id: str, conn: Conn, file: Annotated[UploadFile, File()], force: bool = False
+    ) -> dict:
+        _require_epg_source(conn, source_id)
+        content = file.file.read(settings.fetch_max_bytes + 1)
+        if len(content) > settings.fetch_max_bytes:
+            raise ApiError("too_large", "file exceeds MIH_FETCH_MAX_BYTES")
+        return _report_out(import_xmltv(conn, settings, source_id, content, force=force))
+
+    @app.get("/api/v1/epg/channels", dependencies=auth)
+    def list_epg_channels(
+        conn: Conn,
+        mapping: Annotated[
+            str | None, Query(pattern="^(auto|needs_review|approved|rejected|unmapped)$")
+        ] = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = 100,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ) -> dict:
+        where, params = "", []
+        if mapping == "unmapped":
+            where = " WHERE m.decision IS NULL"
+        elif mapping:
+            where, params = " WHERE m.decision = ?", [mapping]
+        rows = conn.execute(
+            "SELECT ec.id, ec.epg_source_id, ec.xmltv_id, ec.display_names, ec.last_seen_at,"
+            " m.feed_id, m.rule, m.decision, m.decided_by, m.evidence"
+            " FROM epg_channels ec LEFT JOIN epg_mappings m ON m.epg_channel_id = ec.id"
+            f"{where} ORDER BY ec.xmltv_id LIMIT ? OFFSET ?",
+            (*params, limit, offset),
+        ).fetchall()
+        items = []
+        for r in rows:
+            evidence = json.loads(r["evidence"]) if r["evidence"] else {}
+            items.append({
+                "id": r["id"], "epg_source_id": r["epg_source_id"], "xmltv_id": r["xmltv_id"],
+                "display_names": [n for _, n in json.loads(r["display_names"])],
+                "last_seen_at": r["last_seen_at"], "feed_id": r["feed_id"],
+                "rule": r["rule"], "decision": r["decision"] or "unmapped",
+                "decided_by": r["decided_by"], "candidates": evidence.get("candidates", []),
+            })  # fmt: skip
+        return {"items": items, "limit": limit, "offset": offset}
+
+    @app.put("/api/v1/epg/channels/{epg_channel_id}/mapping", dependencies=auth)
+    def set_epg_mapping(epg_channel_id: str, body: MappingIn, conn: Conn) -> dict:
+        _require_epg_channel(conn, epg_channel_id)
+        if (
+            body.feed_id
+            and not conn.execute("SELECT 1 FROM feeds WHERE id = ?", (body.feed_id,)).fetchone()
+        ):
+            raise ApiError("validation_error", "feed not found")
+        set_manual(conn, epg_channel_id, body.feed_id, _now_s())
+        return {"epg_channel_id": epg_channel_id, "feed_id": body.feed_id,
+                "decision": "approved" if body.feed_id else "rejected"}  # fmt: skip
+
+    @app.delete("/api/v1/epg/channels/{epg_channel_id}/mapping", dependencies=auth)
+    def reset_epg_mapping(epg_channel_id: str, conn: Conn) -> dict:
+        """Forget a person's decision and let the automatic rules map it again."""
+        _require_epg_channel(conn, epg_channel_id)
+        conn.execute("BEGIN")
+        conn.execute("DELETE FROM epg_mappings WHERE epg_channel_id = ?", (epg_channel_id,))
+        refresh_mappings(conn, _now_s())
+        conn.execute("COMMIT")
+        row = conn.execute(
+            "SELECT feed_id, decision FROM epg_mappings WHERE epg_channel_id = ?",
+            (epg_channel_id,),
+        ).fetchone()
+        return {"epg_channel_id": epg_channel_id, "feed_id": row["feed_id"] if row else None,
+                "decision": row["decision"] if row else "unmapped"}  # fmt: skip
+
+    @app.get("/api/v1/now", dependencies=auth)
+    def on_now(
+        conn: Conn,
+        channel_id: Annotated[list[str] | None, Query()] = None,
+        timeshift: bool = False,
+    ) -> dict:
+        """What is on now and next, per feed. +N feeds are left out unless asked for."""
+        guides = guide.feed_guides(conn, channel_id)
+        if not timeshift:
+            guides = {k: g for k, g in guides.items() if g.shift_minutes == 0}
+        state = guide.now_and_next(conn, datetime.now(UTC), guides)
+        names = _channel_names(conn, {g.channel_id for g in guides.values()})
+        items = [
+            {"channel_id": g.channel_id, "channel_name": names.get(g.channel_id),
+             "feed_id": g.feed_id, **state[g.feed_id]}
+            for g in guides.values()
+        ]  # fmt: skip
+        items.sort(key=lambda i: ((i["channel_name"] or "").casefold(), i["feed_id"]))
+        return {"items": items}
+
+    @app.get("/api/v1/airings", dependencies=auth)
+    def list_airings(
+        conn: Conn,
+        channel_id: str,
+        start: Annotated[datetime | None, Query(alias="from")] = None,
+        end: Annotated[datetime | None, Query(alias="to")] = None,
+    ) -> dict:
+        start = _aware(start) if start else datetime.now(UTC)
+        end = _aware(end) if end else start + timedelta(hours=24)
+        if end <= start or end - start > timedelta(days=8):
+            raise ApiError("validation_error", "'to' must be after 'from', at most 8 days")
+        if conn.execute("SELECT 1 FROM channels WHERE id = ?", (channel_id,)).fetchone() is None:
+            raise ApiError("not_found", "channel not found")
+        guides = guide.feed_guides(conn, [channel_id])
+        feeds = [{"feed_id": g.feed_id, **_epg_out(g),
+                  "airings": guide.schedule(conn, g, start, end)}
+                 for g in guides.values()]  # fmt: skip
+        return {"channel_id": channel_id, "from": iso(start), "to": iso(end), "feeds": feeds}
+
+    @app.get("/api/v1/programmes/{programme_id}", dependencies=auth)
+    def programme_detail(programme_id: str, conn: Conn) -> dict:
+        p = conn.execute("SELECT * FROM programmes WHERE id = ?", (programme_id,)).fetchone()
+        if p is None:
+            raise ApiError("not_found", "programme not found")
+        guides = guide.feed_guides(conn)
+        by_epg: dict[str, list] = {}
+        for g in guides.values():
+            by_epg.setdefault(g.epg_channel_id, []).append(g)
+        rows = conn.execute(
+            f"SELECT {guide._AIRING_COLS} FROM airings a JOIN programmes p"
+            " ON p.id = a.programme_id WHERE a.programme_id = ? AND a.status = 'scheduled'"
+            " ORDER BY a.start_utc",
+            (programme_id,),
+        ).fetchall()
+        airings = [
+            guide.airing_out(r, g) for r in rows for g in by_epg.get(r["epg_channel_id"], [])
+        ]
+        airings.sort(key=lambda a: a["start"])
+        localized = json.loads(p["localized"])
+        return {
+            "id": p["id"], "title": p["title"], "sub_title": p["sub_title"],
+            "description": p["description"], "episode_num": p["episode_num"],
+            "categories": json.loads(p["categories"]), "lang": p["lang"],
+            "icon_url": p["icon_url"], "rating": p["rating"],
+            "titles": [{"lang": lang, "text": t} for lang, t in localized["titles"]],
+            "airings": airings,
+        }  # fmt: skip
+
+    @app.get("/api/v1/metrics/summary", dependencies=auth)
+    def metrics_summary(conn: Conn) -> dict:
+        channels = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
+        with_epg = conn.execute(
+            f"SELECT COUNT(*) FROM channels c WHERE EXISTS ({_HAS_EPG})"
+        ).fetchone()[0]
+        review = conn.execute(
+            "SELECT COUNT(*) FROM epg_mappings WHERE decision = 'needs_review'"
+        ).fetchone()[0]
+        return {"channels": channels, "channels_with_epg": with_epg,
+                "epg_coverage": round(with_epg / channels, 3) if channels else None,
+                "epg_mappings_needs_review": review}  # fmt: skip
+
     return app
+
+
+# A channel has EPG when any of its feeds has a guide of its own; +N feeds borrow it.
+_HAS_EPG = (
+    "SELECT 1 FROM epg_mappings m JOIN feeds f ON f.id = m.feed_id"
+    " WHERE f.channel_id = c.id AND m.decision IN ('auto', 'approved')"
+)
+
+
+def _epg_out(g: guide.FeedGuide | None) -> dict:
+    if g is None:
+        return {"available": False}
+    return {"available": True, "timeshift_minutes": g.shift_minutes,
+            "borrowed_from_feed_id": g.borrowed_from}  # fmt: skip
+
+
+def _channel_names(conn: sqlite3.Connection, ids: set[str]) -> dict[str, str]:
+    if not ids:
+        return {}
+    marks = ",".join("?" * len(ids))
+    rows = conn.execute(
+        f"SELECT id, canonical_name FROM channels WHERE id IN ({marks})", tuple(ids)
+    ).fetchall()
+    return {r["id"]: r["canonical_name"] for r in rows}
+
+
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
+def _now_s() -> str:
+    return iso(datetime.now(UTC))
+
+
+def _require_epg_source(conn: sqlite3.Connection, source_id: str) -> None:
+    try:
+        get_epg_source(conn, source_id)
+    except SourceError as exc:
+        raise ApiError(exc.code, str(exc)) from exc
+
+
+def _require_epg_channel(conn: sqlite3.Connection, epg_channel_id: str) -> None:
+    row = conn.execute("SELECT 1 FROM epg_channels WHERE id = ?", (epg_channel_id,)).fetchone()
+    if row is None:
+        raise ApiError("not_found", "EPG channel not found")
 
 
 def _require_source(conn: sqlite3.Connection, source_id: str) -> None:
@@ -189,14 +439,14 @@ def _require_source(conn: sqlite3.Connection, source_id: str) -> None:
         raise ApiError(exc.code, str(exc)) from exc
 
 
-def _source_out(row: sqlite3.Row) -> dict:
+def _source_out(row: sqlite3.Row, kind: str | None = None) -> dict:
     # The URL can embed a subscriber token, so only say whether one is set.
-    return {"id": row["id"], "kind": row["kind"], "name": row["name"],
+    return {"id": row["id"], "kind": kind or row["kind"], "name": row["name"],
             "has_url": bool(row["url"]), "enabled": bool(row["enabled"]),
             "priority": row["priority"], "created_at": row["created_at"]}  # fmt: skip
 
 
-def _report_out(report: ImportReport) -> dict:
+def _report_out(report: ImportReport | EPGImportReport) -> dict:
     out = report.stats()
     out["parse_errors_sample"] = report.parse_errors[:20]
     return out
