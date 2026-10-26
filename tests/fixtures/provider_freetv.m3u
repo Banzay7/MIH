@@ -1,0 +1,5 @@
+#EXTM3U
+#EXTINF:-1 tvg-country="RU",Первый канал
+https://e.example/perviy.m3u8
+#EXTINF:-1,НТВ
+https://e.example/ntv.m3u8

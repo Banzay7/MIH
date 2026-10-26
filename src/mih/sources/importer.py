@@ -9,8 +9,9 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from mih.config import Settings
+from mih.directory import link_and_merge
 from mih.epg.mapping import refresh_mappings
-from mih.identity.normalize import NameParts, split_name
+from mih.identity.normalize import NameParts, split_name, tvg_base
 from mih.identity.resolver import Resolution, record_decision, resolve
 from mih.ids import new_id, utc_now
 from mih.retention import prune_snapshots
@@ -27,6 +28,7 @@ class ImportReport:
     streams_created: int = 0
     streams_absent: int = 0
     needs_review: int = 0
+    channels_merged: int = 0
     parse_errors: list[str] = field(default_factory=list)
 
     def stats(self) -> dict:
@@ -98,6 +100,7 @@ def import_m3u(
             seen.add(_import_entry(conn, report, source_id, entry, now))
 
         report.streams_absent = _mark_absent(conn, source_id, seen)
+        _, report.channels_merged = link_and_merge(conn)
         # New feeds may be what a guide channel was waiting for.
         refresh_mappings(conn, now)
         conn.execute(
@@ -174,9 +177,10 @@ def _import_entry(
                         tvg_id=tvg_id, now=now)  # fmt: skip
 
     if tvg_id:
-        conn.execute(
+        # Guides use both "ChannelOne.ru@SD" and plain "ChannelOne.ru".
+        conn.executemany(
             "INSERT OR IGNORE INTO feed_aliases (feed_id, kind, value) VALUES (?, 'tvg-id', ?)",
-            (feed_id, tvg_id.casefold()),
+            [(feed_id, v) for v in {tvg_id.casefold(), tvg_base(tvg_id)}],
         )
     stream_id = _upsert_stream(conn, existing["id"] if existing else None, feed_id, source_id,
                                locator_hash, entry, parts, now)  # fmt: skip
@@ -198,7 +202,7 @@ def _still_same_channel(
         tvg_id
         and conn.execute(
             "SELECT 1 FROM channel_aliases WHERE channel_id = ? AND kind = 'tvg-id' AND value = ?",
-            (channel_id, tvg_id.casefold()),
+            (channel_id, tvg_base(tvg_id)),
         ).fetchone()
     )
 

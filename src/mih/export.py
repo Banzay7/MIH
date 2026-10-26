@@ -55,6 +55,19 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
     "adult": ("adult", "xxx", "18+", "взросл"),
 }  # fmt: skip
 
+# iptv-org categories -> the catalog's (CATEGORIES above).
+CATEGORY_MAP = {
+    "animation": "kids", "auto": "lifestyle", "business": "business", "classic": "movies",
+    "comedy": "entertainment", "cooking": "lifestyle", "culture": "education",
+    "documentary": "documentary", "education": "education", "entertainment": "entertainment",
+    "family": "entertainment", "general": "general", "interactive": "entertainment",
+    "kids": "kids", "legislative": "news", "lifestyle": "lifestyle", "movies": "movies",
+    "music": "music", "news": "news", "outdoor": "lifestyle", "public": "general",
+    "relax": "lifestyle", "religious": "religion", "science": "documentary",
+    "series": "series", "shop": "shop", "sports": "sport", "travel": "lifestyle",
+    "weather": "news", "xxx": "adult",
+}  # fmt: skip
+
 _SPLIT_RE = re.compile(r"\s*[;|]\s*")
 
 
@@ -80,6 +93,17 @@ def categorize(texts: list[str]) -> list[str]:
     return found
 
 
+def directory_categories(raw: list[str], nsfw: bool) -> list[str]:
+    cats = []
+    for c in raw:
+        mapped = CATEGORY_MAP.get(c.casefold())
+        if mapped and mapped not in cats:
+            cats.append(mapped)
+    if nsfw and "adult" not in cats:
+        cats.append("adult")
+    return cats
+
+
 def build_catalog(conn: sqlite3.Connection) -> list[dict]:
     """Every channel with categories and details, sorted by name. No stream URLs."""
     attrs = _current_attrs(conn)
@@ -89,6 +113,10 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
         " WHERE m.decision IN ('auto', 'approved')"
     )}  # fmt: skip
     sources = {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM sources")}
+    directory = {r["id"]: r for r in conn.execute(
+        "SELECT id, country, categories, languages, is_nsfw, closed, logo_url"
+        " FROM directory_channels WHERE id IN (SELECT directory_id FROM channels)"
+    )}  # fmt: skip
 
     streams_by_feed: dict[str, list[sqlite3.Row]] = defaultdict(list)
     for s in conn.execute(
@@ -112,7 +140,7 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
 
     out = []
     for ch in conn.execute(
-        "SELECT id, canonical_name, country, logo_url, status FROM channels"
+        "SELECT id, canonical_name, country, logo_url, status, directory_id FROM channels"
         " ORDER BY canonical_name COLLATE NOCASE"
     ):
         groups: list[str] = []
@@ -144,25 +172,35 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
                               "offset_minutes": f["offset_minutes"],
                               "audio_lang": f["audio_lang"], "streams": f_streams})  # fmt: skip
 
-        from_groups = categorize(groups)
+        d = directory.get(ch["directory_id"])
+        from_dir = []
+        if d is not None:
+            from_dir = directory_categories(json.loads(d["categories"] or "[]"), d["is_nsfw"])
+            langs.update(json.loads(d["languages"] or "[]"))
+            if d["country"]:
+                countries.add(d["country"])
+        from_groups = [c for c in categorize(groups) if c not in from_dir]
         from_name = [c for c in categorize([ch["canonical_name"], *names[ch["id"]]])
-                     if c not in from_groups]  # fmt: skip
+                     if c not in from_dir + from_groups]  # fmt: skip
         top_epg = [c for c, _ in epg_cats.get(ch["id"], Counter()).most_common(5)]
-        from_epg = [c for c in categorize(top_epg) if c not in from_groups + from_name]
-        categories = from_groups + from_name + from_epg
+        from_epg = [c for c in categorize(top_epg)
+                    if c not in from_dir + from_groups + from_name]  # fmt: skip
+        categories = from_dir + from_groups + from_name + from_epg
         playable = sum(n for st, n in status_counts.items()
                        if st not in ("quarantine", "archived", "absent"))  # fmt: skip
         out.append({
             "id": ch["id"],
             "name": ch["canonical_name"],
             "categories": categories or ["other"],
-            "category_source": ("playlist" if from_groups else "name" if from_name
-                                else "epg" if from_epg else "none"),
+            "category_source": ("directory" if from_dir else "playlist" if from_groups
+                                else "name" if from_name else "epg" if from_epg else "none"),
             "groups": groups,
             "epg_categories": top_epg,
             "countries": sorted(countries),
             "languages": sorted(langs),
-            "logo_url": ch["logo_url"],
+            "logo_url": ch["logo_url"] or (d["logo_url"] if d is not None else None),
+            "directory_id": ch["directory_id"],
+            "closed": d["closed"] if d is not None else None,
             "also_known_as": sorted(set(names[ch["id"]]) - {ch["canonical_name"]}),
             "tvg_ids": sorted(tvg_ids[ch["id"]]),
             "sources": sorted(src_names),
@@ -199,7 +237,10 @@ def export_catalog(
 
 
 def _health(counts: Counter) -> str:
-    """ok: a checked stream works; grey: only unchecked or flapping ones; down: none left."""
+    """ok: a checked stream works; grey: only unchecked or flapping ones; down: none left;
+    none: no stream at all (a channel known only from the directory)."""
+    if not counts:
+        return "none"
     if counts.get("active"):
         return "ok"
     if counts.get("new") or counts.get("unverified") or counts.get("suspect"):
