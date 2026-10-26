@@ -38,3 +38,21 @@
 - `<имя>.csv`: каналы списка для таблицы.
 
 Причины в отчёте: `geo_suspect` (последняя ошибка 403 или 451, вероятно блокировка по стране), `no_answer` (таймаут, нет соединения), `gone` (404, 410, домен не существует), `unchecked`, `never_worked`, `failing`, `stale`, `device_failed`, `drm`, `login`, `absent`, `no_stream`.
+
+## Готовые списки и ссылка для плеера
+
+Набор списков задаётся JSON-файлом в `MIH_LISTS_FILE`:
+
+```json
+{
+  "ru": {"country": ["RU"]},
+  "ru-news": {"country": ["RU"], "category": ["news"], "epg_url": "https://example.org/epg.xml.gz"},
+  "kids": {"lang": ["ru"], "category": ["kids"], "level": "doubtful"}
+}
+```
+
+Ключи: `country`, `lang`, `category`, `exclude_category`, `level`, `timeshift`, `adult`, `epg_only`, `epg_url`, те же, что у `mih list`. Без файла собирается один список `valid`: все каналы, которые играют.
+
+Списки пересобираются после каждой проверки потоков (задача `health` планировщика) в `<MIH_EXPORT_DIR>/lists/`. Вручную: `mih list --presets`.
+
+Ссылка для плеера: `http://<сервер>/lists/<имя>.m3u?token=<MIH_API_TOKEN>` (токен в адресе, потому что плееры не умеют передавать заголовки). Там же `<имя>.json` и `<имя>.csv`. Перечень списков с числом каналов и причинами исключения: `GET /api/v1/lists`.
