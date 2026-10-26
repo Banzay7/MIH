@@ -14,6 +14,7 @@ from mih.epg.mapping import refresh_mappings
 from mih.epg.xmltv import XMLTVFormatError, XMLTVProgramme, open_content, parse_xmltv
 from mih.identity.normalize import fold
 from mih.ids import new_id, utc_now
+from mih.search.index import drop_orphans, index_programme
 
 
 @dataclass
@@ -114,6 +115,7 @@ def import_xmltv(
             "DELETE FROM programmes WHERE NOT EXISTS"
             " (SELECT 1 FROM airings a WHERE a.programme_id = programmes.id)"
         )
+        drop_orphans(conn)
 
         counts = refresh_mappings(conn, now_s, epg_source_id=epg_source_id)
         report.mapped = counts["auto"] + counts["approved"]
@@ -235,6 +237,7 @@ def _upsert_programme(conn: sqlite3.Connection, p: XMLTVProgramme, now: str) -> 
          json.dumps(localized, ensure_ascii=False), json.dumps(p.categories, ensure_ascii=False),
          p.episode_num, p.lang, p.icon, p.rating, now),
     )  # fmt: skip
+    index_programme(conn, programme_id)
     return programme_id
 
 

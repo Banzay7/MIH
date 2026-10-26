@@ -157,3 +157,19 @@ def test_now_and_next(client):
     assert len(shifted) == 2  # the +2 feed is two hours behind: nothing yet, "Сейчас" next
     plus2 = next(i for i in shifted if i["now"] is None)
     assert plus2["next"]["title"] == "Сейчас"
+
+
+def test_search_endpoint(client):
+    _upload_catalog_and_guide(client, fixture_bytes("guide_a.xml"))
+    body = {"query": "новости", "filters": {"from": "2026-10-26T00:00:00Z",
+            "to": "2026-10-27T00:00:00Z"}, "tz": "Europe/Moscow"}  # fmt: skip
+    result = client.post("/api/v1/search", json=body).json()
+    airings = [i for i in result["items"] if i["type"] == "airing"]
+    assert [(a["title"], a["more_airings"]) for a in airings] == [("Новости", 1)]
+    assert result["query"]["time"] == "custom"
+
+    bad_tz = client.post("/api/v1/search", json={"query": "x", "tz": "Mars/Base"})
+    assert bad_tz.status_code == 422
+    bad_type = client.post("/api/v1/search", json={"query": "x", "target_types": ["stream"]})
+    assert bad_type.status_code == 422
+    assert "SECRET" not in client.post("/api/v1/search", json={"query": "первый"}).text

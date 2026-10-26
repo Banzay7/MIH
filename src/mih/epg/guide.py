@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from mih.epg.importer import iso
 
-_AIRING_COLS = (
+AIRING_COLS = (
     "a.id AS airing_id, a.epg_channel_id, a.start_utc, a.stop_utc, a.status, a.version,"
     " p.id AS programme_id, p.title, p.sub_title, p.episode_num, p.categories, p.lang,"
     " p.icon_url, p.rating"
@@ -100,7 +100,7 @@ def now_and_next(
         current = {
             r["epg_channel_id"]: r
             for r in conn.execute(
-                f"SELECT {_AIRING_COLS} FROM airings a JOIN programmes p ON p.id = a.programme_id"
+                f"SELECT {AIRING_COLS} FROM airings a JOIN programmes p ON p.id = a.programme_id"
                 f" WHERE a.epg_channel_id IN ({marks}) AND a.status = 'scheduled'"
                 " AND a.start_utc <= ? AND a.stop_utc > ?",
                 (*epg_ids, t, t),
@@ -110,7 +110,7 @@ def now_and_next(
         upcoming = {
             r["epg_channel_id"]: r
             for r in conn.execute(
-                f"SELECT {_AIRING_COLS}, MIN(a.start_utc) FROM airings a"
+                f"SELECT {AIRING_COLS}, MIN(a.start_utc) FROM airings a"
                 " JOIN programmes p ON p.id = a.programme_id"
                 f" WHERE a.epg_channel_id IN ({marks}) AND a.status = 'scheduled'"
                 " AND a.start_utc > ? GROUP BY a.epg_channel_id",
@@ -131,7 +131,7 @@ def schedule(
 ) -> list[dict]:
     shift = timedelta(minutes=guide.shift_minutes)
     rows = conn.execute(
-        f"SELECT {_AIRING_COLS} FROM airings a JOIN programmes p ON p.id = a.programme_id"
+        f"SELECT {AIRING_COLS} FROM airings a JOIN programmes p ON p.id = a.programme_id"
         " WHERE a.epg_channel_id = ? AND a.status = 'scheduled'"
         " AND a.start_utc < ? AND a.stop_utc > ? ORDER BY a.start_utc",
         (guide.epg_channel_id, iso(end - shift), iso(start - shift)),

@@ -26,6 +26,8 @@ class Settings:
     # A guide is usually gzip; this caps the unpacked XML (decompression bombs).
     epg_max_bytes: int = 256 * 1024 * 1024
     epg_retention_days: int = 14
+    # IANA zone for "today", "tomorrow", "evening" in search when a request names none.
+    timezone: str = "UTC"
 
     @property
     def db_path(self) -> Path:
@@ -49,6 +51,7 @@ class Settings:
             allow_private_sources=env.get("MIH_ALLOW_PRIVATE_SOURCES", "") == "1",
             epg_max_bytes=int(env.get("MIH_EPG_MAX_BYTES", str(256 * 1024 * 1024))),
             epg_retention_days=int(env.get("MIH_EPG_RETENTION_DAYS", "14")),
+            timezone=env.get("MIH_TIMEZONE", "UTC"),
         )
 
     def validate_for_serving(self) -> None:

@@ -8,6 +8,7 @@ import sqlite3
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
@@ -21,6 +22,8 @@ from mih.epg.importer import EPGImportReport, import_xmltv, iso
 from mih.epg.mapping import refresh_mappings, set_manual
 from mih.epg.service import create_epg_source, get_epg_source, import_epg_from_url
 from mih.identity.normalize import fold
+from mih.search.engine import SearchRequest, search
+from mih.search.index import ensure_index
 from mih.sources.fetch import FetchError
 from mih.sources.importer import ImportReport, import_m3u
 from mih.sources.service import SourceError, create_source, get_source, import_from_url
@@ -37,6 +40,23 @@ class ApiError(Exception):
 class EPGSourceIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     url: str | None = Field(default=None, max_length=4000)
+
+
+class SearchFilters(BaseModel):
+    languages: list[str] = Field(default_factory=list, max_length=10)
+    time: str | None = Field(default=None, pattern="^(now|today|tomorrow|tonight|yesterday)$")
+    start: datetime | None = Field(default=None, alias="from")
+    end: datetime | None = Field(default=None, alias="to")
+    channel_ids: list[str] = Field(default_factory=list, max_length=500)
+
+
+class SearchIn(BaseModel):
+    query: str = Field(default="", max_length=500)
+    target_types: list[str] = Field(default_factory=lambda: ["airing", "channel"])
+    filters: SearchFilters = Field(default_factory=SearchFilters)
+    tz: str | None = Field(default=None, max_length=64)
+    limit: int = Field(default=20, ge=1, le=100)
+    ai: bool = False  # spec 20: AI_OFF; accepted for forward compatibility, ignored
 
 
 class MappingIn(BaseModel):
@@ -78,6 +98,7 @@ Conn = Annotated[sqlite3.Connection, Depends(get_conn)]
 def create_app(settings: Settings) -> FastAPI:
     conn = db.connect(settings.db_path)
     db.migrate(conn)
+    ensure_index(conn)
     conn.close()
 
     app = FastAPI(title="MIRTVONLINE API", version=__version__, docs_url="/api/docs",
@@ -352,7 +373,7 @@ def create_app(settings: Settings) -> FastAPI:
         for g in guides.values():
             by_epg.setdefault(g.epg_channel_id, []).append(g)
         rows = conn.execute(
-            f"SELECT {guide._AIRING_COLS} FROM airings a JOIN programmes p"
+            f"SELECT {guide.AIRING_COLS} FROM airings a JOIN programmes p"
             " ON p.id = a.programme_id WHERE a.programme_id = ? AND a.status = 'scheduled'"
             " ORDER BY a.start_utc",
             (programme_id,),
@@ -370,6 +391,24 @@ def create_app(settings: Settings) -> FastAPI:
             "titles": [{"lang": lang, "text": t} for lang, t in localized["titles"]],
             "airings": airings,
         }  # fmt: skip
+
+    @app.post("/api/v1/search", dependencies=auth)
+    def run_search(body: SearchIn, conn: Conn) -> dict:
+        tz = body.tz or settings.timezone
+        try:
+            ZoneInfo(tz)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ApiError("validation_error", f"unknown time zone {tz!r}") from exc
+        unknown = set(body.target_types) - {"airing", "channel"}
+        if unknown:
+            raise ApiError("validation_error", f"unsupported target_types: {sorted(unknown)}")
+        f = body.filters
+        req = SearchRequest(query=body.query, target_types=body.target_types,
+                            languages=f.languages, time=f.time,
+                            start=_aware(f.start) if f.start else None,
+                            end=_aware(f.end) if f.end else None,
+                            channel_ids=f.channel_ids, tz=tz, limit=body.limit)  # fmt: skip
+        return search(conn, req, datetime.now(UTC))
 
     @app.get("/api/v1/metrics/summary", dependencies=auth)
     def metrics_summary(conn: Conn) -> dict:
