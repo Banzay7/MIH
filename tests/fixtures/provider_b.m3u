@@ -1,0 +1,5 @@
+#EXTM3U
+#EXTINF:-1 tvg-country="RU",Первый Канал
+http://b.example/ch/101.ts
+#EXTINF:-1,EURONEWS (Europe) [1080p]
+http://b.example/ch/202.m3u8

@@ -1,0 +1,5 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="perviy.ru",1TV Russia
+https://c.example/perviy.m3u8
+#EXTINF:-1 tvg-name="Первый канал",
+https://c.example/perviy_backup.m3u8

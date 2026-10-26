@@ -1,0 +1,18 @@
+# Test deployment: its own container, port and volume, nothing shared with other services.
+services:
+  mih:
+    build: .
+    image: mirtvonline/mih:dev
+    restart: unless-stopped
+    environment:
+      MIH_API_TOKEN: ${MIH_API_TOKEN:?set a random token of 24+ characters}
+    # Publish on localhost only; put an HTTPS proxy or a tunnel in front for remote access.
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - mih-data:/data
+    mem_limit: 512m
+    cpus: 1.0
+
+volumes:
+  mih-data:

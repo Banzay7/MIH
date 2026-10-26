@@ -1,0 +1,13 @@
+#EXTM3U x-tvg-url="https://epg.example/guide.xml"
+#EXTINF:-1 tvg-id="Perviy.ru" tvg-country="RU" tvg-logo="https://img.example/1tv.png" group-title="Общие",Первый канал HD
+https://a.example/live/1tv/index.m3u8?token=SECRET_A1
+#EXTINF:-1 tvg-id="Perviy.ru" tvg-country="RU" group-title="Общие",Первый канал +2
+https://a.example/live/1tv_plus2/index.m3u8?token=SECRET_A2
+#EXTINF:-1 tvg-id="Euronews.fr" group-title="News, Europe",Euronews (Europe)
+https://a.example/live/euronews_eu.m3u8
+#EXTINF:-1 tvg-id="Euronews.fr" group-title="News",Euronews (Asia)
+https://a.example/live/euronews_asia.m3u8
+#EXTINF:-1 tvg-id="VTV1.vn" tvg-country="VN" group-title="Việt Nam",VTV1 Thời sự FHD
+#EXTVLCOPT:http-user-agent=SomePlayer/1.0
+#EXTVLCOPT:http-referrer=https://a.example/
+https://a.example/live/vtv1.m3u8
