@@ -91,7 +91,7 @@ docker compose -f docker-compose.example.yml up -d --build
 | `MIH_LISTS_FILE` | нет | JSON с готовыми списками каналов ([docs/lists.md](docs/lists.md)); без него один список `valid` |
 | `MIH_TIMEZONE` | `UTC` | Часовой пояс для «сегодня/завтра/вечером» в поиске (IANA, например `Europe/Berlin`) |
 | `MIH_SCHEDULER` | `1` | `0` выключает встроенный планировщик `mih serve`; задачи тогда запускаются только вручную |
-| `MIH_EVERY_SOURCES`, `MIH_EVERY_EPG`, `MIH_EVERY_HEALTH` | `6h`, `12h`, `30m` | Как часто обновлять плейлисты и программу по URL и проверять потоки (`30m`, `6h`, `1d`, `off`) |
+| `MIH_EVERY_SOURCES`, `MIH_EVERY_EPG`, `MIH_EVERY_HEALTH` | `6h`, `12h`, `10m` | Как часто обновлять плейлисты и программу по URL и проверять потоки (`30m`, `6h`, `1d`, `off`) |
 | `MIH_DIGEST_AT` | `09:00` | Время ежедневной сводки по `MIH_TIMEZONE`; `off` выключает |
 | `MIH_NTFY_URL` | — | Адрес топика ntfy (`https://ntfy.sh/<топик>` или свой сервер); пусто = без пушей |
 | `MIH_NTFY_TOKEN` | — | Токен доступа ntfy, если топик закрыт |

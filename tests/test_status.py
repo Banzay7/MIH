@@ -136,7 +136,7 @@ def test_old_events_are_forgotten(conn, settings):
 def test_next_run_of_digest_is_local_time(pushing):
     # 09:00 in Berlin on 26 Oct 2026 (CET, UTC+1) is 08:00 UTC: already past at 10:00 UTC.
     assert next_run(pushing, "digest", NOW) == datetime(2026, 10, 27, 8, 0, tzinfo=UTC)
-    assert next_run(pushing, "health", NOW) == NOW + timedelta(minutes=30)
+    assert next_run(pushing, "health", NOW) == NOW + timedelta(minutes=10)
     off = Settings(data_dir=pushing.data_dir, digest_at=None, every_epg=None)
     assert next_run(off, "digest", NOW) is None and next_run(off, "epg", NOW) is None
 
@@ -233,7 +233,7 @@ def test_digest_lists_problems_and_the_plan(conn, pushing):
     assert event["title"] == "MIRTVONLINE: сводка за сутки" and event["level"] == "info"
     body = event["body"]
     assert "Каталог: каналов 0" in body and "• EPG сломался" in body
-    assert "Запланировано:" in body and "• проверка потоков: каждые 30 мин" in body
+    assert "Запланировано:" in body and "• проверка потоков: каждые 10 мин" in body
 
 
 def test_scheduler_tick_runs_what_is_due(pushing):

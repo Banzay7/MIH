@@ -219,12 +219,28 @@ def _describe_guide(settings, r) -> tuple[str, bool]:
     return text, False  # a new day of guide is routine
 
 
+def _rebuild_lists(conn, settings, data: dict) -> str:
+    """Every finished part (a playlist, a guide, a batch of checks) is merged into the
+    catalog by its importer; the lists are rebuilt right after, so they grow as the
+    work goes instead of waiting for a full pass."""
+    try:
+        built = build_presets(conn, settings.lists_dir, load_presets(settings.lists_file))
+    except (ValueError, OSError) as exc:
+        return t(settings, "error", error=exc)
+    data["lists"] = {r.name: r.channels for r in built}
+    return t(settings, "health.lists", lists=", ".join(f"{r.name} {r.channels}" for r in built))
+
+
 def _job_sources(conn, settings, policy, now, transport) -> Outcome:
-    return _refresh(conn, settings, "sources", import_from_url, _describe_playlist, "job.sources")
+    out = _refresh(conn, settings, "sources", import_from_url, _describe_playlist, "job.sources")
+    out.lines.append(_rebuild_lists(conn, settings, out.data))
+    return out
 
 
 def _job_epg(conn, settings, policy, now, transport) -> Outcome:
-    return _refresh(conn, settings, "epg_sources", import_epg_from_url, _describe_guide, "job.epg")
+    out = _refresh(conn, settings, "epg_sources", import_epg_from_url, _describe_guide, "job.epg")
+    out.lines.append(_rebuild_lists(conn, settings, out.data))
+    return out
 
 
 def _job_health(conn, settings, policy, now, transport) -> Outcome:
@@ -233,14 +249,7 @@ def _job_health(conn, settings, policy, now, transport) -> Outcome:
     data.pop("run_id", None)
     if report.status == "vantage_offline":
         return Outcome("warning", "warning", t(settings, "job.health.offline"), data=data)
-    # Fresh results and the passing of time change what is valid: rebuild the lists.
-    try:
-        built = build_presets(conn, settings.lists_dir, load_presets(settings.lists_file))
-        data["lists"] = {r.name: r.channels for r in built}
-        lists_line = t(settings, "health.lists",
-                       lists=", ".join(f"{r.name} {r.channels}" for r in built))  # fmt: skip
-    except (ValueError, OSError) as exc:
-        lists_line = t(settings, "error", error=exc)
+    lists_line = _rebuild_lists(conn, settings, data)
     if not report.checked:
         return Outcome("ok", "routine", t(settings, "job.health.idle"), data=data)
     down = sum(n for k, n in report.transitions.items() if k.split("->")[1] in _DOWN

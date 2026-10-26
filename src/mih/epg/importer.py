@@ -77,27 +77,26 @@ def import_xmltv(
         return _store_snapshot(conn, epg_source_id, now_s, content_hash,
                                EPGImportReport(new_id(), "unchanged"))  # fmt: skip
 
+    # Two passes: the first only lists channels and counts programmes, so the safety
+    # checks and the scope come first and only in-scope programmes are ever built.
     try:
-        parsed = parse_xmltv(open_content(content, settings.epg_max_bytes))
+        scan = parse_xmltv(open_content(content, settings.epg_max_bytes), keep=lambda _: False)
     except XMLTVFormatError as exc:
         reason = "too_large" if "MIH_EPG_MAX_BYTES" in str(exc) else "not_xmltv"
         return _store_snapshot(conn, epg_source_id, now_s, content_hash,
                                EPGImportReport(new_id(), "rejected", reason))  # fmt: skip
 
-    by_channel: dict[str, list[XMLTVProgramme]] = {}
-    for p in parsed.programmes:
-        by_channel.setdefault(p.channel, []).append(p)
-    report = EPGImportReport(new_id(), "applied", channels=len(by_channel),
-                             programmes=len(parsed.programmes),
-                             parse_errors=parsed.errors)  # fmt: skip
-    if not parsed.programmes:
+    counts = scan.counts
+    report = EPGImportReport(new_id(), "applied", channels=len(counts),
+                             programmes=sum(counts.values()))  # fmt: skip
+    if not report.programmes:
         report.status, report.reason = "rejected", "empty"
         return _store_snapshot(conn, epg_source_id, now_s, content_hash, report)
     if (
         last
         and not force
         and last["channel_count"] > 0
-        and len(by_channel) < (1 - settings.max_drop_ratio) * last["channel_count"]
+        and len(counts) < (1 - settings.max_drop_ratio) * last["channel_count"]
     ):
         report.status, report.reason = "rejected", "too_few_channels"
         return _store_snapshot(conn, epg_source_id, now_s, content_hash, report)
@@ -109,26 +108,37 @@ def import_xmltv(
             "INSERT INTO epg_snapshots (id, epg_source_id, fetched_at, content_hash,"
             " channel_count, programme_count, status, blob_path)"
             " VALUES (?, ?, ?, ?, ?, ?, 'applied', ?)",
-            (report.snapshot_id, epg_source_id, now_s, content_hash, len(by_channel),
-             len(parsed.programmes), str(blob_path)),
+            (report.snapshot_id, epg_source_id, now_s, content_hash, len(counts),
+             report.programmes, str(blob_path)),
         )  # fmt: skip
-        ids = {xid: _upsert_channel(conn, epg_source_id, xid, parsed.channels.get(xid), now_s)
-               for xid in set(parsed.channels) | set(by_channel)}  # fmt: skip
+        ids = {xid: _upsert_channel(conn, epg_source_id, xid, scan.channels.get(xid), now_s)
+               for xid in set(scan.channels) | set(counts)}  # fmt: skip
         # Map first, so a guide channel the catalog gained since the last import is
         # already in scope for this one.
-        counts = refresh_mappings(conn, now_s, epg_source_id=epg_source_id)
+        mapped = refresh_mappings(conn, now_s, epg_source_id=epg_source_id)
         scope = build_scope(conn, settings.epg_scope, list(ids.values()))
-        for xid, items in by_channel.items():
+        wanted = {xid for xid in counts if ids[xid] in scope.channels}
+        parsed = parse_xmltv(open_content(content, settings.epg_max_bytes),
+                             keep=wanted.__contains__)  # fmt: skip
+        report.parse_errors = parsed.errors
+        by_channel: dict[str, list[XMLTVProgramme]] = {}
+        for p in parsed.programmes:
+            by_channel.setdefault(p.channel, []).append(p)
+        del parsed
+        for xid, n in counts.items():
             cid = ids[xid]
             mode = scope.channels.get(cid)
+            items = by_channel.pop(xid, [])
             if mode is None:
                 report.channels_skipped += 1
-                report.programmes_skipped += len(items)
+                report.programmes_skipped += n
                 # Dropped from scope: forget what is still to come, keep the past.
                 conn.execute(
                     "DELETE FROM airings WHERE epg_channel_id = ? AND start_utc >= ?",
                     (cid, now_s),
                 )
+                continue
+            if not items:  # every programme of it was malformed
                 continue
             if mode == FILTERED:
                 kept = [p for p in items if scope.keeps(p)]
@@ -153,8 +163,8 @@ def import_xmltv(
         report.channels_added = add_guide_channels(conn, now_s, epg_source_id=epg_source_id)
         link_and_merge(conn)
 
-        report.mapped = counts["auto"] + counts["approved"]
-        report.needs_review, report.unmapped = counts["needs_review"], counts["unmapped"]
+        report.mapped = mapped["auto"] + mapped["approved"]
+        report.needs_review, report.unmapped = mapped["needs_review"], mapped["unmapped"]
         conn.execute(
             "UPDATE epg_snapshots SET stats = ? WHERE id = ?",
             (json.dumps(report.stats()), report.snapshot_id),
