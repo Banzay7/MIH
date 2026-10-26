@@ -63,9 +63,9 @@ ssh -N -L 18765:127.0.0.1:18765 <пользователь>@<сервер>
 T=$(sed -n 's/^MIH_API_TOKEN=//p' .env); H="Authorization: Bearer $T"; B=http://127.0.0.1:18765/api/v1
 
 # плейлист и программа: загрузка файла или источник по URL
-SID=$(curl -fsS -H "$H" -H 'content-type: application/json' -d '{"name":"home"}' $B/sources | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
+SID=$(curl -fsS -H "$H" -H 'content-type: application/json' -d '{"name":"my-playlist"}' $B/sources | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
 curl -fsS -H "$H" -F file=@my.m3u "$B/sources/$SID/upload"
-EID=$(curl -fsS -H "$H" -H 'content-type: application/json' -d '{"name":"home-epg","url":"https://…/guide.xml.gz"}' $B/epg/sources | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
+EID=$(curl -fsS -H "$H" -H 'content-type: application/json' -d '{"name":"my-epg","url":"https://…/guide.xml.gz"}' $B/epg/sources | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
 curl -fsS -H "$H" -X POST "$B/epg/sources/$EID/import"
 
 # поиск и сейчас/далее
