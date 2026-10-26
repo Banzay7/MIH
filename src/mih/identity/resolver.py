@@ -6,7 +6,7 @@ import json
 import sqlite3
 from dataclasses import dataclass
 
-from mih.identity.normalize import NameParts
+from mih.identity.normalize import NameParts, tvg_base
 from mih.ids import new_id
 
 
@@ -47,7 +47,7 @@ def resolve(
 
     _add_alias(conn, channel_id, "name", parts.key, parts.display, source_id)
     if tvg_id:
-        _add_alias(conn, channel_id, "tvg-id", tvg_id.casefold(), tvg_id, source_id)
+        _add_alias(conn, channel_id, "tvg-id", tvg_base(tvg_id), tvg_id, source_id)
 
     feed_id = _ensure_feed(conn, channel_id, parts, now)
     return Resolution(channel_id, feed_id, rule, decision, created)
@@ -61,7 +61,7 @@ def _find_channel(
             "SELECT a.channel_id, c.country FROM channel_aliases a"
             " JOIN channels c ON c.id = a.channel_id"
             " WHERE a.kind = 'tvg-id' AND a.value = ?",
-            (tvg_id.casefold(),),
+            (tvg_base(tvg_id),),
         ).fetchall()
         rows = [r for r in rows if _country_compatible(r["country"], country)]
         if len(rows) == 1:

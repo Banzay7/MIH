@@ -1,0 +1,8 @@
+id,name,alt_names,network,owners,country,categories,is_nsfw,launched,closed,replaced_by,website
+ChannelOne.ru,Channel One,Первый канал;Pervyy Kanal;First Channel,,,RU,general,FALSE,2002-09-01,,,https://www.1tv.ru/
+ChannelOne.us,Channel One,Kanal Yek TV,,,US,news;culture,FALSE,,,,
+NTV.ru,NTV,НТВ,,,RU,general,FALSE,1967-11-04,,,https://www.ntv.ru/
+EurekaHD.ru,Eureka HD,Эврика HD,,,RU,science,FALSE,2014-07-06,2021-03-04,PervyyKosmicheskiy.ru,
+Pirate.ru,Pirate,,,,RU,movies,FALSE,,,,
+Spice.ru,Spice,,,,RU,xxx,TRUE,,,,
+VTV1.vn,VTV1,,Vietnam Television,,VN,,FALSE,,,,https://vtv.vn/

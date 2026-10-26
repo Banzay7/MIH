@@ -10,6 +10,13 @@ from pathlib import Path
 
 from mih import db, notify
 from mih.config import ConfigError, Settings
+from mih.directory import (
+    DEFAULT_BASE_URL,
+    FILES,
+    DirectoryError,
+    fetch_directory,
+    import_directory,
+)
 from mih.epg.importer import import_xmltv
 from mih.epg.service import create_epg_source
 from mih.events import record_event, t
@@ -20,6 +27,7 @@ from mih.lists import ListFilter, write_list
 from mih.scheduler import JOBS, JobBusy, run_job, status_snapshot
 from mih.search.engine import SearchRequest, search
 from mih.search.index import ensure_index
+from mih.sources.fetch import FetchError
 from mih.sources.importer import import_m3u
 from mih.sources.service import SourceError, create_source
 
@@ -37,6 +45,14 @@ def main(argv: list[str] | None = None) -> int:
     epg.add_argument("path", type=Path)
     epg.add_argument("--source", required=True, help="EPG source name; created if missing")
     epg.add_argument("--force", action="store_true", help="skip the size-drop safety check")
+    dr = sub.add_parser(
+        "import-directory", help="import the iptv-org channel directory (no streams)"
+    )
+    dr.add_argument("--from", dest="src", type=Path,
+                    help="folder with channels/feeds/logos/blocklist .csv or .json")  # fmt: skip
+    dr.add_argument("--base-url", default=DEFAULT_BASE_URL, help="where to download from")
+    dr.add_argument("--country", action="append", default=[],
+                    help="add channels of this country the catalog lacks; repeatable")  # fmt: skip
     hc = sub.add_parser("health-check", help="probe streams that are due for a check")
     hc.add_argument(
         "--limit", type=int, help="at most this many streams (default MIH_HEALTH_BATCH)"
@@ -112,6 +128,15 @@ def main(argv: list[str] | None = None) -> int:
         _import_event(conn, settings, args.source, report)
         print(json.dumps(report.stats(), ensure_ascii=False, indent=2))
         return 0 if report.status != "rejected" else 2
+    elif args.cmd == "import-directory":
+        try:
+            files = _local_directory(args.src) if args.src else fetch_directory(
+                settings, args.base_url)  # fmt: skip
+            report = import_directory(conn, files, countries=tuple(args.country))
+        except (DirectoryError, FetchError, OSError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps(report.stats(), indent=2))
     elif args.cmd == "health-check":
         report = run_checks(conn, settings, HealthPolicy.from_env(), stream_ids=args.stream,
                             limit=args.limit)  # fmt: skip
@@ -172,6 +197,16 @@ def main(argv: list[str] | None = None) -> int:
         print(result)
         return 0 if result == "sent" else 5
     return 0
+
+
+def _local_directory(folder: Path) -> dict[str, bytes]:
+    out = {}
+    for name in FILES:
+        for ext in (".csv", ".json"):
+            if (folder / f"{name}{ext}").exists():
+                out[name] = (folder / f"{name}{ext}").read_bytes()
+                break
+    return out
 
 
 def _import_event(conn, settings: Settings, source: str, report) -> None:
