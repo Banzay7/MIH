@@ -41,6 +41,15 @@ def fetch_source(
     if last_modified:
         headers["If-Modified-Since"] = last_modified
 
+    try:
+        return _fetch(url, settings, headers, etag, last_modified, transport)
+    except httpx.HTTPError as exc:
+        # A source that hangs or drops the connection is that source's problem: the
+        # caller reports it and goes on with the next source.
+        raise FetchError("network", f"{type(exc).__name__}: {exc}") from exc
+
+
+def _fetch(url, settings, headers, etag, last_modified, transport) -> FetchResult:
     with httpx.Client(
         timeout=settings.fetch_timeout_s, follow_redirects=False, transport=transport
     ) as client:
