@@ -30,7 +30,7 @@ from mih.search.engine import SearchRequest, search
 from mih.search.index import ensure_index
 from mih.sources.fetch import FetchError
 from mih.sources.importer import import_m3u
-from mih.sources.service import SourceError, create_source
+from mih.sources.service import SourceError, create_source, import_from_url
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,6 +43,9 @@ def main(argv: list[str] | None = None) -> int:
     imp.add_argument("path", type=Path)
     imp.add_argument("--source", required=True, help="source name; created if missing")
     imp.add_argument("--force", action="store_true", help="skip the size-drop safety check")
+    add = sub.add_parser("add-source", help="add a playlist URL as a source and import it now")
+    add.add_argument("name")
+    add.add_argument("url")
     epg = sub.add_parser("import-epg-file", help="import a local XMLTV file (.xml or .xml.gz)")
     epg.add_argument("path", type=Path)
     epg.add_argument("--source", required=True, help="EPG source name; created if missing")
@@ -126,6 +129,18 @@ def main(argv: list[str] | None = None) -> int:
         _import_event(conn, settings, args.source, report)
         print(json.dumps(report.stats(), ensure_ascii=False, indent=2))
         return 0 if report.status != "rejected" else 2
+    elif args.cmd == "add-source":
+        # The URL may carry a subscriber's key: it is stored, never printed.
+        try:
+            source_id = create_source(conn, settings, name=args.name, url=args.url)
+            report = import_from_url(conn, settings, source_id, force=True)
+        except (SourceError, FetchError) as exc:
+            print(f"error: {exc.code}", file=sys.stderr)
+            return 1
+        if report is not None:
+            _import_event(conn, settings, args.name, report)
+        print(json.dumps(report.stats() if report else {}, ensure_ascii=False, indent=2))
+        return 0 if report is None or report.status != "rejected" else 2
     elif args.cmd == "import-epg-file":
         row = conn.execute("SELECT id FROM epg_sources WHERE name = ?", (args.source,)).fetchone()
         try:

@@ -61,6 +61,8 @@ SEED_PLAYLISTS = (
     "https://raw.githubusercontent.com/Tundrak/IPTV-Italia/main/iptvitaplus.m3u",
     "https://raw.githubusercontent.com/YanG-1989/m3u/main/Gather.m3u",
     "https://romaxa55.github.io/world_ip_tv/output/index.m3u",
+    # iptv-org's Vietnam list with a few extra streams (free-codecs.com IPTV Finder).
+    "https://www.free-codecs.com/app/iptv-finder/playlist/?c=vn",
 )
 # Repositories whose every playlist file is a candidate.
 SEED_REPOS = (

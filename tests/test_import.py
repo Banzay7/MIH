@@ -162,3 +162,21 @@ def test_secrets_stay_in_the_locator_table(conn, settings, make_source):
             assert "SECRET" not in " ".join(str(v) for v in tuple(row))
     urls = [r[0] for r in conn.execute("SELECT url FROM stream_locators")]
     assert any("SECRET_A1" in u for u in urls)
+
+
+def test_add_source_command_imports_now_and_never_prints_the_url(tmp_path, monkeypatch, capsys):
+    from mih import cli
+    from mih.sources import service
+    from mih.sources.fetch import FetchResult
+
+    secret = "http://iptv.example/playlists/uplist/0123secret/playlist.m3u8"
+    body = b'#EXTM3U\n#EXTINF:-1 tvg-id="VTV1.vn",VTV1\nhttp://cdn.example/vtv1.m3u8\n'
+    monkeypatch.setattr(service, "check_destination", lambda url, allow_private: None)
+    monkeypatch.setattr(service, "fetch_source", lambda url, settings, **kw: FetchResult(
+        content=body, etag=None, last_modified=None))  # fmt: skip
+    monkeypatch.setenv("MIH_DATA_DIR", str(tmp_path))
+    assert cli.main(["add-source", "my list", secret]) == 0
+    assert cli.main(["add-source", "my list", secret]) == 1  # the name is taken
+    out = capsys.readouterr()
+    assert '"channels_created": 1' in out.out and "conflict" in out.err
+    assert "0123secret" not in out.out + out.err
