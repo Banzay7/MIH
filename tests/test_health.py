@@ -8,9 +8,9 @@ from fastapi.testclient import TestClient
 
 from mih.api.app import create_app
 from mih.config import Settings
-from mih.health.policy import HealthPolicy, Observation, StreamState, age, decide
+from mih.health.policy import HealthPolicy, Observation, StreamState, age, decide, format_ts
 from mih.health.probe import probe_stream
-from mih.health.runner import run_checks
+from mih.health.runner import record, run_checks
 from mih.sources.importer import import_m3u
 from tests.conftest import fixture_bytes
 
@@ -70,12 +70,12 @@ def test_suspect_needs_three_failures_in_two_windows():
     assert s.status == "suspect"
 
 
-def test_quarantine_after_a_week_archive_after_a_month_and_recovery():
+def test_quarantine_after_three_days_archive_after_a_month_and_recovery():
     s = run(StreamState(status="active"), obs(0, False), obs(60, False), obs(120, False))
     assert s.status == "suspect"
-    s = run(s, obs(6 * 24 * 60, False))
+    s = run(s, obs(2 * 24 * 60, False))
     assert s.status == "suspect"
-    s = run(s, obs(7 * 24 * 60, False))
+    s = run(s, obs(3 * 24 * 60, False))
     assert s.status == "quarantine"
     assert age(s, s.status_changed_at + timedelta(days=29), POLICY).status == "quarantine"
     s = age(s, s.status_changed_at + timedelta(days=30), POLICY)
@@ -159,7 +159,8 @@ def serve(routes: dict, seen: list | None = None) -> httpx.MockTransport:
 def probe(routes, url="https://a.example/live/index.m3u8", seen=None, **kw):
     with httpx.Client(transport=serve(routes, seen)) as client:
         return probe_stream(client, url, kw.pop("headers", None), POLICY,
-                            allow_private=kw.pop("allow_private", False))  # fmt: skip
+                            allow_private=kw.pop("allow_private", False),
+                            light=kw.pop("light", False))  # fmt: skip
 
 
 def test_hls_master_then_lightest_variant_then_newest_segment(fake_dns):
@@ -260,13 +261,23 @@ def test_run_marks_working_streams_active_and_schedules_next(fake_dns, conn, set
     assert st["http://b.example/ch/101.ts"] == "active"
     assert st["https://a.example/live/vtv1.m3u8"] == "new"
 
-    # Nothing is due right away; failures come back after one window, successes in a day.
+    # Nothing is due right away. In their first day new streams are probed hourly.
     again = run_checks(conn, settings, POLICY, now=T0 + timedelta(minutes=5),
                        transport=serve(routes))  # fmt: skip
     assert again.checked == 0
     later = run_checks(conn, settings, POLICY, now=T0 + timedelta(minutes=61),
                        transport=serve(routes))  # fmt: skip
+    assert later.checked == 7
+
+    # After the trial: failures still come back after one window, working streams in a week.
+    conn.execute("UPDATE streams SET first_seen_at = ?", (format_ts(T0 - timedelta(days=2)),))
+    run_checks(conn, settings, POLICY, now=T0 + timedelta(minutes=122), transport=serve(routes))
+    later = run_checks(conn, settings, POLICY, now=T0 + timedelta(minutes=183),
+                       transport=serve(routes))  # fmt: skip
     assert later.checked == 5
+    week = run_checks(conn, settings, POLICY, now=T0 + timedelta(days=7, minutes=123),
+                      transport=serve(routes))  # fmt: skip
+    assert week.checked == 7 and week.ok == 2
 
 
 def test_whole_source_failing_is_an_outage_not_dead_streams(fake_dns, conn, settings, catalog):
@@ -350,3 +361,31 @@ def test_playback_report_and_availability(fake_dns, tmp_path):
         )
         anon = TestClient(app)
         assert anon.get("/api/v1/streams/health").status_code == 401
+
+
+def test_light_check_reads_no_video(fake_dns):
+    seen = []
+    res = probe(
+        {
+            "/live/index.m3u8": httpx.Response(200, content=MASTER),
+            "/live/sd/index.m3u8": httpx.Response(200, content=MEDIA),
+            "/live/sd/seg101.ts": httpx.Response(206, content=b"\x47" * 1000),
+        },
+        seen=seen,
+        light=True,
+    )
+    assert res.success and res.stage == "manifest"
+    assert not any(r.url.path.endswith(".ts") for r in seen)
+
+
+def test_a_failed_playback_on_the_tv_brings_the_check_forward(conn, settings, catalog):
+    sid = conn.execute("SELECT id FROM streams LIMIT 1").fetchone()[0]
+    later = T0 + timedelta(days=5)
+    conn.execute("UPDATE streams SET next_check_at = ?", (format_ts(later),))
+    record(conn, sid, Observation(at=T0, vantage="device", success=True), POLICY, kind="playback")
+    assert conn.execute("SELECT next_check_at FROM streams WHERE id = ?",
+                        (sid,)).fetchone()[0] == format_ts(later)  # fmt: skip
+    record(conn, sid, Observation(at=T0, vantage="device", success=False), POLICY,
+           kind="playback")  # fmt: skip
+    assert conn.execute("SELECT next_check_at FROM streams WHERE id = ?",
+                        (sid,)).fetchone()[0] == format_ts(T0)  # fmt: skip

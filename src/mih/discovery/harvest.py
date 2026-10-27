@@ -37,16 +37,23 @@ PLAYLIST_EXT = (".m3u", ".m3u8")
 MAX_FILE_BYTES = 20 * 1024 * 1024
 FILES_PER_REPO = 40
 FILES_PER_SEED_REPO = 400
-SEED_RESCAN = timedelta(days=7)
 REPO_RESCAN = timedelta(days=30)
-PAGE_RESCAN = timedelta(hours=24)
+# How often seeds, pages and searches are gone through again, when MIH_DISCOVERY_SEARCH_EVERY
+# is not set: daily while the install is new, monthly once the first AUTO_DAILY_FOR are over
+# (by then the searches have little new to give).
+AUTO_DAILY_FOR = timedelta(days=60)
+AUTO_EARLY = timedelta(days=1)
+AUTO_LATER = timedelta(days=30)
 PAGES_PER_RUN = 3
 # Search only goes deeper when fewer repositories than this wait for a scan.
 REPO_QUEUE_LOW = 20
 SEARCH_PAGE_SIZE = 50
 # GitHub returns at most 1000 results per search.
 SEARCH_MAX_RESULTS = 1000
-SEARCH_PAUSE = timedelta(days=1)
+# GitHub API calls per run. The scout runs every few minutes and an unauthenticated client
+# gets 60 calls an hour.
+CALLS_PER_RUN = 4
+CALLS_PER_RUN_TOKEN = 20
 
 # Public free-to-air playlists from docs/sources/catalog.yaml.
 SEED_PLAYLISTS = (
@@ -136,16 +143,17 @@ def harvest(
     transport: httpx.BaseTransport | None = None,
 ) -> HarvestReport:
     report = HarvestReport()
+    period = search_period(conn, settings, now)
     for url in (*SEED_PLAYLISTS, *plan.playlists):
         _add(conn, report, url, "seed", None, now)
     for repo in (*SEED_REPOS, *plan.repos):
         _add_repo(conn, repo, "seed", None, now)
-    _read_pages(conn, settings, plan, now, report, transport)
+    _read_pages(conn, settings, plan, now, period, report, transport)
 
-    budget = 25 if settings.github_token else 8
+    budget = CALLS_PER_RUN_TOKEN if settings.github_token else CALLS_PER_RUN
     with _github(settings, transport) as gh:
         try:
-            for row in _repos_due(conn, now, budget):
+            for row in _repos_due(conn, now, period, budget):
                 if report.api_calls >= budget:
                     break
                 _scan_repo(conn, gh, row, now, report)
@@ -153,9 +161,9 @@ def harvest(
                 "SELECT COUNT(*) FROM discovered_repos WHERE scanned_at IS NULL"
             ).fetchone()[0]
             if report.api_calls < budget and queued < REPO_QUEUE_LOW:
-                _search(conn, gh, "repos", REPO_QUERIES, now, report)
+                _search(conn, gh, "repos", REPO_QUERIES, now, period, report)
             if settings.github_token and report.api_calls < budget:
-                _search(conn, gh, "code", CODE_QUERIES, now, report)
+                _search(conn, gh, "code", CODE_QUERIES, now, period, report)
         except _RateLimited:
             pass  # the next run goes on where this one stopped
     return report
@@ -193,8 +201,20 @@ def _get(gh: httpx.Client, report: HarvestReport, path: str, **params) -> dict |
     return resp.json()
 
 
-def _repos_due(conn: sqlite3.Connection, now: datetime, limit: int) -> list[sqlite3.Row]:
-    seed_before = format_ts(now - SEED_RESCAN)
+def search_period(conn: sqlite3.Connection, settings: Settings, now: datetime) -> timedelta:
+    """How long one pass over seeds, pages and searches lasts before the next begins."""
+    if settings.discovery_search_every:
+        return settings.discovery_search_every
+    first = _state(conn, "first_harvest_at")
+    if first is None:
+        _set_state(conn, "first_harvest_at", format_ts(now))
+        return AUTO_EARLY
+    return AUTO_EARLY if now - parse_ts(first) < AUTO_DAILY_FOR else AUTO_LATER
+
+
+def _repos_due(conn: sqlite3.Connection, now: datetime, period: timedelta,
+               limit: int) -> list[sqlite3.Row]:  # fmt: skip
+    seed_before = format_ts(now - period)
     other_before = format_ts(now - REPO_RESCAN)
     return conn.execute(
         "SELECT * FROM discovered_repos WHERE scanned_at IS NULL"
@@ -226,14 +246,14 @@ def _scan_repo(conn, gh, row, now: datetime, report: HarvestReport) -> None:
                  (format_ts(now), files, full))  # fmt: skip
 
 
-def _search(conn, gh, kind: str, queries: tuple[str, ...], now: datetime,
+def _search(conn, gh, kind: str, queries: tuple[str, ...], now: datetime, period: timedelta,
             report: HarvestReport) -> None:  # fmt: skip
     """One page of one query; the next run takes the next page or the next query."""
     for _ in range(len(queries)):
         index = int(_state(conn, f"{kind}:query") or 0) % len(queries)
         query = queries[index]
         paused = _state(conn, f"{kind}:done:{query}")
-        if paused and parse_ts(paused) > now - SEARCH_PAUSE:
+        if paused and parse_ts(paused) > now - period:
             _set_state(conn, f"{kind}:query", str(index + 1))
             continue
         page = int(_state(conn, f"{kind}:page:{query}") or 1)
@@ -264,14 +284,14 @@ def _search(conn, gh, kind: str, queries: tuple[str, ...], now: datetime,
 # ---------- Pages and Telegram ----------
 
 
-def _read_pages(conn, settings, plan: Plan, now: datetime, report: HarvestReport,
-                transport) -> None:  # fmt: skip
+def _read_pages(conn, settings, plan: Plan, now: datetime, period: timedelta,
+                report: HarvestReport, transport) -> None:  # fmt: skip
     read = 0
     for page in plan.pages:
         if read >= PAGES_PER_RUN:
             break
         last = _state(conn, f"page:{page}")
-        if last and parse_ts(last) > now - PAGE_RESCAN:
+        if last and parse_ts(last) > now - period:
             continue
         read += 1
         _set_state(conn, f"page:{page}", format_ts(now))
