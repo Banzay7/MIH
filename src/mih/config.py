@@ -127,7 +127,8 @@ class Settings:
     ha_streams: int = 3
     # Renames of the script's variables, e.g. {"channel": "name"}; "" leaves one out.
     ha_fields: dict = field(default_factory=dict)
-    ha_timeout_s: float = 20.0
+    # The script may wait for the TV to wake up, so give it time.
+    ha_timeout_s: float = 60.0
 
     @property
     def ha_ready(self) -> bool:
@@ -209,7 +210,7 @@ class Settings:
             ha_script=env.get("MIH_HA_SCRIPT") or "mih_play",
             ha_streams=max(1, int(env.get("MIH_HA_STREAMS", "3"))),
             ha_fields=_parse_fields(env.get("MIH_HA_FIELDS", "")),
-            ha_timeout_s=float(env.get("MIH_HA_TIMEOUT_S", "20")),
+            ha_timeout_s=float(env.get("MIH_HA_TIMEOUT_S", "60")),
         )
 
     def validate_for_serving(self) -> None:

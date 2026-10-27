@@ -119,6 +119,7 @@ const PLAY_TEXT = {
   ha_script_not_found: "В Home Assistant нет такого скрипта: проверьте MIH_HA_SCRIPT.",
   ha_script_failed: "Скрипт Home Assistant завершился с ошибкой. Подробности в журнале HA.",
   ha_timeout: "Home Assistant не ответил вовремя. Канал, возможно, всё же включится.",
+  ha_not_playing: "Скрипт Home Assistant сообщил, что канал не включился",
 };
 
 // "agent" or "ha": who starts the TV from this browser; none = the server's default.
@@ -144,7 +145,10 @@ async function playOnTv(channelId, feedId, button) {
     }
     if (told && cmd.state === "started") return;
     if (cmd.state === "started") toast(cmd.adapter === "ha" ? PLAY_TEXT.ha_started : PLAY_TEXT.started);
-    else if (cmd.state === "failed") toast(PLAY_TEXT[cmd.error] || `Не удалось запустить: ${cmd.error}`, 6000);
+    else if (cmd.state === "failed") {
+      const text = PLAY_TEXT[cmd.error] || `Не удалось запустить: ${cmd.error}`;
+      toast(cmd.detail ? `${text}: ${cmd.detail}` : text, 8000);
+    }
     else toast("ТВ не ответил вовремя. Попробуйте ещё раз.");
   } catch (e) {
     toast(errorText(e), 6000);
