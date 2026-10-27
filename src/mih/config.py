@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import time, timedelta
 from pathlib import Path
 
@@ -13,6 +13,8 @@ LANGS = ("en", "ru")
 ALERT_LINKS = ("auto", "play", "stream", "none")
 # Event levels, lowest first. "routine" events only go to the feed and the daily digest.
 LEVELS = ("routine", "info", "warning", "error")
+# Who carries out "На ТВ": the agent over MCP, Home Assistant directly, or nobody.
+PLAYBACKS = ("agent", "ha", "off")
 
 
 class ConfigError(ValueError):
@@ -115,6 +117,21 @@ class Settings:
     playback: str = "off"
     agent_webhook: str | None = None
     agent_webhook_token: str | None = None
+    # Home Assistant bridge (docs/ha.md): "На ТВ" runs this script of the user's HA over
+    # its REST API, without the agent. Needs the address and a long-lived token; then the
+    # web UI offers it next to the agent (MIH_PLAYBACK=ha makes it the default).
+    ha_url: str | None = None
+    ha_token: str | None = None
+    ha_script: str = "mih_play"
+    # How many stream URLs the script gets (url = the best, urls = all of them).
+    ha_streams: int = 3
+    # Renames of the script's variables, e.g. {"channel": "name"}; "" leaves one out.
+    ha_fields: dict = field(default_factory=dict)
+    ha_timeout_s: float = 20.0
+
+    @property
+    def ha_ready(self) -> bool:
+        return bool(self.ha_url and self.ha_token)
 
     @property
     def db_path(self) -> Path:
@@ -184,13 +201,23 @@ class Settings:
             mcp_host=env.get("MIH_MCP_HOST", "127.0.0.1"),
             mcp_token=env.get("MIH_MCP_TOKEN") or None,
             mcp_daily_limit=int(env.get("MIH_MCP_DAILY_LIMIT", "0")),
-            playback=_choice(env.get("MIH_PLAYBACK", "agent"), "MIH_PLAYBACK", ("agent", "off")),
+            playback=_choice(env.get("MIH_PLAYBACK", "agent"), "MIH_PLAYBACK", PLAYBACKS),
             agent_webhook=env.get("MIH_AGENT_WEBHOOK") or None,
             agent_webhook_token=env.get("MIH_AGENT_WEBHOOK_TOKEN") or None,
+            ha_url=(env.get("MIH_HA_URL") or "").strip().rstrip("/") or None,
+            ha_token=env.get("MIH_HA_TOKEN") or None,
+            ha_script=env.get("MIH_HA_SCRIPT") or "mih_play",
+            ha_streams=max(1, int(env.get("MIH_HA_STREAMS", "3"))),
+            ha_fields=_parse_fields(env.get("MIH_HA_FIELDS", "")),
+            ha_timeout_s=float(env.get("MIH_HA_TIMEOUT_S", "20")),
         )
 
     def validate_for_serving(self) -> None:
         """Spec 23: never serve without a token, except on loopback for local development."""
+        if self.ha_url and not self.ha_url.startswith(("http://", "https://")):
+            raise ConfigError("MIH_HA_URL must start with http:// or https://")
+        if self.playback == "ha" and not self.ha_ready:
+            raise ConfigError("MIH_PLAYBACK=ha needs MIH_HA_URL and MIH_HA_TOKEN")
         if self.mcp_token and len(self.mcp_token) < 24:
             raise ConfigError("MIH_MCP_TOKEN must be at least 24 characters")
         no_token = not (self.mcp_token or self.api_token)
@@ -240,6 +267,19 @@ def _parse_clock(value: str, name: str) -> time | None:
         return time.fromisoformat(value)
     except ValueError:
         raise ConfigError(f"{name} must be HH:MM or off") from None
+
+
+def _parse_fields(value: str) -> dict:
+    """ "url=stream_url,channel=name" -> {"url": "stream_url", "channel": "name"}."""
+    out = {}
+    for part in value.split(","):
+        if not part.strip():
+            continue
+        key, sep, name = part.partition("=")
+        if not sep or not key.strip():
+            raise ConfigError("MIH_HA_FIELDS must look like url=stream_url,channel=name")
+        out[key.strip()] = name.strip()
+    return out
 
 
 def _choice(value: str, name: str, allowed: tuple[str, ...]) -> str:
