@@ -167,7 +167,8 @@ function progress(a) {
 
 const LANGS = { ru: "русский", en: "английский", vi: "вьетнамский" };
 const FIELDS = { title: "в названии", sub_title: "в подзаголовке", description: "в описании",
-  categories: "в жанре", channel_name: "в названии канала", time: "время", language: "язык" };
+  categories: "в жанре", channel_name: "в названии канала", time: "время", language: "язык",
+  topic: "тема", programme: "в избранном" };
 const TIMES = { now: "сейчас", today: "сегодня", tomorrow: "завтра", tonight: "вечером",
   yesterday: "вчера", custom: "свой интервал" };
 
@@ -350,6 +351,7 @@ async function viewSearch(params) {
   const airings = res.items.filter((i) => i.type === "airing");
   return html`<h1>Поиск</h1>${filters}
     ${understood.length ? html`<p class="small muted">Понял запрос так: ${understood.join(" · ")}</p>` : ""}
+    ${pq.terms.length ? html`<p><button class="btn" type="button" data-follow="${pq.terms.join(" ")}">🔔 Следить за темой «${pq.terms.join(" ")}»</button></p>` : ""}
     ${channels.length ? html`<h2>Каналы</h2><div class="grid">${channels.map(channelCard)}</div>` : ""}
     ${airings.length ? html`<h2>Передачи</h2><div class="grid">${airings.map(airingCard)}</div>` : ""}
     ${!res.items.length ? html`<div class="empty">Ничего не нашлось. Попробуйте другие слова или уберите фильтры.</div>` : ""}`;
@@ -477,9 +479,42 @@ async function viewProgramme(id) {
     })}</div>` : html`<div class="empty">Ближайших показов нет.</div>`}`;
 }
 
+// ---------- Topics: pushes before a programme on a followed topic starts ----------
+
+async function followTopic(topic) {
+  const r = await api(`/profiles/${PROFILE}/topics`, { method: "POST", body: { topic } });
+  toast(`Тема «${r.topic}» добавлена: пуш придёт перед началом передачи`, 4000);
+}
+
+function alertCard(m) {
+  const ch = m.channels[0];
+  return airingCard({
+    programme_id: m.programme_id, title: m.title, sub_title: m.sub_title, start: m.start,
+    stop: m.stop, channel_id: ch.channel_id,
+    channel_name: m.channels.length > 1 ? `${ch.name} и ещё ${m.channels.length - 1}` : ch.name,
+    why_matched: m.reasons.map((r) => ({ field: r.kind, term: r.kind === "topic" ? r.value : "передача" })),
+  });
+}
+
+function topicsBlock(topics, upcoming) {
+  return html`<h2>Темы</h2>
+    <p class="small muted">Перед началом передачи по теме придёт пуш со ссылкой на запуск. Тема ищется в названии, подзаголовке и жанре передачи, с начала слова.</p>
+    ${topics.length ? html`<div class="chips">${topics.map((t) => html`<button type="button" class="chip on" data-topic-del="${t.topic}"
+      title="Убрать тему" aria-label="Убрать тему ${t.topic}">${t.topic} ×</button>`)}</div>` : ""}
+    <form id="topic-form" class="row field">
+      <input name="topic" minlength="2" maxlength="64" required autocomplete="off" aria-label="Новая тема"
+        placeholder="Например: футбол, формула 1, роботы">
+      <button class="btn tv" type="submit">Следить</button>
+    </form>
+    ${upcoming.length ? html`<h2>Скоро по вашим темам</h2><div class="grid">${upcoming.map(alertCard)}</div>`
+      : topics.length ? html`<p class="muted small">В ближайшие сутки по вашим темам на рабочих каналах ничего нет.</p>` : ""}`;
+}
+
 async function viewFavorites() {
   render(html`<h1>Избранное</h1>${skeleton(3)}`);
-  const [items] = await Promise.all([loadFavorites(), loadChannels()]);
+  const [items, , topics, upcoming] = await Promise.all([loadFavorites(), loadChannels(),
+    api(`/profiles/${PROFILE}/topics`), api(`/profiles/${PROFILE}/alerts/upcoming?hours=24`)]);
+  const topicsHtml = topicsBlock(topics.items, upcoming.items);
   const channels = items.filter((f) => f.target_kind === "channel");
   const programmes = items.filter((f) => f.target_kind === "programme");
   let nowBy = new Map();
@@ -491,7 +526,7 @@ async function viewFavorites() {
   }
   if (!items.length) {
     return html`<h1>Избранное</h1><div class="empty"><p>Здесь пока пусто.</p>
-      <p class="small">Нажмите ★ у канала или передачи, чтобы добавить.</p></div>`;
+      <p class="small">Нажмите ★ у канала или передачи, чтобы добавить.</p></div>${topicsHtml}`;
   }
   return html`<h1>Избранное</h1>
     ${channels.length ? html`<h2>Каналы</h2><div class="grid">${channels.map((f) => {
@@ -505,7 +540,8 @@ async function viewFavorites() {
     })}</div>` : ""}
     ${programmes.length ? html`<h2>Передачи</h2><div class="grid">${programmes.map((f) => html`<article class="card">
       <div class="body"><a class="stretch title" href="#/programme/${enc(f.target_id)}">${f.name || "Передача удалена из программы"}</a></div>
-      <div class="actions">${star("programme", f.target_id)}</div></article>`)}</div>` : ""}`;
+      <div class="actions">${star("programme", f.target_id)}</div></article>`)}</div>` : ""}
+    ${topicsHtml}`;
 }
 
 async function viewSettings() {
@@ -540,7 +576,7 @@ async function viewSettings() {
 // ---------- Status: what the service does, did and plans ----------
 
 const JOB_NAMES = { sources: "Обновление плейлистов", epg: "Обновление телепрограммы",
-  health: "Проверка потоков", digest: "Сводка за сутки" };
+  health: "Проверка потоков", alerts: "Оповещения по темам", digest: "Сводка за сутки" };
 const LEVEL_ICON = { routine: "·", info: "●", warning: "▲", error: "✖" };
 const JOB_STATUS = { ok: "успешно", warning: "с предупреждениями", error: "ошибка" };
 
@@ -673,6 +709,19 @@ document.addEventListener("click", (e) => {
     go("/search", Object.fromEntries(cur));
     return;
   }
+  const follow = e.target.closest("[data-follow]");
+  if (follow) {
+    follow.disabled = true;
+    followTopic(follow.dataset.follow).catch((err) => { follow.disabled = false; toast(errorText(err), 5000); });
+    return;
+  }
+  const delTopic = e.target.closest("[data-topic-del]");
+  if (delTopic) {
+    api(`/profiles/${PROFILE}/topics/${enc(delTopic.dataset.topicDel)}`, { method: "DELETE" })
+      .then(() => { toast(`Тема «${delTopic.dataset.topicDel}» убрана`); route(); })
+      .catch((err) => toast(errorText(err), 5000));
+    return;
+  }
   const runBtn = e.target.closest("[data-run-job]");
   if (runBtn) {
     runBtn.disabled = true;
@@ -706,6 +755,10 @@ document.addEventListener("submit", (e) => {
     route();
   } else if (e.target.id === "channel-filter") {
     e.preventDefault();
+  } else if (e.target.id === "topic-form") {
+    e.preventDefault();
+    const topic = e.target.topic.value.trim();
+    if (topic) followTopic(topic).then(route).catch((err) => toast(errorText(err), 5000));
   }
 });
 
