@@ -268,6 +268,49 @@ def test_packer_works_in_small_batches(conn, settings, fake_dns):
     assert count(conn, "streams") == 6
 
 
+def test_home_country_streams_a_geo_block_hides_wait_for_the_tv(conn, settings, fake_dns):
+    settings = Settings(data_dir=settings.data_dir, home_country="vn")
+    content = (
+        b"#EXTM3U\n"
+        b'#EXTINF:-1 tvg-id="HTV1.vn@SD",HTV1 [Geo-blocked]\nhttps://vn.example/htv1.m3u8\n'
+        b'#EXTINF:-1 tvg-id="VTV3.vn",VTV3\nhttps://vn.example/vtv3.m3u8\n'
+        b'#EXTINF:-1 tvg-id="Fox.us",Fox\nhttps://us.example/fox.m3u8\n'
+        b'#EXTINF:-1 tvg-id="Gone.vn",Gone\nhttps://vn.example/gone.m3u8\n'
+    )
+    url = "https://lists.example/vn.m3u"
+    transport = web({
+        "lists.example/vn.m3u": httpx.Response(200, content=content),
+        "vn.example/htv1.m3u8": httpx.Response(404),  # labelled geo-blocked
+        "vn.example/vtv3.m3u8": httpx.Response(403),
+        "us.example/fox.m3u8": httpx.Response(403),  # not the home country
+    })  # fmt: skip
+    add_candidate(conn, url)
+    # Nothing plays from here, but the home-country streams may at home.
+    assert scout(conn, settings, Plan(), POLICY, NOW, transport=transport).by_status == {
+        "live": 1}  # fmt: skip
+
+    out = pack(conn, settings, Plan(), POLICY, NOW, transport=transport)
+    assert (out.streams_ok, out.home_only, out.done) == (0, 2, True)
+    streams = conn.execute(
+        "SELECT l.url, s.status, s.availability_reason FROM streams s"
+        " JOIN stream_locators l ON l.stream_id = s.id ORDER BY l.url"
+    ).fetchall()
+    assert [tuple(s) for s in streams] == [
+        ("https://vn.example/htv1.m3u8", "unverified", "blocked_by_geo"),
+        ("https://vn.example/vtv3.m3u8", "unverified", "blocked_by_geo"),
+    ]
+
+
+def test_without_a_home_country_geo_blocked_streams_stay_out(conn, settings, fake_dns):
+    content = b'#EXTM3U\n#EXTINF:-1 tvg-id="VTV3.vn",VTV3\nhttps://vn.example/vtv3.m3u8\n'
+    transport = web({"lists.example/vn.m3u": httpx.Response(200, content=content),
+                     "vn.example/vtv3.m3u8": httpx.Response(403)})  # fmt: skip
+    add_candidate(conn, "https://lists.example/vn.m3u")
+    assert scout(conn, settings, Plan(), POLICY, NOW, transport=transport).by_status == {
+        "dead": 1}  # fmt: skip
+    assert count(conn, "streams") == 0
+
+
 def test_forks_and_dead_playlists(conn, settings, fake_dns):
     content = playlist("https://a.example/live1.m3u8")
     transport = web({
