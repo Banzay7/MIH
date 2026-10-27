@@ -36,7 +36,8 @@ from mih.sources.service import SourceError, create_source
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mih", description="MIRTVONLINE core")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("serve", help="run the HTTP API")
+    sub.add_parser("serve", help="run the HTTP API (and the MCP server if MIH_MCP_PORT is set)")
+    sub.add_parser("mcp", help="MCP server on stdin/stdout, for an agent on this host")
     sub.add_parser("migrate", help="create or upgrade the database")
     imp = sub.add_parser("import-file", help="import a local M3U file into a named source")
     imp.add_argument("path", type=Path)
@@ -102,6 +103,10 @@ def main(argv: list[str] | None = None) -> int:
     settings = Settings.from_env()
     if args.cmd == "serve":
         return _serve(settings)
+    if args.cmd == "mcp":
+        from mih.mcp.server import run_stdio
+
+        return run_stdio(settings)
 
     conn = db.connect(settings.db_path)
     db.migrate(conn)
@@ -252,6 +257,16 @@ def _serve(settings: Settings) -> int:
 
     from mih.api.app import create_app
 
+    if settings.mcp_port is not None:
+        import threading
+
+        from mih.mcp.server import create_mcp_app
+
+        # Off the main thread uvicorn leaves signals alone: the API below owns shutdown,
+        # and this listener ends with the process. It holds no state of its own.
+        mcp = uvicorn.Server(uvicorn.Config(create_mcp_app(settings), host=settings.mcp_host,
+                                            port=settings.mcp_port, lifespan="off"))  # fmt: skip
+        threading.Thread(target=mcp.run, name="mcp", daemon=True).start()
     uvicorn.run(create_app(settings), host=settings.bind_host, port=settings.bind_port)
     return 0
 

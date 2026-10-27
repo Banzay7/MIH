@@ -77,16 +77,22 @@ cmd_preflight() {
   fi
   say "publish address: $addr:$port"
 
-  say "== port $port"
-  if port_in_use "$addr" "$port"; then
-    if container_exists && docker port "$CONTAINER" 2>/dev/null | grep -q ":$port\$"; then
-      say "in use by $CONTAINER itself (already deployed)"
+  local mcp_port; mcp_port="$(env_value MIH_MCP_PUBLISH_PORT)"; mcp_port="${mcp_port:-18766}"
+  local p var
+  for p in "$port" "$mcp_port"; do
+    var=MIH_PUBLISH_PORT; [[ "$p" == "$mcp_port" ]] && var=MIH_MCP_PUBLISH_PORT
+    say "== port $p"
+    if port_in_use "$addr" "$p"; then
+      if container_exists && docker port "$CONTAINER" 2>/dev/null | grep -q ":$p\$"; then
+        say "in use by $CONTAINER itself (already deployed)"
+      else
+        say "FAIL: port $p is taken by another service, pick another $var"; ok=0
+      fi
     else
-      say "FAIL: port $port is taken by another service, pick another MIH_PUBLISH_PORT"; ok=0
+      say "free"
     fi
-  else
-    say "free"
-  fi
+  done
+  say "MCP address: 127.0.0.1:$mcp_port (loopback only)"
 
   say "== names"
   for kind in container volume network; do
@@ -151,6 +157,13 @@ cmd_status() {
   token="$(env_value MIH_API_TOKEN)"
   say "== live";  curl -fsS "http://$addr:$port/api/v1/health/live"; echo
   say "== ready"; curl -fsS -H "Authorization: Bearer $token" "http://$addr:$port/api/v1/health/ready"; echo
+  local mcp_port mcp_token
+  mcp_port="$(env_value MIH_MCP_PUBLISH_PORT)"; mcp_port="${mcp_port:-18766}"
+  mcp_token="$(env_value MIH_MCP_TOKEN)"; mcp_token="${mcp_token:-$token}"
+  say "== mcp"
+  curl -fsS -H "Authorization: Bearer $mcp_token" -H 'Content-Type: application/json' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"status","arguments":{}}}' \
+    "http://127.0.0.1:$mcp_port/mcp"; echo
   say "== stats"; docker exec "$CONTAINER" mih stats
 }
 
