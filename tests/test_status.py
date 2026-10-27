@@ -2,6 +2,7 @@ import json
 import time
 from datetime import UTC, datetime, timedelta
 from datetime import time as clock
+from pathlib import Path
 
 import httpx
 import pytest
@@ -12,7 +13,15 @@ from mih.api.app import create_app
 from mih.config import ConfigError, Settings, parse_every
 from mih.events import list_events, record_event
 from mih.ids import new_id
-from mih.scheduler import JobBusy, Scheduler, next_run, run_job, status_snapshot, sync_jobs
+from mih.scheduler import (
+    JobBusy,
+    Scheduler,
+    next_run,
+    plan_by_job,
+    run_job,
+    status_snapshot,
+    sync_jobs,
+)
 from mih.sources.importer import ImportReport
 
 NTFY = "https://ntfy.example/mih-test-topic"
@@ -247,7 +256,7 @@ def test_scheduler_tick_runs_what_is_due(pushing):
     assert s.tick(NOW + timedelta(minutes=4)) == []
     snap = status_snapshot(c, pushing)
     assert {j["name"]: j["last_status"] for j in snap["jobs"]}["health"] == "ok"
-    assert snap["plan"][0]["next_at"] > snap["now"]
+    assert snap["plan"][0]["next_at"] >= snap["now"]  # an overdue run shows as due now
     c.close()
 
 
@@ -280,3 +289,12 @@ def test_job_runs_on_request_in_the_background(client):
         pytest.fail("digest did not run")
     job = {j["name"]: j for j in client.get("/api/v1/status").json()["jobs"]}["digest"]
     assert job["last_status"] == "ok"
+
+
+def test_a_frequent_job_does_not_crowd_others_out_of_the_plan(conn):
+    settings = Settings(data_dir=Path("."), scheduler_enabled=True,
+                        every_discover=timedelta(minutes=5),
+                        every_pack=timedelta(minutes=15))  # fmt: skip
+    sync_jobs(conn, settings, NOW)
+    jobs = {p["job"] for p in plan_by_job(conn, settings, NOW)}
+    assert {"discover", "pack", "health", "sources", "epg"} <= jobs

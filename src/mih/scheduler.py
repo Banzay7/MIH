@@ -333,7 +333,11 @@ def _job_pack(conn, settings, policy, now, transport) -> Outcome:
                        quiet=bool(report.remaining))  # fmt: skip
     title = t(settings, "job.pack", channels=report.channels_created,
               streams=report.streams_created)  # fmt: skip
-    lines = [report.playlist, _rebuild_lists(conn, settings, data)]
+    lines = [report.playlist]
+    if report.remaining:
+        lines.append(t(settings, "job.pack.progress", checked=report.checked,
+                       remaining=report.remaining))  # fmt: skip
+    lines.append(_rebuild_lists(conn, settings, data))
     return Outcome("ok", "routine", title, lines, data)
 
 
@@ -399,8 +403,10 @@ _RUNNERS = {"sources": _job_sources, "epg": _job_epg, "health": _job_health,
 # ---------- Status ----------
 
 
-def planned_runs(conn: sqlite3.Connection, settings: Settings, *, until: datetime) -> list[dict]:
-    """Upcoming runs up to ``until``, repeating interval jobs, soonest first."""
+def planned_runs(conn: sqlite3.Connection, settings: Settings, *, until: datetime,
+                 now: datetime | None = None) -> list[dict]:  # fmt: skip
+    """Upcoming runs up to ``until``, repeating interval jobs, soonest first. A run that
+    is overdue is shown at ``now``: it starts on the next tick."""
     if not settings.scheduler_enabled:
         return []
     out = []
@@ -408,8 +414,13 @@ def planned_runs(conn: sqlite3.Connection, settings: Settings, *, until: datetim
         if row["name"] not in JOBS:
             continue
         at = _parse(row["next_run_at"])
-        while at <= until and len(out) < 100:
+        if now is not None and at < now:
+            at = now
+        runs = 0
+        # Capped per job: a job every 5 minutes must not crowd the others out of the plan.
+        while at <= until and runs < 300:
             out.append({"job": row["name"], "at": _fmt(at)})
+            runs += 1
             nxt = next_run(settings, row["name"], at)
             if nxt is None or nxt <= at:
                 break
@@ -419,7 +430,7 @@ def planned_runs(conn: sqlite3.Connection, settings: Settings, *, until: datetim
 
 def plan_by_job(conn: sqlite3.Connection, settings: Settings, now: datetime) -> list[dict]:
     """The next 24 hours per job: its runs and, for interval jobs, the interval."""
-    runs = planned_runs(conn, settings, until=now + timedelta(days=1))
+    runs = planned_runs(conn, settings, until=now + timedelta(days=1), now=now)
     out = []
     for name in JOBS:
         mine = [p["at"] for p in runs if p["job"] == name]

@@ -70,7 +70,10 @@ class PackReport:
     probes: int = 0
     checked: int = 0
     remaining: int = 0
+    # Working streams were imported in this run.
     packed: bool = False
+    # Every stream of the playlist is checked now.
+    done: bool = False
     streams_ok: int = 0
     channels_created: int = 0
     streams_created: int = 0
@@ -280,16 +283,12 @@ def pack(
     report.checked, report.remaining = checked, len(to_check) - len(batch)
     conn.execute("UPDATE discovered_playlists SET checked = ? WHERE id = ?",
                  (checked, row["id"]))  # fmt: skip
-    if report.remaining:
-        return report
 
+    # What played goes into the catalog after every batch, so a big playlist starts to
+    # pay off on its first run instead of after a day of checks.
     known = _known_results(conn, [url_hash(e.url) for e in candidates], now)
     keep = [e for e in candidates if url_hash(e.url) in own or known.get(url_hash(e.url)) == 1]
     fresh = [e for e in keep if url_hash(e.url) not in own]
-    _content_path(settings, row["id"]).unlink(missing_ok=True)
-    if not keep:
-        _miss(conn, row, now, "no_live")
-        return report
     report.streams_ok = len(keep)
     if fresh:
         source_id = row["source_id"] or _make_source(conn, settings, row["url"])
@@ -298,10 +297,19 @@ def pack(
         report.streams_created = imported.streams_created
         _record_ok(conn, policy, source_id, fresh, results, now)
         conn.execute(
-            "UPDATE discovered_playlists SET source_id = ?, packed_at = ? WHERE id = ?",
-            (source_id, format_ts(now), row["id"]),
+            "UPDATE discovered_playlists SET source_id = ?, packed_at = ?, packed_ok = ?"
+            " WHERE id = ?",
+            (source_id, format_ts(now), len(keep), row["id"]),
         )
         report.packed = True
+    if report.remaining:
+        return report
+
+    _content_path(settings, row["id"]).unlink(missing_ok=True)
+    if not keep:
+        _miss(conn, row, now, "no_live")
+        return report
+    report.done = True
     conn.execute("UPDATE discovered_playlists SET packed_ok = ?, misses = 0 WHERE id = ?",
                  (len(keep), row["id"]))  # fmt: skip
     _set(conn, row, "packed", None, next_at=now + RESCOUT)
