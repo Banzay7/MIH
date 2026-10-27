@@ -259,11 +259,13 @@ def test_packer_works_in_small_batches(conn, settings, fake_dns):
     runs = []
     while True:
         out = pack(conn, settings, Plan(), POLICY, NOW, transport=transport)
-        runs.append((out.probes, out.remaining))
-        if out.packed or out.playlist is None:
+        runs.append((out.probes, out.remaining, out.streams_ok))
+        if out.done or out.playlist is None:
             break
-    assert runs == [(4, 2), (2, 0)]
-    assert out.streams_ok == 6 and count(conn, "streams") == 6
+    # Working streams reach the catalog after each batch, not only at the end.
+    assert [r[:2] for r in runs] == [(4, 2), (2, 0)]
+    assert 0 < runs[0][2] <= runs[1][2] == 6
+    assert count(conn, "streams") == 6
 
 
 def test_forks_and_dead_playlists(conn, settings, fake_dns):
