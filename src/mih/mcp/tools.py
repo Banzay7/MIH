@@ -28,7 +28,7 @@ from mih.health.policy import HealthPolicy, Observation
 from mih.identity.search_keys import compact, search_keys
 from mih.ids import utc_now
 from mih.lists import LEVELS
-from mih.playback import PlaybackError, finish_command, take_commands
+from mih.playback import PlaybackError, finish_command, set_offered, take_commands
 from mih.search.engine import SearchRequest, search
 
 MAX_ITEMS = 50
@@ -117,11 +117,11 @@ TOOLS = [
     ),
     Tool(
         "report",
-        "Tell the server whether a stream really played on the TV, about 10-15 s after "
-        "the start. ok=true: picture plays; ok=false: error, black screen or nothing in "
-        "15 s (error: timeout, http_403, player_error, no_video). Report each stream "
-        "tried. This keeps the channel lists right. For a command from 'queue' pass "
-        "its cmd too: the web UI shows the result.",
+        "Tell the server that a stream did NOT play on the TV: error, black screen or "
+        "nothing within 15 s (error: timeout, http_403, player_error, no_video). Report "
+        "each stream that failed, then try the next one. Silence means it plays: no "
+        "report is needed for success (ok=true is accepted and closes a command at "
+        "once). Pass cmd for a command from 'queue'.",
         _obj(
             {
                 "stream_id": {"type": "string"},
@@ -137,10 +137,11 @@ TOOLS = [
     Tool(
         "queue",
         "Channels the household asked to start on the TV with the web UI's 'На ТВ' "
-        "button. Each command is handed out once and carries the streams like 'play'. "
-        "Start the first stream on the TV, then 'report' with stream_id and cmd within "
-        "90 s. wait>0 holds the call up to that many seconds until a command arrives "
-        "(long poll); a command nobody takes within 30 s fails on the UI.",
+        "button. Each command is handed out once, with up to 3 streams like 'play'. "
+        "Start the first on the TV; if it does not play, report(stream_id, ok=false, "
+        "cmd) and try the next. Silence for 60 s means it plays. wait>0 holds the call "
+        "up to that many seconds until a command arrives (long poll); a command nobody "
+        "takes within 30 s fails on the UI.",
         _obj({"wait": {"type": "integer", "minimum": 0, "maximum": 50, "default": 0}}),
         read_only=False,
     ),
@@ -316,6 +317,7 @@ class Toolbox:
             cid = c["target"]["channel_id"]
             item = {"cmd": c["id"], "id": cid, "name": _names(conn, {cid}).get(cid)}
             item["streams"] = self._play(conn, now, cid)["streams"]
+            set_offered(conn, c["id"], [x["stream_id"] for x in item["streams"]])
             items.append(item)
         return {"items": items}
 

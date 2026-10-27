@@ -1,10 +1,13 @@
 """Playback commands (spec 12 C4): pick the best live stream and hand it to a device.
 
 The household's agent starts the TV (MIH_PLAYBACK=agent): a command waits as
-``accepted`` until the agent takes it over MCP (``take_commands``), starts the channel
-its own way and reports the result (``finish_command``). A command nobody takes within
-PICKUP fails with ``no_agent``, one taken but never reported within RUN with
-``no_report``. MIH_PLAYBACK=off only picks the stream and fails with ``no_adapter``.
+``accepted`` until the agent takes it over MCP (``take_commands``) with up to three
+streams (``set_offered``) and starts the channel its own way. The agent reports only
+what did not play (``finish_command``); silence means it plays. So RUN after it took
+the command, the first offered stream with no failure counts as started, and as a
+playback seen on the TV. Every offered stream failed: the command failed. A command
+nobody takes within PICKUP fails with ``no_agent``. MIH_PLAYBACK=off only picks the
+stream and fails with ``no_adapter``.
 """
 
 from __future__ import annotations
@@ -20,7 +23,8 @@ from mih.config import Settings
 from mih.ids import new_id, utc_now
 
 PICKUP = timedelta(seconds=30)
-RUN = timedelta(seconds=90)
+# Time the agent has to try the streams (about 15 s each) and report the ones that failed.
+RUN = timedelta(seconds=60)
 
 # Lower is better. quarantine and archived streams are never played.
 _STATUS_RANK = {"active": 0, "new": 1, "unverified": 2, "suspect": 3}
@@ -106,14 +110,45 @@ def create_command(
 
 
 def expire(conn: sqlite3.Connection, now: datetime) -> None:
-    """Fail the commands nobody took, or took and never reported, in time."""
+    """Close the commands whose time is up: not taken (no_agent), or taken with no
+    failure left unanswered, which means the stream plays."""
     conn.execute(
-        "UPDATE playback_commands SET state = 'failed', finished_at = ?,"
-        " error = CASE WHEN taken_at IS NULL THEN 'no_agent' ELSE 'no_report' END"
-        " WHERE state = 'accepted' AND ((taken_at IS NULL AND created_at < ?)"
-        " OR taken_at < ?)",
-        (_iso(now), _iso(now - PICKUP), _iso(now - RUN)),
+        "UPDATE playback_commands SET state = 'failed', finished_at = ?, error = 'no_agent'"
+        " WHERE state = 'accepted' AND taken_at IS NULL AND created_at < ?",
+        (_iso(now), _iso(now - PICKUP)),
     )
+    for row in conn.execute(
+        "SELECT id, offered, failed, stream_id FROM playback_commands"
+        " WHERE state = 'accepted' AND taken_at < ?",
+        (_iso(now - RUN),),
+    ).fetchall():
+        failed = set(json.loads(row["failed"] or "[]"))
+        playing = next((s for s in json.loads(row["offered"] or "[]") if s not in failed), None)
+        if playing is None and row["stream_id"] not in failed:
+            playing = row["stream_id"]
+        conn.execute(
+            "UPDATE playback_commands SET state = ?, stream_id = COALESCE(?, stream_id),"
+            " finished_at = ?, error = ? WHERE id = ?",
+            ("started" if playing else "failed", playing, _iso(now),
+             None if playing else "all_failed", row["id"]),
+        )  # fmt: skip
+        if playing:
+            _seen_playing(conn, playing, now)
+
+
+def _seen_playing(conn: sqlite3.Connection, stream_id: str, now: datetime) -> None:
+    # Imported here: the health runner pulls in the prober and its HTTP client.
+    from mih.health.policy import HealthPolicy, Observation
+    from mih.health.runner import record
+
+    if conn.execute("SELECT 1 FROM streams WHERE id = ?", (stream_id,)).fetchone():
+        record(conn, stream_id, Observation(at=now, vantage="device", success=True),
+               HealthPolicy.from_env(), kind="playback", error_kind=None)  # fmt: skip
+
+
+def set_offered(conn: sqlite3.Connection, cmd_id: str, stream_ids: list[str]) -> None:
+    conn.execute("UPDATE playback_commands SET offered = ? WHERE id = ?",
+                 (json.dumps(stream_ids), cmd_id))  # fmt: skip
 
 
 def take_commands(conn: sqlite3.Connection, now: datetime | None = None) -> list[dict]:
@@ -139,16 +174,33 @@ def finish_command(
     conn: sqlite3.Connection, cmd_id: str, ok: bool, stream_id: str | None,
     error: str | None = None, now: datetime | None = None,
 ) -> dict:  # fmt: skip
-    """The agent's result. A failed stream may be followed by a spare that starts, so a
-    later report replaces an earlier one, except that a failure never undoes a start."""
-    get_command(conn, cmd_id)
+    """A report from the agent. ok=True closes the command as started at once. A failure
+    is noted; the command fails when every offered stream has failed, otherwise the
+    agent is trying a spare and silence until RUN means that one plays."""
+    row = conn.execute("SELECT * FROM playback_commands WHERE id = ?", (cmd_id,)).fetchone()
+    if row is None:
+        raise PlaybackError("not_found", "playback command not found")
     now = now or datetime.now(UTC)
+    taken = row["taken_at"] or _iso(now)
+    if ok:
+        conn.execute(
+            "UPDATE playback_commands SET state = 'started', stream_id = COALESCE(?, stream_id),"
+            " finished_at = ?, error = NULL, taken_at = ? WHERE id = ?",
+            (stream_id, _iso(now), taken, cmd_id),
+        )
+        return get_command(conn, cmd_id)
+    if row["state"] == "started":
+        return command_out(row)  # a late failure of a spare never undoes a start
+    failed = json.loads(row["failed"] or "[]")
+    if stream_id and stream_id not in failed:
+        failed.append(stream_id)
+    offered = json.loads(row["offered"] or "[]") or [row["stream_id"]]
+    done = all(s in failed for s in offered)
     conn.execute(
-        "UPDATE playback_commands SET state = ?, stream_id = COALESCE(?, stream_id),"
-        " finished_at = ?, error = ?, taken_at = COALESCE(taken_at, ?)"
-        " WHERE id = ? AND (state != 'started' OR ?)",
-        ("started" if ok else "failed", stream_id, _iso(now),
-         None if ok else (error or "player_error"), _iso(now), cmd_id, ok),
+        "UPDATE playback_commands SET failed = ?, error = ?, taken_at = ?, state = ?,"
+        " finished_at = ? WHERE id = ?",
+        (json.dumps(failed), error or "player_error", taken,
+         "failed" if done else row["state"], _iso(now) if done else None, cmd_id),
     )  # fmt: skip
     return get_command(conn, cmd_id)
 
@@ -165,6 +217,7 @@ def command_out(row: sqlite3.Row) -> dict:
     return {
         "id": row["id"], "device_id": row["device_id"], "target": json.loads(row["target"]),
         "stream_id": row["stream_id"], "state": row["state"], "error": row["error"],
+        "taken": row["taken_at"] is not None,
         "created_at": row["created_at"], "finished_at": row["finished_at"],
     }  # fmt: skip
 

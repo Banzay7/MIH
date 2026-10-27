@@ -170,17 +170,45 @@ def test_tv_button_is_carried_out_by_the_agent(conn, settings):
     box = Toolbox(settings)
     first = _ch(box, conn, "первый")["id"]
     target = playback.Target("channel", first)
+    now = datetime.now(UTC)  # commands are timed by the real clock
+    later = now + playback.RUN * 2
+
+    # Silence means it plays: the first offered stream counts as seen on the TV.
     cmd, _ = playback.create_command(conn, target, mode="agent")
     assert cmd["state"] == "accepted" and cmd["error"] is None
-    (job,) = box.call(conn, "queue", {}, NOW)["items"]
+    (job,) = box.call(conn, "queue", {}, now)["items"]
     assert job["cmd"] == cmd["id"] and job["name"] == "Первый канал HD"
-    assert box.call(conn, "queue", {}, NOW)["items"] == []  # handed out once
-    sid = job["streams"][0]["stream_id"]
-    out = box.call(conn, "report", {"stream_id": sid, "ok": True, "cmd": cmd["id"]}, NOW)
-    assert out["cmd"] == "started"
-    # A late failure of a spare does not undo the start.
-    playback.finish_command(conn, cmd["id"], False, sid, "timeout")
-    assert playback.get_command(conn, cmd["id"])["state"] == "started"
+    assert box.call(conn, "queue", {}, now)["items"] == []  # handed out once
+    assert playback.get_command(conn, cmd["id"])["taken"]
+    playback.expire(conn, later)
+    done = playback.get_command(conn, cmd["id"])
+    first_sid = job["streams"][0]["stream_id"]
+    assert done["state"] == "started" and done["stream_id"] == first_sid
+    seen = conn.execute(
+        "SELECT COUNT(*) FROM stream_observations WHERE stream_id = ?"
+        " AND kind = 'playback' AND success = 1",
+        (first_sid,),
+    ).fetchone()[0]
+    assert seen == 1
+
+    # The first fails, the spare plays (silence): the spare is the one that started.
+    cmd, _ = playback.create_command(conn, target, mode="agent")
+    (job,) = box.call(conn, "queue", {}, now)["items"]
+    sids = [x["stream_id"] for x in job["streams"]]
+    assert len(sids) >= 2
+    out = box.call(conn, "report", {"stream_id": sids[0], "ok": False, "error": "timeout",
+                                    "cmd": cmd["id"]}, now)  # fmt: skip
+    assert out["cmd"] == "accepted"  # still trying spares
+    playback.expire(conn, later)
+    assert playback.get_command(conn, cmd["id"])["stream_id"] == sids[1]
+
+    # Every offered stream failed: the command failed at once.
+    cmd, _ = playback.create_command(conn, target, mode="agent")
+    (job,) = box.call(conn, "queue", {}, now)["items"]
+    for x in job["streams"]:
+        box.call(conn, "report", {"stream_id": x["stream_id"], "ok": False,
+                                  "cmd": cmd["id"]}, now)  # fmt: skip
+    assert playback.get_command(conn, cmd["id"])["state"] == "failed"
 
     # Nobody takes it: the UI hears "no agent" after PICKUP.
     lost, _ = playback.create_command(conn, target, mode="agent")
