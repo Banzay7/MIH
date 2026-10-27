@@ -577,7 +577,7 @@ async function viewSettings() {
 
 const JOB_NAMES = { sources: "Обновление плейлистов", epg: "Обновление телепрограммы",
   health: "Проверка потоков", alerts: "Оповещения по темам", discover: "Поисковик плейлистов",
-  pack: "Упаковщик плейлистов", digest: "Сводка за сутки" };
+  pack: "Упаковщик плейлистов", drive: "Выгрузка на Google Диск", digest: "Сводка за сутки" };
 
 function discoveryBlock(d) {
   if (!d || !d.found) return "";
