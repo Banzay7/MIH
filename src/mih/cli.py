@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         "--level",
         choices=("ok", "doubtful", "unknown"),
         default="ok",
-        help="ok: played within 48 h (default); doubtful: within 7 days; unknown: not checked",
+        help="ok: played within 10 days (default); doubtful: within 14 days; unknown: not checked",
     )
     lst.add_argument("--timeshift", action="store_true", help="include +N hour copies")
     lst.add_argument("--adult", action="store_true", help="include adult channels")

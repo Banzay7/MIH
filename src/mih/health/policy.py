@@ -15,15 +15,21 @@ VANTAGES = ("server", "home", "device")
 # 'policy_excluded' to the user; a probe never sets or clears those.
 PROBE_REASONS = ("drm_unsupported", "authentication_required", "blocked_by_geo")
 
-# How long until the next probe, by status, when nothing is going wrong.
+# How long until the next probe, by status, when nothing is going wrong. A working stream
+# is looked at once a week; one that started failing hourly until it is back or
+# quarantined (quarantine_after_days), then weekly, and archived ones monthly.
 RECHECK_MINUTES = {
     "unverified": 0,
-    "new": 6 * 60,
-    "active": 24 * 60,
-    "suspect": 3 * 60,
-    "quarantine": 24 * 60,
-    "archived": 7 * 24 * 60,
+    "new": 60,
+    "active": 7 * 24 * 60,
+    "suspect": 60,
+    "quarantine": 7 * 24 * 60,
+    "archived": 30 * 24 * 60,
 }
+# A stream new to the catalog is probed hourly for its first trial_hours: enough checks
+# to tell a stable stream from a flapping one and to record its resolution and start-up
+# time. After that it falls back to the weekly check.
+TRIAL_MINUTES = 60
 
 DEFAULT_CANARIES = ("https://www.gstatic.com/generate_204", "https://cp.cloudflare.com/")
 
@@ -46,7 +52,8 @@ class HealthPolicy:
     suspect_failures: int = 3
     suspect_windows: int = 2
     window_minutes: int = 60
-    quarantine_after_days: int = 7
+    trial_hours: int = 24
+    quarantine_after_days: int = 3
     archive_after_days: int = 30
     device_trust_hours: int = 72
     observation_retention_days: int = 90
@@ -164,7 +171,12 @@ def age(state: StreamState, now: datetime, policy: HealthPolicy) -> StreamState:
 
 
 def next_check(
-    state: StreamState, now: datetime, policy: HealthPolicy, *, counted: bool
+    state: StreamState,
+    now: datetime,
+    policy: HealthPolicy,
+    *,
+    counted: bool,
+    first_seen: datetime | None = None,
 ) -> datetime:
     if not counted:
         # The result told us nothing about the stream; try again after a window.
@@ -172,7 +184,14 @@ def next_check(
     if state.status in ("unverified", "new", "active") and state.streak_failures:
         # Spread retries over separate windows so a flap is told apart from an outage.
         return now + timedelta(minutes=policy.window_minutes)
-    return now + timedelta(minutes=RECHECK_MINUTES[state.status])
+    planned = now + timedelta(minutes=RECHECK_MINUTES[state.status])
+    if in_trial(first_seen, now, policy):
+        return min(planned, now + timedelta(minutes=TRIAL_MINUTES))
+    return planned
+
+
+def in_trial(first_seen: datetime | None, now: datetime, policy: HealthPolicy) -> bool:
+    return first_seen is not None and now - first_seen < timedelta(hours=policy.trial_hours)
 
 
 def _device_overrides(s: StreamState, obs: Observation, policy: HealthPolicy) -> str | None:
