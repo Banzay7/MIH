@@ -97,6 +97,7 @@ docker compose -f docker-compose.example.yml up -d --build
 | `MIH_EVERY_SOURCES`, `MIH_EVERY_EPG`, `MIH_EVERY_HEALTH` | `6h`, `12h`, `10m` | Как часто обновлять плейлисты и программу по URL и проверять потоки (`30m`, `6h`, `1d`, `off`) |
 | `MIH_EVERY_ALERTS`, `MIH_ALERT_LEAD` | `5m`, `15m` | Оповещения по темам: как часто смотреть программу и за сколько до начала присылать пуш; `off` в `MIH_ALERT_LEAD` выключает ([подробнее](docs/notifications.md#оповещения-по-темам)) |
 | `MIH_DRIVE_TOKEN`, `MIH_DRIVE_FOLDER_ID`, `MIH_EVERY_DRIVE` | нет, нет, `6h` | Выгрузка каналов на Google Диск ([docs/drive.md](docs/drive.md)); без токена выключена |
+| `MIH_MCP_PORT`, `MIH_MCP_HOST`, `MIH_MCP_TOKEN`, `MIH_MCP_DAILY_LIMIT` | нет, `127.0.0.1`, `MIH_API_TOKEN`, `0` | MCP-сервер для AI-агента на своём порту ([docs/agent.md](docs/agent.md#mcp-сервер)); без порта выключен |
 | `MIH_EVERY_DISCOVER`, `MIH_EVERY_PACK` | `5m`, `15m` | Грабер плейлистов: поисковик и упаковщик ([docs/discovery.md](docs/discovery.md)); там же `MIH_DISCOVERY_SEARCH_EVERY`, `MIH_GITHUB_TOKEN`, `MIH_DISCOVERY_FILE` и пределы |
 | `MIH_ALERT_LINK` | `auto` | Что открывает пуш о передаче: `play` (ссылка `MIH_PUBLIC_URL/play/…`), `stream` (сам адрес потока), `none`; `auto` = `play` при заданном `MIH_PUBLIC_URL`, иначе `stream` |
 | `MIH_DIGEST_AT` | `09:00` | Время ежедневной сводки по `MIH_TIMEZONE`; `off` выключает |

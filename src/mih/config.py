@@ -99,6 +99,13 @@ class Settings:
     drive_token: str | None = None
     drive_folder_id: str | None = None
     every_drive: timedelta | None = timedelta(hours=6)
+    # MCP server for an AI agent (docs/agent.md): its own port, None = off. Loopback by
+    # default; any other address needs a token (MIH_MCP_TOKEN, else MIH_API_TOKEN).
+    # A daily cap on tool calls, 0 = none.
+    mcp_port: int | None = None
+    mcp_host: str = "127.0.0.1"
+    mcp_token: str | None = None
+    mcp_daily_limit: int = 0
 
     @property
     def db_path(self) -> Path:
@@ -163,10 +170,20 @@ class Settings:
             drive_token=env.get("MIH_DRIVE_TOKEN") or None,
             drive_folder_id=env.get("MIH_DRIVE_FOLDER_ID") or None,
             every_drive=parse_every(env.get("MIH_EVERY_DRIVE", "6h"), "MIH_EVERY_DRIVE"),
+            mcp_port=int(env["MIH_MCP_PORT"]) if env.get("MIH_MCP_PORT") else None,
+            mcp_host=env.get("MIH_MCP_HOST", "127.0.0.1"),
+            mcp_token=env.get("MIH_MCP_TOKEN") or None,
+            mcp_daily_limit=int(env.get("MIH_MCP_DAILY_LIMIT", "0")),
         )
 
     def validate_for_serving(self) -> None:
         """Spec 23: never serve without a token, except on loopback for local development."""
+        if self.mcp_token and len(self.mcp_token) < 24:
+            raise ConfigError("MIH_MCP_TOKEN must be at least 24 characters")
+        no_token = not (self.mcp_token or self.api_token)
+        if self.mcp_port is not None and no_token and not _is_loopback(self.mcp_host):
+            raise ConfigError("MIH_MCP_TOKEN or MIH_API_TOKEN is required when"
+                              " MIH_MCP_HOST is not a loopback address")  # fmt: skip
         if self.api_token:
             if len(self.api_token) < 24:
                 raise ConfigError("MIH_API_TOKEN must be at least 24 characters")
