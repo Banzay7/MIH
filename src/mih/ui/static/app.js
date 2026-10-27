@@ -113,7 +113,16 @@ const PLAY_TEXT = {
   no_adapter: "Поток выбран, но запуск на ТВ выключен на сервере (MIH_PLAYBACK=off).",
   no_agent: "Агент не взял команду: он не подключён к MCP или не проверяет очередь.",
   no_stream: "У этого канала сейчас нет рабочего потока.",
+  ha_started: "Home Assistant выполнил скрипт: канал включается на ТВ",
+  ha_unreachable: "Home Assistant недоступен с сервера: проверьте MIH_HA_URL и связь (Tailscale).",
+  ha_unauthorized: "Home Assistant не принял токен: создайте новый и пропишите в MIH_HA_TOKEN.",
+  ha_script_not_found: "В Home Assistant нет такого скрипта: проверьте MIH_HA_SCRIPT.",
+  ha_script_failed: "Скрипт Home Assistant завершился с ошибкой. Подробности в журнале HA.",
+  ha_timeout: "Home Assistant не ответил вовремя. Канал, возможно, всё же включится.",
 };
+
+// "agent" or "ha": who starts the TV from this browser; none = the server's default.
+const playAdapter = () => store.get("mih.adapter");
 
 async function playOnTv(channelId, feedId, button) {
   if (button) button.disabled = true;
@@ -121,7 +130,9 @@ async function playOnTv(channelId, feedId, button) {
     const key = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
     const target = { kind: "channel", channel_id: channelId };
     if (feedId) target.feed_id = feedId;
-    let cmd = await api("/playback/commands", { method: "POST", body: { target, idempotency_key: key } });
+    const body = { target, idempotency_key: key };
+    if (playAdapter()) body.adapter = playAdapter();
+    let cmd = await api("/playback/commands", { method: "POST", body });
     // The agent has 30 s to take the command; then silence for 60 s means it plays,
     // so once it is taken the toast says so and only a failure changes it.
     let told = false;
@@ -132,7 +143,7 @@ async function playOnTv(channelId, feedId, button) {
       cmd = await api(`/playback/commands/${enc(cmd.id)}`);
     }
     if (told && cmd.state === "started") return;
-    if (cmd.state === "started") toast(PLAY_TEXT.started);
+    if (cmd.state === "started") toast(cmd.adapter === "ha" ? PLAY_TEXT.ha_started : PLAY_TEXT.started);
     else if (cmd.state === "failed") toast(PLAY_TEXT[cmd.error] || `Не удалось запустить: ${cmd.error}`, 6000);
     else toast("ТВ не ответил вовремя. Попробуйте ещё раз.");
   } catch (e) {
@@ -557,6 +568,9 @@ async function viewSettings() {
   let health = null, metrics = null, err = null;
   try { health = await api("/health/live"); } catch (e) { err = e; }
   try { metrics = await api("/metrics/summary"); } catch (e) { err = err || e; }
+  let adapters = null;
+  try { adapters = await api("/playback/adapters"); } catch { /* an older server */ }
+  const current = playAdapter() || adapters?.default || "agent";
   const hasToken = Boolean(store.get("mih.token"));
   return html`<h1>Настройки</h1>
     ${err ? errorBox(err) : ""}
@@ -578,7 +592,16 @@ async function viewSettings() {
         <span class="muted">С программой</span><span>${metrics.channels_with_epg}${metrics.epg_coverage != null ? ` (${Math.round(metrics.epg_coverage * 100)}%)` : ""}</span>
         <span class="muted">EPG ждёт решения</span><span>${metrics.epg_mappings_needs_review}</span>` : ""}
     </div>
-    <p class="small muted">Кнопка «На ТВ» передаёт канал домашнему агенту: он берёт команду через MCP, включает ТВ и сообщает, заиграло ли.</p>
+    <h2>Кнопка «На ТВ»</h2>
+    ${adapters ? html`<div class="field">
+      <label class="row"><input type="radio" name="adapter" value="agent" ${current === "agent" ? raw("checked") : ""}>
+        Через агента: он берёт команду через MCP, включает ТВ и сообщает, если не заиграло</label>
+      <label class="row"><input type="radio" name="adapter" value="ha" ${current === "ha" ? raw("checked") : ""}
+        ${adapters.available.includes("ha") ? "" : raw("disabled")}>
+        Напрямую через Home Assistant${adapters.ha_script ? `: скрипт ${adapters.ha_script}` : " (не настроен на сервере: MIH_HA_URL, MIH_HA_TOKEN)"}</label>
+      ${adapters.available.includes("ha") ? html`<div class="row"><button class="btn" type="button" id="ha-check">Проверить связь с HA</button></div>` : ""}
+      <span class="small muted">Выбор хранится в этом браузере. Home Assistant получает адреса потоков и название канала и запускает свой скрипт, агент не участвует.</span>
+    </div>` : ""}
     <p class="small"><a href="/api/docs">Документация API</a></p>`;
 }
 
@@ -762,6 +785,14 @@ document.addEventListener("click", (e) => {
       .catch((err) => toast(errorText(err), 5000));
     return;
   }
+  if (e.target.id === "ha-check") {
+    e.target.disabled = true;
+    api("/playback/ha/check", { method: "POST" })
+      .then((r) => toast(r.ok ? `Home Assistant отвечает, скрипт ${r.script} найден` : (PLAY_TEXT[r.error] || `Ошибка: ${r.error}`), 6000))
+      .catch((err) => toast(errorText(err), 5000))
+      .finally(() => { e.target.disabled = false; });
+    return;
+  }
   if (e.target.id === "token-clear") {
     store.set("mih.token", null);
     state.channelsLoaded = false;
@@ -812,6 +843,10 @@ document.addEventListener("input", (e) => {
         if (input && e.target.name === "q") { input.focus(); input.setSelectionRange(pos, pos); }
       });
     }, e.target.type === "search" ? 250 : 0);
+  }
+  if (e.target.name === "adapter") {
+    store.set("mih.adapter", e.target.value);
+    toast(e.target.value === "ha" ? "«На ТВ» теперь идёт напрямую в Home Assistant" : "«На ТВ» теперь выполняет агент");
   }
   if (e.target.id === "logos") {
     store.set("mih.logos", e.target.checked ? "1" : "0");

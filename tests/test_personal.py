@@ -108,3 +108,100 @@ def test_tracked_topics_are_folded_and_removable(client):
     assert client.delete(f"{url}/Футбол Ёлки").status_code == 204
     assert client.get(url).json()["items"] == []
     assert client.post(url, json={"topic": "x"}).status_code == 422
+
+
+def _ha_client(tmp_path, handler, **kw):
+    import httpx
+
+    tmp_path.mkdir(exist_ok=True)
+    settings = Settings(data_dir=tmp_path, api_token=TOKEN, playback="agent",
+                        ha_url="http://ha.test:8123", ha_token="h" * 40, **kw)  # fmt: skip
+    app = create_app(settings)
+    app.state.ha_transport = httpx.MockTransport(handler)
+    c = TestClient(app)
+    c.__enter__()
+    c.headers["Authorization"] = f"Bearer {TOKEN}"
+    src = c.post("/api/v1/sources", json={"name": "a"}).json()
+    files = {"file": ("a.m3u", fixture_bytes("provider_a.m3u"), "audio/x-mpegurl")}
+    c.post(f"/api/v1/sources/{src['id']}/upload", files=files)
+    return c
+
+
+def test_play_through_home_assistant_runs_the_script_with_stream_urls(tmp_path):
+    import json
+
+    import httpx
+
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json=[])
+
+    c = _ha_client(tmp_path, handler, ha_fields={"channel": "name", "stream_id": ""})
+    assert c.get("/api/v1/playback/adapters").json() == {
+        "default": "agent",
+        "available": ["agent", "ha"],
+        "ha_script": "script.mih_play",
+    }
+    perviy = _channel(c, "первый")
+    resp = c.post("/api/v1/playback/commands",
+                  json={"target": {"channel_id": perviy}, "adapter": "ha"})  # fmt: skip
+    cmd = resp.json()
+    assert cmd["state"] == "started" and cmd["adapter"] == "ha" and cmd["error"] is None
+    # The stream URL goes to Home Assistant, never back to the browser.
+    assert "a.example" not in resp.text
+    (req,) = calls
+    assert req.url.path == "/api/services/script/mih_play"
+    assert req.headers["authorization"] == "Bearer " + "h" * 40
+    sent = json.loads(req.content)
+    assert sent["name"] == "Первый канал HD" and "channel" not in sent and "stream_id" not in sent
+    assert sent["url"] == sent["urls"][0] and sent["channel_id"] == perviy
+    assert sent["command_id"] == cmd["id"]
+    # The agent never sees an HA command.
+    from mih import playback
+
+    conn = db.connect(c.app.state.settings.db_path)
+    assert playback.take_commands(conn) == []
+    conn.close()
+    c.__exit__(None, None, None)
+
+
+@pytest.mark.parametrize(("status", "error"), [
+    (401, "ha_unauthorized"), (404, "ha_script_not_found"), (500, "ha_script_failed"),
+    (None, "ha_unreachable"),
+])  # fmt: skip
+def test_play_through_home_assistant_reports_its_failure(tmp_path, status, error):
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if status is None:
+            raise httpx.ConnectError("refused")
+        return httpx.Response(status)
+
+    c = _ha_client(tmp_path, handler)
+    body = {"target": {"channel_id": _channel(c, "первый")}, "adapter": "ha"}
+    cmd = c.post("/api/v1/playback/commands", json=body).json()
+    assert (cmd["state"], cmd["error"]) == ("failed", error)
+    check = c.post("/api/v1/playback/ha/check").json()
+    assert check["ok"] is False and check["error"] == error.replace("_script_failed", "_error")
+    c.__exit__(None, None, None)
+
+
+def test_home_assistant_check_and_unset_bridge(tmp_path, client):
+    import httpx
+
+    c = _ha_client(tmp_path / "ha", lambda r: httpx.Response(200, json={"state": "off"}))
+    assert c.post("/api/v1/playback/ha/check").json() == {
+        "configured": True,
+        "script": "script.mih_play",
+        "ok": True,
+        "error": None,
+    }
+    c.__exit__(None, None, None)
+    # Without MIH_HA_URL/MIH_HA_TOKEN the bridge is not offered and cannot be asked for.
+    assert client.get("/api/v1/playback/adapters").json()["available"] == ["agent"]
+    perviy = _channel(client, "первый")
+    resp = client.post("/api/v1/playback/commands",
+                       json={"target": {"channel_id": perviy}, "adapter": "ha"})  # fmt: skip
+    assert resp.status_code == 422

@@ -8,6 +8,10 @@ the command, the first offered stream with no failure counts as started, and as 
 playback seen on the TV. Every offered stream failed: the command failed. A command
 nobody takes within PICKUP fails with ``no_agent``. MIH_PLAYBACK=off only picks the
 stream and fails with ``no_adapter``.
+
+MIH_PLAYBACK=ha, or ``adapter: "ha"`` in a request, skips the agent: MIH calls the
+user's Home Assistant script with the stream URLs and waits for it (mih.ha). The
+script ran = started, it raised or HA did not answer = failed with an ``ha_*`` error.
 """
 
 from __future__ import annotations
@@ -95,16 +99,19 @@ def create_command(
 
     streams = pick_streams(conn, target)
     now = utc_now()
-    waits = bool(streams) and mode == "agent"
+    waits = bool(streams) and mode in ("agent", "ha")
     error = None if waits else ("no_adapter" if streams else "no_stream")
     cmd_id = new_id()
+    # An HA command is never queued for the agent: it counts as taken at once and
+    # run_ha closes it.
     conn.execute(
         "INSERT INTO playback_commands (id, device_id, target, stream_id, state,"
-        " idempotency_key, created_at, finished_at, error)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " idempotency_key, created_at, finished_at, error, adapter, taken_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (cmd_id, device_id, json.dumps(target.as_dict()), streams[0] if streams else None,
          "accepted" if waits else "failed", idempotency_key, now,
-         None if waits else now, error),
+         None if waits else now, error, mode if mode != "off" else None,
+         now if mode == "ha" else None),
     )  # fmt: skip
     return get_command(conn, cmd_id), True
 
@@ -205,6 +212,50 @@ def finish_command(
     return get_command(conn, cmd_id)
 
 
+def run_ha(
+    conn: sqlite3.Connection, settings: Settings, cmd_id: str, channel_name: str | None,
+    *, transport=None,
+) -> dict:  # fmt: skip
+    """Carry out an HA command: hand the script the best stream URLs, wait for it, close
+    the command. Streams that need special headers go last: a TV player rarely sends them."""
+    from mih import ha
+    from mih.alerts import play_url
+
+    row = conn.execute("SELECT * FROM playback_commands WHERE id = ?", (cmd_id,)).fetchone()
+    target = json.loads(row["target"])
+    order = pick_streams(conn, Target(target["kind"], target["channel_id"], target.get("feed_id")))
+    locators = {r["stream_id"]: r for r in conn.execute(
+        f"SELECT stream_id, url, headers FROM stream_locators"
+        f" WHERE stream_id IN ({','.join('?' * len(order))})", order,
+    ).fetchall()} if order else {}  # fmt: skip
+    usable = [s for s in order if locators.get(s) and locators[s]["url"]]
+    usable.sort(key=lambda s: any(json.loads(locators[s]["headers"] or "{}").values()))
+    picked = usable[: settings.ha_streams]
+    error = None
+    if not picked:
+        error = "no_stream"
+    else:
+        try:
+            ha.run_script(settings, {
+                "url": locators[picked[0]]["url"],
+                "urls": [locators[s]["url"] for s in picked],
+                "channel": channel_name,
+                "channel_id": target["channel_id"],
+                "stream_id": picked[0],
+                "command_id": cmd_id,
+                "play_url": play_url(settings, target["channel_id"]),
+            }, transport=transport)  # fmt: skip
+        except ha.HaError as exc:
+            error = exc.code
+    conn.execute(
+        "UPDATE playback_commands SET state = ?, stream_id = COALESCE(?, stream_id), offered = ?,"
+        " finished_at = ?, error = ? WHERE id = ?",
+        ("failed" if error else "started", picked[0] if picked else None, json.dumps(picked),
+         utc_now(), error, cmd_id),
+    )  # fmt: skip
+    return get_command(conn, cmd_id)
+
+
 def get_command(conn: sqlite3.Connection, cmd_id: str) -> dict:
     expire(conn, datetime.now(UTC))
     row = conn.execute("SELECT * FROM playback_commands WHERE id = ?", (cmd_id,)).fetchone()
@@ -217,7 +268,7 @@ def command_out(row: sqlite3.Row) -> dict:
     return {
         "id": row["id"], "device_id": row["device_id"], "target": json.loads(row["target"]),
         "stream_id": row["stream_id"], "state": row["state"], "error": row["error"],
-        "taken": row["taken_at"] is not None,
+        "taken": row["taken_at"] is not None, "adapter": row["adapter"],
         "created_at": row["created_at"], "finished_at": row["finished_at"],
     }  # fmt: skip
 
