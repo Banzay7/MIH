@@ -93,6 +93,12 @@ class Settings:
     github_token: str | None = None
     # Optional JSON with extra pages, Telegram channels and blocked hosts.
     discovery_file: Path | None = None
+    # Google Drive upload of channels.json/csv (docs/drive.md): the JSON token that
+    # rclone authorize "drive" prints, the target folder's ID and how often the upload
+    # runs (only when the channels changed). No token = no upload.
+    drive_token: str | None = None
+    drive_folder_id: str | None = None
+    every_drive: timedelta | None = timedelta(hours=6)
 
     @property
     def db_path(self) -> Path:
@@ -154,6 +160,9 @@ class Settings:
             discovery_file=(
                 Path(env["MIH_DISCOVERY_FILE"]) if env.get("MIH_DISCOVERY_FILE") else None
             ),
+            drive_token=env.get("MIH_DRIVE_TOKEN") or None,
+            drive_folder_id=env.get("MIH_DRIVE_FOLDER_ID") or None,
+            every_drive=parse_every(env.get("MIH_EVERY_DRIVE", "6h"), "MIH_EVERY_DRIVE"),
         )
 
     def validate_for_serving(self) -> None:
