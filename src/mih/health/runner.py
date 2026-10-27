@@ -77,7 +77,7 @@ def run_checks(
     limits = httpx.Limits(max_connections=policy.concurrency * 2)
     with httpx.Client(timeout=timeout, limits=limits, follow_redirects=False,
                       transport=transport) as client:  # fmt: skip
-        if rows and not _vantage_online(client, policy):
+        if rows and not vantage_online(client, policy):
             # Without a network nothing we see says anything about the streams.
             report.status = "vantage_offline"
             _finish_run(conn, report)
@@ -220,7 +220,7 @@ def _probe_all(client, rows, settings: Settings, policy: HealthPolicy) -> list[P
         return list(pool.map(one, rows))
 
 
-def _vantage_online(client: httpx.Client, policy: HealthPolicy) -> bool:
+def vantage_online(client: httpx.Client, policy: HealthPolicy) -> bool:
     if not policy.canary_urls:
         return True
     for url in policy.canary_urls:
