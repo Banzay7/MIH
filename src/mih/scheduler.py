@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from mih import __version__, db
+from mih.alerts import alert_line, find_matches, load_rules, run_alerts
 from mih.config import Settings
 from mih.epg.service import import_epg_from_url
 from mih.events import list_events, record_event, t
@@ -32,7 +33,7 @@ from mih.sources.service import SourceError, import_from_url
 
 log = logging.getLogger(__name__)
 
-JOBS = ("sources", "epg", "health", "digest")
+JOBS = ("sources", "epg", "health", "alerts", "digest")
 # A run that started this long ago and never finished belongs to a dead process.
 STALE_AFTER = timedelta(hours=6)
 # After a start, interval jobs wait this long, so a restart loop does not hammer sources.
@@ -54,6 +55,9 @@ class Outcome:
     title: str
     lines: list[str] = field(default_factory=list)
     data: dict = field(default_factory=dict)
+    # Nothing worth a line in the feed (a scan that found nothing new): only the job row
+    # is updated, unless someone asked for the run.
+    quiet: bool = False
 
 
 def _fmt(dt: datetime) -> str:
@@ -81,7 +85,8 @@ def next_run(settings: Settings, name: str, after: datetime) -> datetime | None:
 
 def _every(settings: Settings, name: str) -> timedelta | None:
     return {"sources": settings.every_sources, "epg": settings.every_epg,
-            "health": settings.every_health}[name]  # fmt: skip
+            "health": settings.every_health,
+            "alerts": settings.every_alerts if settings.alert_lead else None}[name]  # fmt: skip
 
 
 def sync_jobs(
@@ -171,6 +176,9 @@ def run_job(
     )
     data = {"job": name, "status": outcome.status, "manual": manual, **outcome.data}
     body = "\n".join(outcome.lines)
+    if outcome.quiet and not manual:
+        return {"id": None, "at": _fmt(finished), "kind": f"job.{name}", "level": outcome.level,
+                "title": outcome.title, "body": body, "data": data, "pushed": None}  # fmt: skip
     return record_event(conn, settings, f"job.{name}", outcome.level, outcome.title, body, data,
                         transport=transport, requested=manual)  # fmt: skip
 
@@ -274,6 +282,15 @@ def _job_health(conn, settings, policy, now, transport) -> Outcome:
                    lines, data)  # fmt: skip
 
 
+def _job_alerts(conn, settings, policy, now, transport) -> Outcome:
+    stats = run_alerts(conn, settings, now, transport=transport)
+    titles = stats.pop("titles")
+    if not stats["rules"]:
+        return Outcome("ok", "routine", t(settings, "job.alerts.none"), data=stats, quiet=True)
+    return Outcome("ok", "routine", t(settings, "job.alerts", sent=stats["sent"]), titles, stats,
+                   quiet=not stats["sent"])  # fmt: skip
+
+
 def _job_digest(conn, settings, policy, now, transport) -> Outcome:
     since = _fmt(now - timedelta(days=1))
     lines = []
@@ -300,6 +317,10 @@ def _job_digest(conn, settings, policy, now, transport) -> Outcome:
     if problems:
         lines.append(t(settings, "digest.problems"))
         lines += [f"• {p}" for p in dict.fromkeys(problems)][:10]
+    ahead = find_matches(conn, now, now + timedelta(days=1), now, load_rules(conn))
+    if ahead:
+        lines.append(t(settings, "digest.alerts"))
+        lines += [alert_line(settings, m, ZoneInfo(settings.timezone)) for m in ahead[:10]]
     plan = [p for p in plan_by_job(conn, settings, now) if p["job"] != "digest"]
     if plan:
         tz = ZoneInfo(settings.timezone)
@@ -319,7 +340,7 @@ def _job_digest(conn, settings, policy, now, transport) -> Outcome:
 
 
 _RUNNERS = {"sources": _job_sources, "epg": _job_epg, "health": _job_health,
-            "digest": _job_digest}  # fmt: skip
+            "alerts": _job_alerts, "digest": _job_digest}  # fmt: skip
 
 
 # ---------- Status ----------

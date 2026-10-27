@@ -40,7 +40,7 @@ from mih.sources.fetch import FetchError
 from mih.sources.importer import ImportReport, import_m3u
 from mih.sources.service import SourceError, create_source, get_source, import_from_url
 
-_STATUS = {"not_found": 404, "conflict": 409, "validation_error": 422,
+_STATUS = {"unauthorized": 401, "not_found": 404, "conflict": 409, "validation_error": 422,
            "destination_blocked": 422, "source_unavailable": 502, "too_large": 413}  # fmt: skip
 
 

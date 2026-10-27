@@ -243,7 +243,7 @@ def test_scheduler_tick_runs_what_is_due(pushing):
     db.migrate(c)
     sync_jobs(c, pushing, NOW)
     s = Scheduler(Settings(data_dir=pushing.data_dir, scheduler_enabled=True))
-    assert sorted(s.tick(NOW + timedelta(minutes=3))) == ["epg", "health", "sources"]
+    assert sorted(s.tick(NOW + timedelta(minutes=3))) == ["alerts", "epg", "health", "sources"]
     assert s.tick(NOW + timedelta(minutes=4)) == []
     snap = status_snapshot(c, pushing)
     assert {j["name"]: j["last_status"] for j in snap["jobs"]}["health"] == "ok"

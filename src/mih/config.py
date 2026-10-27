@@ -10,6 +10,7 @@ from pathlib import Path
 
 EPG_SCOPES = ("tracked", "mapped", "all")
 LANGS = ("en", "ru")
+ALERT_LINKS = ("auto", "play", "stream", "none")
 # Event levels, lowest first. "routine" events only go to the feed and the daily digest.
 LEVELS = ("routine", "info", "warning", "error")
 
@@ -64,6 +65,14 @@ class Settings:
     every_sources: timedelta | None = timedelta(hours=6)
     every_epg: timedelta | None = timedelta(hours=12)
     every_health: timedelta | None = timedelta(minutes=10)
+    # Topic alerts: how often the guide is scanned, and how long before the start a
+    # programme is announced. None = no alerts.
+    every_alerts: timedelta | None = timedelta(minutes=5)
+    alert_lead: timedelta | None = timedelta(minutes=15)
+    # What a topic alert opens: play (MIH_PUBLIC_URL/play/<channel>, a signed link that
+    # picks the best stream when tapped), stream (the stream URL itself, sent to ntfy),
+    # none, or auto (play when MIH_PUBLIC_URL is set, otherwise stream).
+    alert_link: str = "auto"
     # Local time (MIH_TIMEZONE) of the daily digest push; None = no digest.
     digest_at: time | None = time(9, 0)
 
@@ -113,6 +122,9 @@ class Settings:
             every_sources=parse_every(env.get("MIH_EVERY_SOURCES", "6h"), "MIH_EVERY_SOURCES"),
             every_epg=parse_every(env.get("MIH_EVERY_EPG", "12h"), "MIH_EVERY_EPG"),
             every_health=parse_every(env.get("MIH_EVERY_HEALTH", "10m"), "MIH_EVERY_HEALTH"),
+            every_alerts=parse_every(env.get("MIH_EVERY_ALERTS", "5m"), "MIH_EVERY_ALERTS"),
+            alert_lead=parse_every(env.get("MIH_ALERT_LEAD", "15m"), "MIH_ALERT_LEAD"),
+            alert_link=_choice(env.get("MIH_ALERT_LINK", "auto"), "MIH_ALERT_LINK", ALERT_LINKS),
             digest_at=_parse_clock(env.get("MIH_DIGEST_AT", "09:00"), "MIH_DIGEST_AT"),
         )
 
