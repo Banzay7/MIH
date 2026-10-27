@@ -22,6 +22,8 @@ import httpx
 from mih import __version__, db
 from mih.alerts import alert_line, find_matches, load_rules, run_alerts
 from mih.config import Settings
+from mih.discovery.harvest import harvest, load_plan
+from mih.discovery.scout import pack, scout, summary
 from mih.epg.service import import_epg_from_url
 from mih.events import list_events, record_event, t
 from mih.health.policy import HealthPolicy
@@ -33,7 +35,7 @@ from mih.sources.service import SourceError, import_from_url
 
 log = logging.getLogger(__name__)
 
-JOBS = ("sources", "epg", "health", "alerts", "digest")
+JOBS = ("sources", "epg", "health", "alerts", "discover", "pack", "digest")
 # A run that started this long ago and never finished belongs to a dead process.
 STALE_AFTER = timedelta(hours=6)
 # After a start, interval jobs wait this long, so a restart loop does not hammer sources.
@@ -86,7 +88,8 @@ def next_run(settings: Settings, name: str, after: datetime) -> datetime | None:
 def _every(settings: Settings, name: str) -> timedelta | None:
     return {"sources": settings.every_sources, "epg": settings.every_epg,
             "health": settings.every_health,
-            "alerts": settings.every_alerts if settings.alert_lead else None}[name]  # fmt: skip
+            "alerts": settings.every_alerts if settings.alert_lead else None,
+            "discover": settings.every_discover, "pack": settings.every_pack}[name]  # fmt: skip
 
 
 def sync_jobs(
@@ -291,6 +294,49 @@ def _job_alerts(conn, settings, policy, now, transport) -> Outcome:
                    quiet=not stats["sent"])  # fmt: skip
 
 
+def _job_discover(conn, settings, policy, now, transport) -> Outcome:
+    plan = load_plan(settings.discovery_file)
+    found = harvest(conn, settings, plan, now, transport=transport)
+    report = scout(conn, settings, plan, policy, now, transport=transport)
+    data = {"found": found.total, "found_by": found.found, "api_calls": found.api_calls,
+            **report.stats(), "totals": summary(conn)}  # fmt: skip
+    if report.offline:
+        return Outcome("warning", "warning", t(settings, "job.discover.offline"), data=data)
+    lines = [t(settings, "discover.found", n=found.total, repos=found.repos_scanned,
+               pages=found.pages_read)]  # fmt: skip
+    if report.scouted:
+        statuses = ", ".join(f"{k} {v}" for k, v in sorted(report.by_status.items()))
+        lines.append(t(settings, "discover.scouted", n=report.scouted, statuses=statuses))
+    lines += [t(settings, "discover.live", url=url, ok=ok, sampled=sampled, new=new)
+              for url, ok, sampled, new in report.live]  # fmt: skip
+    lines += found.notes[:3]
+    title = t(settings, "job.discover", found=found.total, live=len(report.live))
+    return Outcome("ok", "routine", title, lines, data,
+                   quiet=not (found.total or report.live))  # fmt: skip
+
+
+def _job_pack(conn, settings, policy, now, transport) -> Outcome:
+    report = pack(conn, settings, load_plan(settings.discovery_file), policy, now,
+                  transport=transport)  # fmt: skip
+    data = report.stats()
+    if report.capped:
+        title = t(settings, "job.pack.capped", n=settings.discovery_max_streams)
+        return Outcome("ok", "routine", title, data=data, quiet=True)
+    if report.offline:
+        return Outcome("warning", "warning", t(settings, "job.discover.offline"), data=data)
+    if report.playlist is None:
+        return Outcome("ok", "routine", t(settings, "job.pack.idle"), data=data, quiet=True)
+    if not report.packed:
+        title = t(settings, "job.pack.progress", checked=report.checked,
+                  remaining=report.remaining)  # fmt: skip
+        return Outcome("ok", "routine", title, [report.playlist], data,
+                       quiet=bool(report.remaining))  # fmt: skip
+    title = t(settings, "job.pack", channels=report.channels_created,
+              streams=report.streams_created)  # fmt: skip
+    lines = [report.playlist, _rebuild_lists(conn, settings, data)]
+    return Outcome("ok", "routine", title, lines, data)
+
+
 def _job_digest(conn, settings, policy, now, transport) -> Outcome:
     since = _fmt(now - timedelta(days=1))
     lines = []
@@ -314,6 +360,12 @@ def _job_digest(conn, settings, policy, now, transport) -> Outcome:
         failed += stats.get("failed", 0)
     if checked:
         lines.append(t(settings, "digest.health", checked=checked, failed=failed))
+    found = summary(conn)
+    if found["found"]:
+        st = found["by_status"]
+        lines.append(t(settings, "digest.discovery", found=found["found"],
+                       waiting=st.get("new", 0), live=st.get("live", 0) + st.get("packed", 0),
+                       channels=found["auto_channels"], working=found["auto_working"]))  # fmt: skip
     if problems:
         lines.append(t(settings, "digest.problems"))
         lines += [f"• {p}" for p in dict.fromkeys(problems)][:10]
@@ -340,7 +392,8 @@ def _job_digest(conn, settings, policy, now, transport) -> Outcome:
 
 
 _RUNNERS = {"sources": _job_sources, "epg": _job_epg, "health": _job_health,
-            "alerts": _job_alerts, "digest": _job_digest}  # fmt: skip
+            "alerts": _job_alerts, "discover": _job_discover, "pack": _job_pack,
+            "digest": _job_digest}  # fmt: skip
 
 
 # ---------- Status ----------
@@ -418,6 +471,7 @@ def status_snapshot(conn: sqlite3.Connection, settings: Settings, *,
             "channels": conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0],
             "streams": streams,
         },  # fmt: skip
+        "discovery": summary(conn),
         "events": list_events(conn, limit=30),
     }
 

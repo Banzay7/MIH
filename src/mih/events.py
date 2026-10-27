@@ -137,6 +137,49 @@ TEXTS = {
         "en": "Topic alerts: no topics or favourite programmes yet",
         "ru": "Оповещения по темам: темы и любимые передачи не заданы",
     },
+    "job.discover": {
+        "en": "Playlist scout: {found} new found, {live} live",
+        "ru": "Поисковик плейлистов: найдено новых {found}, живых {live}",
+    },
+    "job.discover.offline": {
+        "en": "Playlist discovery skipped: the server has no internet",
+        "ru": "Поиск плейлистов пропущен: у сервера нет интернета",
+    },
+    "job.pack": {
+        "en": "Packer: +{channels} channels, +{streams} working streams",
+        "ru": "Упаковщик: +{channels} каналов, +{streams} рабочих потоков",
+    },
+    "job.pack.progress": {
+        "en": "Packer: {checked} streams checked, {remaining} to go",
+        "ru": "Упаковщик: проверено потоков {checked}, осталось {remaining}",
+    },
+    "job.pack.idle": {
+        "en": "Packer: no live playlists waiting",
+        "ru": "Упаковщик: живых плейлистов в очереди нет",
+    },
+    "job.pack.capped": {
+        "en": "Packer: paused, found playlists hold {n} streams (MIH_DISCOVERY_MAX_STREAMS)",
+        "ru": "Упаковщик на паузе: в найденных плейлистах уже {n} потоков"
+        " (MIH_DISCOVERY_MAX_STREAMS)",
+    },
+    "discover.found": {
+        "en": "search: +{n} playlists ({repos} repositories, {pages} pages read)",
+        "ru": "поиск: +{n} плейлистов (репозиториев {repos}, страниц {pages})",
+    },
+    "discover.scouted": {
+        "en": "sampled {n}: {statuses}",
+        "ru": "проверено выборочно {n}: {statuses}",
+    },
+    "discover.live": {
+        "en": "• {url}: {ok} of {sampled} play, {new} new streams",
+        "ru": "• {url}: работают {ok} из {sampled}, новых потоков {new}",
+    },
+    "digest.discovery": {
+        "en": "Playlist discovery: {found} found, {waiting} waiting, {live} live;"
+        " from them {channels} channels, {working} streams working",
+        "ru": "Грабер: найдено плейлистов {found}, ждут проверки {waiting}, живых {live};"
+        " из них каналов {channels}, рабочих потоков {working}",
+    },
     "alert.title": {"en": "{time} · {title}", "ru": "{time} · {title}"},
     "alert.started": {"en": "On now · {title}", "ru": "Уже идёт · {title}"},
     "alert.topic": {"en": "topic «{topic}»", "ru": "тема «{topic}»"},
@@ -206,6 +249,8 @@ TEXTS = {
     "name.health": {"en": "stream check", "ru": "проверка потоков"},
     "name.digest": {"en": "daily summary", "ru": "сводка за сутки"},
     "name.alerts": {"en": "topic alerts", "ru": "оповещения по темам"},
+    "name.discover": {"en": "playlist scout", "ru": "поисковик плейлистов"},
+    "name.pack": {"en": "playlist packer", "ru": "упаковщик плейлистов"},
 }
 
 

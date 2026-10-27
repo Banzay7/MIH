@@ -17,6 +17,7 @@ from mih.directory import (
     fetch_directory,
     import_directory,
 )
+from mih.discovery.scout import summary
 from mih.epg.importer import import_xmltv
 from mih.epg.service import create_epg_source
 from mih.events import record_event, t
@@ -93,6 +94,9 @@ def main(argv: list[str] | None = None) -> int:
     job = sub.add_parser("run-job", help="run a background job now; the result is pushed")
     job.add_argument("name", choices=JOBS)
     sub.add_parser("notify-test", help="send a test push to MIH_NTFY_URL")
+    dsc = sub.add_parser("discovery", help="what the playlist scout found and packed")
+    dsc.add_argument("--status", help="list the playlists in this state (live, packed, dead...)")
+    dsc.add_argument("--limit", type=int, default=50)
     args = parser.parse_args(argv)
 
     settings = Settings.from_env()
@@ -198,6 +202,16 @@ def main(argv: list[str] | None = None) -> int:
         if event["body"]:
             print(event["body"])
         return 0 if event["data"]["status"] != "error" else 3
+    elif args.cmd == "discovery" and args.status:
+        rows = conn.execute(
+            "SELECT url, origin, reason, entries, new_entries, sampled, sample_ok, checked,"
+            " packed_ok, scouted_at FROM discovered_playlists WHERE status = ?"
+            " ORDER BY scouted_at DESC LIMIT ?",
+            (args.status, args.limit),
+        ).fetchall()
+        print(json.dumps([dict(r) for r in rows], ensure_ascii=False, indent=2))
+    elif args.cmd == "discovery":
+        print(json.dumps(summary(conn), ensure_ascii=False, indent=2))
     elif args.cmd == "notify-test":
         if not settings.ntfy_url:
             print("error: MIH_NTFY_URL is not set", file=sys.stderr)
