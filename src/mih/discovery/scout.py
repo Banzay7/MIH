@@ -5,17 +5,24 @@ and DRM (mih.discovery.safety), keeps only streams the catalog does not have yet
 probes a small random sample of them. One stream that plays makes the playlist 'live'.
 
 Packer (job ``pack``): takes one live playlist at a time and probes its new streams in
-small batches over several runs. When all are checked, the streams that played are
+small batches over several runs. After every batch the streams that played are
 imported as a source of their own ("auto: ...") and count as checked right away; the
 dead ones never reach the catalog. The usual stream check takes over from there.
 
 A probe result is kept per stream URL for a week, so forks of one playlist cost nothing.
+
+Home country (MIH_HOME_COUNTRY): a server abroad cannot open many of the home country's
+channels (geo block), though they play at home. A stream of that country (by its tvg-id,
+e.g. "VTV1.vn") whose probe failed the way a geo block fails (HTTP 403/451, no answer,
+or a [Geo-blocked] label) is imported anyway, marked blocked_by_geo, and waits for a TV
+at home to confirm it.
 """
 
 from __future__ import annotations
 
 import hashlib
 import random
+import re
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
@@ -49,6 +56,10 @@ MAX_ENTRIES = 20000
 LIVE_QUEUE_MAX = 50
 PROBE_WORKERS = 4
 _LIVE_STATES = ("unverified", "new", "active", "suspect")
+# discovery_urls.ok: 1 played, 0 failed, HOME = failed here but may play at home.
+HOME = 2
+_COUNTRY_RE = re.compile(r"\.([a-z]{2})(?:@|$)")
+_GEO_LABEL_RE = re.compile(r"\[\s*geo-?blocked\s*\]|\u24bc", re.IGNORECASE)
 
 
 @dataclass
@@ -75,6 +86,8 @@ class PackReport:
     # Every stream of the playlist is checked now.
     done: bool = False
     streams_ok: int = 0
+    # Imported unconfirmed: home-country streams a geo block hides from this server.
+    home_only: int = 0
     channels_created: int = 0
     streams_created: int = 0
     capped: bool = False
@@ -174,15 +187,15 @@ def _scout_one(conn, settings, plan: Plan, policy, client, row, now: datetime,
         return _set(conn, row, status, None, next_at=now + RESCOUT)
 
     known = _known_results(conn, [url_hash(e.url) for e in fresh], now)
-    ok = sum(1 for e in fresh if known.get(url_hash(e.url)) == 1)
+    ok = sum(1 for e in fresh if known.get(url_hash(e.url)) in (1, HOME))
     sampled = sum(1 for e in fresh if url_hash(e.url) in known)
     if not ok:
         unknown = [e for e in fresh if url_hash(e.url) not in known]
         sample = random.sample(unknown, min(SAMPLE, len(unknown)))
         results = _probe(client, sample, policy)
         report.probes += len(sample)
-        _remember(conn, sample, results, now)
-        ok = sum(1 for r in results if r.success)
+        ok = sum(v in (1, HOME) for v in _remember(conn, sample, results, now,
+                                                   settings.home_country))  # fmt: skip
         sampled += len(sample)
     conn.execute("UPDATE discovered_playlists SET sampled = ?, sample_ok = ? WHERE id = ?",
                  (sampled, ok, row["id"]))  # fmt: skip
@@ -276,7 +289,7 @@ def pack(
                 report.offline = True
                 return report
             probed = _probe(client, batch, policy)
-        _remember(conn, batch, probed, now)
+        _remember(conn, batch, probed, now, settings.home_country)
         results = {url_hash(e.url): r for e, r in zip(batch, probed, strict=True)}
         report.probes = len(batch)
     checked = len(candidates) - len(own) - len(to_check) + len(batch)
@@ -287,15 +300,17 @@ def pack(
     # What played goes into the catalog after every batch, so a big playlist starts to
     # pay off on its first run instead of after a day of checks.
     known = _known_results(conn, [url_hash(e.url) for e in candidates], now)
-    keep = [e for e in candidates if url_hash(e.url) in own or known.get(url_hash(e.url)) == 1]
+    keep = [e for e in candidates
+            if url_hash(e.url) in own or known.get(url_hash(e.url)) in (1, HOME)]  # fmt: skip
     fresh = [e for e in keep if url_hash(e.url) not in own]
-    report.streams_ok = len(keep)
+    report.home_only = sum(1 for e in fresh if known.get(url_hash(e.url)) == HOME)
+    report.streams_ok = len(keep) - report.home_only
     if fresh:
         source_id = row["source_id"] or _make_source(conn, settings, row["url"])
         imported = import_m3u(conn, settings, source_id, _playlist(keep), force=True)
         report.channels_created = imported.channels_created
         report.streams_created = imported.streams_created
-        _record_ok(conn, policy, source_id, fresh, results, now)
+        _record_ok(conn, policy, source_id, fresh, results, known, now)
         conn.execute(
             "UPDATE discovered_playlists SET source_id = ?, packed_at = ?, packed_ok = ?"
             " WHERE id = ?",
@@ -341,8 +356,10 @@ def _playlist(entries: list[M3UEntry]) -> bytes:
 
 
 def _record_ok(conn, policy: HealthPolicy, source_id: str, entries: list[M3UEntry],
-               results: dict[str, ProbeResult], now: datetime) -> None:  # fmt: skip
-    """The packer's own probe counts as the stream's first check."""
+               results: dict[str, ProbeResult], known: dict[str, int], now: datetime
+               ) -> None:  # fmt: skip
+    """The packer's own probe counts as the stream's first check. A home-only stream is
+    recorded as geo-blocked here, which is not a verdict on whether it plays at home."""
     hashes = [url_hash(e.url) for e in entries]
     conn.execute("BEGIN")
     try:
@@ -352,7 +369,9 @@ def _record_ok(conn, policy: HealthPolicy, source_id: str, entries: list[M3UEntr
                 f"SELECT id, locator_hash FROM streams WHERE source_id = ?"
                 f" AND locator_hash IN ({marks})", (source_id, *chunk),
             ).fetchall():  # fmt: skip
-                obs = Observation(at=now, vantage=policy.vantage, success=True)
+                home = known.get(s["locator_hash"]) == HOME
+                obs = Observation(at=now, vantage=policy.vantage, success=not home,
+                                  reason="blocked_by_geo" if home else None)  # fmt: skip
                 record(conn, s["id"], obs, policy, kind="probe",
                        result=results.get(s["locator_hash"]))  # fmt: skip
         conn.execute("COMMIT")
@@ -380,10 +399,14 @@ def _probe(client: httpx.Client, entries: list[M3UEntry], policy: HealthPolicy
         return list(pool.map(one, entries))
 
 
-def _remember(conn, entries: list[M3UEntry], results: list[ProbeResult], now: datetime) -> None:
+def _remember(conn, entries: list[M3UEntry], results: list[ProbeResult], now: datetime,
+              home: str | None = None) -> list[int]:  # fmt: skip
+    """Store each probe's verdict (1, 0 or HOME) by URL and return the verdicts."""
+    verdicts = [1 if r.success else HOME if _home_only(e, r, home) else 0
+                for e, r in zip(entries, results, strict=True)]  # fmt: skip
     rows = [
-        (url_hash(e.url), int(r.success), r.error_kind, format_ts(now))
-        for e, r in zip(entries, results, strict=True)
+        (url_hash(e.url), v, r.error_kind, format_ts(now))
+        for e, r, v in zip(entries, results, verdicts, strict=True)
         if r.success or r.uncounted != "rate_limited"  # a 429 says nothing; ask again later
     ]
     conn.executemany(
@@ -391,6 +414,22 @@ def _remember(conn, entries: list[M3UEntry], results: list[ProbeResult], now: da
         " ON CONFLICT(url_hash) DO UPDATE SET ok = excluded.ok,"
         " error_kind = excluded.error_kind, checked_at = excluded.checked_at",
         rows,
+    )
+    return verdicts
+
+
+def _home_only(e: M3UEntry, r: ProbeResult, home: str | None) -> bool:
+    """A home-country stream that failed here the way a geo block fails."""
+    if not home or r.uncounted or r.reason == "drm_unsupported":
+        return False
+    m = _COUNTRY_RE.search((e.tvg_id or "").lower())
+    if not m or m.group(1) != home:
+        return False
+    return (
+        r.http_status in (403, 451)
+        or r.reason == "blocked_by_geo"
+        or r.error_kind in ("timeout", "connect")
+        or bool(_GEO_LABEL_RE.search(e.name))
     )
 
 
