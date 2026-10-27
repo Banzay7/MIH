@@ -17,6 +17,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, Path, Query, Request,
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
+from starlette.middleware.gzip import GZipMiddleware
 
 from mih import __version__, db
 from mih.api import personal
@@ -151,6 +152,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     app = FastAPI(title="MIRTVONLINE API", version=__version__, docs_url="/api/docs",
                   openapi_url="/api/v1/openapi.json", lifespan=lifespan)  # fmt: skip
     app.state.settings = settings
+    app.add_middleware(_ApiGzip)
     auth = [Depends(require_token)]
 
     @app.exception_handler(ApiError)
@@ -217,7 +219,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     def list_channels(
         conn: Conn,
         q: str | None = None,
-        limit: Annotated[int, Query(ge=1, le=500)] = 100,
+        limit: Annotated[int, Query(ge=1, le=10000)] = 100,
         offset: Annotated[int, Query(ge=0)] = 0,
     ) -> dict:
         where, params = "", []
@@ -225,14 +227,18 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             where = (" WHERE c.id IN (SELECT channel_id FROM channel_aliases"
                      " WHERE kind = 'name' AND value LIKE ? ESCAPE '\\')")  # fmt: skip
             params.append("%" + _like_escape(fold(q)) + "%")
+        # Counts are grouped once and joined: a subquery per row made every page cost
+        # as much as all the rows before it, seconds for a catalog of a few thousand.
         rows = conn.execute(
             "SELECT c.id, c.canonical_name, c.country, c.logo_url,"
-            " (SELECT COUNT(*) FROM feeds f WHERE f.channel_id = c.id) AS feeds,"
-            " (SELECT COUNT(*) FROM streams s JOIN feeds f ON f.id = s.feed_id"
-            "   WHERE f.channel_id = c.id AND s.availability_reason IS NULL) AS streams,"
-            f" EXISTS ({_HAS_EPG}) AS has_epg"
-            f" FROM channels c{where} ORDER BY c.canonical_name COLLATE NOCASE"
-            " LIMIT ? OFFSET ?",
+            " COALESCE(fc.n, 0) AS feeds, COALESCE(sc.n, 0) AS streams,"
+            f" c.id IN ({_EPG_CHANNELS}) AS has_epg FROM channels c"
+            " LEFT JOIN (SELECT channel_id, COUNT(*) AS n FROM feeds GROUP BY channel_id) fc"
+            "   ON fc.channel_id = c.id"
+            " LEFT JOIN (SELECT f.channel_id, COUNT(*) AS n FROM streams s"
+            "   JOIN feeds f ON f.id = s.feed_id WHERE s.availability_reason IS NULL"
+            "   GROUP BY f.channel_id) sc ON sc.channel_id = c.id"
+            f"{where} ORDER BY c.canonical_name COLLATE NOCASE LIMIT ? OFFSET ?",
             (*params, limit, offset),
         ).fetchall()
         items = [{**dict(r), "has_epg": bool(r["has_epg"])} for r in rows]
@@ -472,9 +478,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     @app.get("/api/v1/metrics/summary", dependencies=auth)
     def metrics_summary(conn: Conn) -> dict:
         channels = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
-        with_epg = conn.execute(
-            f"SELECT COUNT(*) FROM channels c WHERE EXISTS ({_HAS_EPG})"
-        ).fetchone()[0]
+        with_epg = conn.execute(f"SELECT COUNT(*) FROM ({_EPG_CHANNELS})").fetchone()[0]
         review = conn.execute(
             "SELECT COUNT(*) FROM epg_mappings WHERE decision = 'needs_review'"
         ).fetchone()[0]
@@ -526,10 +530,23 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     return app
 
 
+class _ApiGzip:
+    """Gzip for /api answers only: the channel list and "now" are hundreds of KB of JSON.
+    Playlists and guides keep their bytes as they are; some players mishandle an encoding."""
+
+    def __init__(self, app):
+        self.app, self.gzip = app, GZipMiddleware(app, minimum_size=1024)
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"].startswith("/api/"):
+            return await self.gzip(scope, receive, send)
+        return await self.app(scope, receive, send)
+
+
 # A channel has EPG when any of its feeds has a guide of its own; +N feeds borrow it.
-_HAS_EPG = (
-    "SELECT 1 FROM epg_mappings m JOIN feeds f ON f.id = m.feed_id"
-    " WHERE f.channel_id = c.id AND m.decision IN ('auto', 'approved')"
+_EPG_CHANNELS = (
+    "SELECT DISTINCT f.channel_id FROM epg_mappings m JOIN feeds f ON f.id = m.feed_id"
+    " WHERE m.decision IN ('auto', 'approved')"
 )
 
 

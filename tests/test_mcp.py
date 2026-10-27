@@ -117,7 +117,7 @@ def test_http_needs_token_and_answers_json_rpc(conn, settings):
     tools = client.post("/mcp", json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
                         headers=h).json()["result"]["tools"]  # fmt: skip
     assert [t["name"] for t in tools] == ["channels", "search", "now", "schedule", "play",
-                                          "report", "topics", "status"]  # fmt: skip
+                                          "report", "queue", "topics", "status"]  # fmt: skip
     bad = client.post("/mcp", json={"jsonrpc": "2.0", "id": 3, "method": "tools/call",
                                     "params": {"name": "schedule", "arguments": {"id": "x"}}},
                       headers=h).json()["result"]  # fmt: skip
@@ -160,3 +160,32 @@ def test_mcp_off_loopback_needs_a_token(tmp_path):
     with pytest.raises(ConfigError):
         s.validate_for_serving()
     Settings(data_dir=tmp_path, mcp_port=8766).validate_for_serving()  # loopback: fine
+
+
+def test_tv_button_is_carried_out_by_the_agent(conn, settings):
+    from datetime import UTC, datetime
+
+    from mih import playback
+
+    box = Toolbox(settings)
+    first = _ch(box, conn, "первый")["id"]
+    target = playback.Target("channel", first)
+    cmd, _ = playback.create_command(conn, target, mode="agent")
+    assert cmd["state"] == "accepted" and cmd["error"] is None
+    (job,) = box.call(conn, "queue", {}, NOW)["items"]
+    assert job["cmd"] == cmd["id"] and job["name"] == "Первый канал HD"
+    assert box.call(conn, "queue", {}, NOW)["items"] == []  # handed out once
+    sid = job["streams"][0]["stream_id"]
+    out = box.call(conn, "report", {"stream_id": sid, "ok": True, "cmd": cmd["id"]}, NOW)
+    assert out["cmd"] == "started"
+    # A late failure of a spare does not undo the start.
+    playback.finish_command(conn, cmd["id"], False, sid, "timeout")
+    assert playback.get_command(conn, cmd["id"])["state"] == "started"
+
+    # Nobody takes it: the UI hears "no agent" after PICKUP.
+    lost, _ = playback.create_command(conn, target, mode="agent")
+    playback.expire(conn, datetime.now(UTC) + playback.PICKUP * 2)
+    assert playback.get_command(conn, lost["id"])["error"] == "no_agent"
+    # Off: nothing waits, as before.
+    off, _ = playback.create_command(conn, target)
+    assert off["error"] == "no_adapter"

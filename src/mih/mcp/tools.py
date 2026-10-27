@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -27,6 +28,7 @@ from mih.health.policy import HealthPolicy, Observation
 from mih.identity.search_keys import compact, search_keys
 from mih.ids import utc_now
 from mih.lists import LEVELS
+from mih.playback import PlaybackError, finish_command, take_commands
 from mih.search.engine import SearchRequest, search
 
 MAX_ITEMS = 50
@@ -118,16 +120,28 @@ TOOLS = [
         "Tell the server whether a stream really played on the TV, about 10-15 s after "
         "the start. ok=true: picture plays; ok=false: error, black screen or nothing in "
         "15 s (error: timeout, http_403, player_error, no_video). Report each stream "
-        "tried. This keeps the channel lists right.",
+        "tried. This keeps the channel lists right. For a command from 'queue' pass "
+        "its cmd too: the web UI shows the result.",
         _obj(
             {
                 "stream_id": {"type": "string"},
                 "ok": {"type": "boolean"},
                 "ms": {"type": "integer", "minimum": 0, "description": "start-up time"},
                 "error": {"type": "string", "maxLength": 64},
+                "cmd": {"type": "string", "description": "command id from 'queue'"},
             },
             ("stream_id", "ok"),
         ),
+        read_only=False,
+    ),
+    Tool(
+        "queue",
+        "Channels the household asked to start on the TV with the web UI's 'На ТВ' "
+        "button. Each command is handed out once and carries the streams like 'play'. "
+        "Start the first stream on the TV, then 'report' with stream_id and cmd within "
+        "90 s. wait>0 holds the call up to that many seconds until a command arrives "
+        "(long poll); a command nobody takes within 30 s fails on the UI.",
+        _obj({"wait": {"type": "integer", "minimum": 0, "maximum": 50, "default": 0}}),
         read_only=False,
     ),
     Tool(
@@ -266,7 +280,7 @@ class Toolbox:
         return res
 
     def _report(self, conn, now, stream_id: str, ok: bool, ms: int | None = None,
-                error: str | None = None) -> dict:  # fmt: skip
+                error: str | None = None, cmd: str | None = None) -> dict:  # fmt: skip
         # Imported here: the runner pulls in the probe and its HTTP client.
         from mih.health.runner import record
 
@@ -281,7 +295,29 @@ class Toolbox:
         except Exception:
             conn.execute("ROLLBACK")
             raise
-        return {"stream_id": stream_id, "status": d.state.status}
+        out = {"stream_id": stream_id, "status": d.state.status}
+        if cmd:
+            try:
+                out["cmd"] = finish_command(conn, cmd, bool(ok), stream_id, error, now)["state"]
+            except PlaybackError as exc:
+                raise ToolError("no such command; use a cmd from 'queue'") from exc
+        return out
+
+    def _queue(self, conn, now, wait: int = 0) -> dict:
+        deadline = time.monotonic() + max(0, min(int(wait), 50))
+        while True:
+            cmds = take_commands(conn, now)
+            if cmds or time.monotonic() >= deadline:
+                break
+            time.sleep(0.5)
+            now = datetime.now(UTC)
+        items = []
+        for c in cmds:
+            cid = c["target"]["channel_id"]
+            item = {"cmd": c["id"], "id": cid, "name": _names(conn, {cid}).get(cid)}
+            item["streams"] = self._play(conn, now, cid)["streams"]
+            items.append(item)
+        return {"items": items}
 
     def _topics(self, conn, now, add: str | None = None, remove: str | None = None,
                 hours: int = 24) -> dict:  # fmt: skip
