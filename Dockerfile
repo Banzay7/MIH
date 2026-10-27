@@ -6,6 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MIH_BIND_HOST=0.0.0.0 \
     MIH_BIND_PORT=8765
 
+# rclone uploads the channel export to Google Drive (docs/drive.md).
+RUN apt-get update && apt-get install -y --no-install-recommends rclone ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --create-home --uid 10001 mih
 WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./

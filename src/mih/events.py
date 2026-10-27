@@ -162,6 +162,18 @@ TEXTS = {
         "ru": "Упаковщик на паузе: в найденных плейлистах уже {n} потоков"
         " (MIH_DISCOVERY_MAX_STREAMS)",
     },
+    "job.drive": {
+        "en": "Google Drive: {channels} channels uploaded",
+        "ru": "Google Диск: выложено каналов {channels}",
+    },
+    "job.drive.unchanged": {
+        "en": "Google Drive: channels unchanged, nothing uploaded",
+        "ru": "Google Диск: каналы не изменились, выгружать нечего",
+    },
+    "job.drive.failed": {
+        "en": "Google Drive upload failed",
+        "ru": "Не удалось выложить каналы на Google Диск",
+    },
     "discover.found": {
         "en": "search: +{n} playlists ({repos} repositories, {pages} pages read)",
         "ru": "поиск: +{n} плейлистов (репозиториев {repos}, страниц {pages})",
@@ -251,6 +263,7 @@ TEXTS = {
     "name.alerts": {"en": "topic alerts", "ru": "оповещения по темам"},
     "name.discover": {"en": "playlist scout", "ru": "поисковик плейлистов"},
     "name.pack": {"en": "playlist packer", "ru": "упаковщик плейлистов"},
+    "name.drive": {"en": "Google Drive upload", "ru": "выгрузка на Google Диск"},
 }
 
 

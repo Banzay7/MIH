@@ -24,6 +24,7 @@ from mih.alerts import alert_line, find_matches, load_rules, run_alerts
 from mih.config import Settings
 from mih.discovery.harvest import harvest, load_plan
 from mih.discovery.scout import pack, scout, summary
+from mih.drive import DriveError, sync_drive
 from mih.epg.service import import_epg_from_url
 from mih.events import list_events, record_event, t
 from mih.health.policy import HealthPolicy
@@ -35,7 +36,7 @@ from mih.sources.service import SourceError, import_from_url
 
 log = logging.getLogger(__name__)
 
-JOBS = ("sources", "epg", "health", "alerts", "discover", "pack", "digest")
+JOBS = ("sources", "epg", "health", "alerts", "discover", "pack", "drive", "digest")
 # A run that started this long ago and never finished belongs to a dead process.
 STALE_AFTER = timedelta(hours=6)
 # After a start, interval jobs wait this long, so a restart loop does not hammer sources.
@@ -89,7 +90,8 @@ def _every(settings: Settings, name: str) -> timedelta | None:
     return {"sources": settings.every_sources, "epg": settings.every_epg,
             "health": settings.every_health,
             "alerts": settings.every_alerts if settings.alert_lead else None,
-            "discover": settings.every_discover, "pack": settings.every_pack}[name]  # fmt: skip
+            "discover": settings.every_discover, "pack": settings.every_pack,
+            "drive": settings.every_drive if settings.drive_token else None}[name]  # fmt: skip
 
 
 def sync_jobs(
@@ -341,6 +343,18 @@ def _job_pack(conn, settings, policy, now, transport) -> Outcome:
     return Outcome("ok", "routine", title, lines, data)
 
 
+def _job_drive(conn, settings, policy, now, transport) -> Outcome:
+    try:
+        report = sync_drive(conn, settings)
+    except DriveError as exc:
+        return Outcome("error", "error", t(settings, "job.drive.failed"), [str(exc)[:500]])
+    data = {"drive": report.status, "channels": report.channels}
+    if report.status == "unchanged":
+        return Outcome("ok", "routine", t(settings, "job.drive.unchanged"), data=data, quiet=True)
+    return Outcome("ok", "routine", t(settings, "job.drive", channels=report.channels),
+                   [", ".join(report.files)], data)  # fmt: skip
+
+
 def _job_digest(conn, settings, policy, now, transport) -> Outcome:
     since = _fmt(now - timedelta(days=1))
     lines = []
@@ -397,7 +411,7 @@ def _job_digest(conn, settings, policy, now, transport) -> Outcome:
 
 _RUNNERS = {"sources": _job_sources, "epg": _job_epg, "health": _job_health,
             "alerts": _job_alerts, "discover": _job_discover, "pack": _job_pack,
-            "digest": _job_digest}  # fmt: skip
+            "drive": _job_drive, "digest": _job_digest}  # fmt: skip
 
 
 # ---------- Status ----------
