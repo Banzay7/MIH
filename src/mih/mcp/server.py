@@ -31,9 +31,11 @@ from mih.mcp.tools import TOOLS, Toolbox, ToolError
 
 PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
 INSTRUCTIONS = (
-    "TV catalog. To turn on a channel: channels(q) -> play(id) -> start the first stream "
-    "-> report(stream_id, ok). To pick something to watch: search('футбол вечером') or "
-    "now(). Times are local (tz in answers): 'HH:MM' today, 'MM-DD HH:MM' other days."
+    "TV catalog. To turn on a channel: channels(q) -> play(id) -> start the first stream; "
+    "if it does not play, report(stream_id, ok=false) and try the next (silence = plays). "
+    "Web UI 'На ТВ' requests: queue(wait=50). To pick something to watch: "
+    "search('футбол вечером') or now(). Times are local (tz in answers): "
+    "'HH:MM' today, 'MM-DD HH:MM' other days."
 )
 
 # JSON-RPC error codes.

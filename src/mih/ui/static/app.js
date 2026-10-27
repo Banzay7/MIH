@@ -106,11 +106,12 @@ async function toggleFav(kind, id) {
 // ---------- Playback ("На ТВ") ----------
 
 const PLAY_TEXT = {
-  accepted: "Агент включает канал на ТВ…",
+  accepted: "Передаю команду агенту…",
+  taken: "Агент включает канал на ТВ",
+  all_failed: "Ни один поток этого канала не заиграл на ТВ.",
   started: "Запущено на ТВ",
   no_adapter: "Поток выбран, но запуск на ТВ выключен на сервере (MIH_PLAYBACK=off).",
   no_agent: "Агент не взял команду: он не подключён к MCP или не проверяет очередь.",
-  no_report: "Агент взял команду, но не сообщил, заиграло ли. Проверьте ТВ.",
   no_stream: "У этого канала сейчас нет рабочего потока.",
 };
 
@@ -121,12 +122,16 @@ async function playOnTv(channelId, feedId, button) {
     const target = { kind: "channel", channel_id: channelId };
     if (feedId) target.feed_id = feedId;
     let cmd = await api("/playback/commands", { method: "POST", body: { target, idempotency_key: key } });
-    // The agent has 30 s to take the command and 90 s to say whether it started.
-    for (let i = 0; cmd.state === "accepted" && i < 60; i++) {
-      toast(PLAY_TEXT.accepted, 3000);
+    // The agent has 30 s to take the command; then silence for 60 s means it plays,
+    // so once it is taken the toast says so and only a failure changes it.
+    let told = false;
+    for (let i = 0; cmd.state === "accepted" && i < 50; i++) {
+      if (!told) toast(cmd.taken ? PLAY_TEXT.taken : PLAY_TEXT.accepted, cmd.taken ? 6000 : 3000);
+      if (cmd.taken) { told = true; if (button) button.disabled = false; }
       await new Promise((r) => setTimeout(r, 2000));
       cmd = await api(`/playback/commands/${enc(cmd.id)}`);
     }
+    if (told && cmd.state === "started") return;
     if (cmd.state === "started") toast(PLAY_TEXT.started);
     else if (cmd.state === "failed") toast(PLAY_TEXT[cmd.error] || `Не удалось запустить: ${cmd.error}`, 6000);
     else toast("ТВ не ответил вовремя. Попробуйте ещё раз.");
