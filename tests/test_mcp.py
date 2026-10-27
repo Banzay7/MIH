@@ -149,8 +149,9 @@ def test_index_follows_catalog_changes(conn, settings):
     server = McpServer(settings)
     box = server.toolbox
     assert box.find_channels(conn, "первый")
-    conn.execute("INSERT INTO channels (id, canonical_name, created_at)"
-                 " VALUES ('ch_x', 'Звезда', 'x')")
+    conn.execute(
+        "INSERT INTO channels (id, canonical_name, created_at) VALUES ('ch_x', 'Звезда', 'x')"
+    )
     assert "ch_x" in box.find_channels(conn, "звезда")
 
 

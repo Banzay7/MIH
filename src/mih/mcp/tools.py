@@ -58,8 +58,13 @@ TOOLS = [
         "Find TV channels by name as a person says it (any spelling, Cyrillic or Latin: "
         "'россия 24', 'rossiya24', 'первый'). Playing channels first. Returns id, name, "
         "lvl (ok = played within 48 h; doubtful; unknown; dead) and what is on now.",
-        _obj({"q": {"type": "string", "description": "channel name or part of it"},
-              "limit": _LIMIT | {"default": 5}}, ("q",)),  # fmt: skip
+        _obj(
+            {
+                "q": {"type": "string", "description": "channel name or part of it"},
+                "limit": _LIMIT | {"default": 5},
+            },
+            ("q",),
+        ),  # fmt: skip
     ),
     Tool(
         "search",
@@ -67,24 +72,39 @@ TOOLS = [
         "time words: 'футбол сегодня вечером', 'мультфильмы завтра', 'news now'. Only "
         "channels that play are returned unless all=true. Returns title, channel, cid, "
         "start/end in local time, more = further showings of the same programme.",
-        _obj({"q": {"type": "string"}, "limit": _LIMIT | {"default": 10},
-              "all": {"type": "boolean", "default": False}}, ("q",)),  # fmt: skip
+        _obj(
+            {
+                "q": {"type": "string"},
+                "limit": _LIMIT | {"default": 10},
+                "all": {"type": "boolean", "default": False},
+            },
+            ("q",),
+        ),  # fmt: skip
     ),
     Tool(
         "now",
         "What is on now and next. By channel ids, by a named list, or (neither given) on "
         "every playing channel that has a guide, sorted by name.",
-        _obj({"ids": {"type": "array", "items": {"type": "string"}, "maxItems": MAX_ITEMS},
-              "list": {"type": "string", "description": "a list name from 'status'"},
-              "limit": _LIMIT | {"default": 20}}),  # fmt: skip
+        _obj(
+            {
+                "ids": {"type": "array", "items": {"type": "string"}, "maxItems": MAX_ITEMS},
+                "list": {"type": "string", "description": "a list name from 'status'"},
+                "limit": _LIMIT | {"default": 20},
+            }
+        ),  # fmt: skip
     ),
     Tool(
         "schedule",
         "A channel's programme guide from a moment on: day 'today' (from now), "
         "'tomorrow' (from 00:00 local) or an ISO time; hours ahead, at most 48.",
-        _obj({"id": {"type": "string"}, "day": {"type": "string", "default": "today"},
-              "hours": {"type": "integer", "minimum": 1, "maximum": 48, "default": 6}},
-             ("id",)),  # fmt: skip
+        _obj(
+            {
+                "id": {"type": "string"},
+                "day": {"type": "string", "default": "today"},
+                "hours": {"type": "integer", "minimum": 1, "maximum": 48, "default": 6},
+            },
+            ("id",),
+        ),  # fmt: skip
     ),
     Tool(
         "play",
@@ -99,9 +119,15 @@ TOOLS = [
         "the start. ok=true: picture plays; ok=false: error, black screen or nothing in "
         "15 s (error: timeout, http_403, player_error, no_video). Report each stream "
         "tried. This keeps the channel lists right.",
-        _obj({"stream_id": {"type": "string"}, "ok": {"type": "boolean"},
-              "ms": {"type": "integer", "minimum": 0, "description": "start-up time"},
-              "error": {"type": "string", "maxLength": 64}}, ("stream_id", "ok")),
+        _obj(
+            {
+                "stream_id": {"type": "string"},
+                "ok": {"type": "boolean"},
+                "ms": {"type": "integer", "minimum": 0, "description": "start-up time"},
+                "error": {"type": "string", "maxLength": 64},
+            },
+            ("stream_id", "ok"),
+        ),
         read_only=False,
     ),
     Tool(
@@ -109,9 +135,13 @@ TOOLS = [
         "Followed topics ('футбол', 'formula 1'): the server pushes a notice before a "
         "matching programme starts. add/remove change the list; the answer is the list "
         "and what matches in the next 'hours' on playing channels.",
-        _obj({"add": {"type": "string", "minLength": 2, "maxLength": 64},
-              "remove": {"type": "string", "maxLength": 64},
-              "hours": {"type": "integer", "minimum": 1, "maximum": 72, "default": 24}}),
+        _obj(
+            {
+                "add": {"type": "string", "minLength": 2, "maxLength": 64},
+                "remove": {"type": "string", "maxLength": 64},
+                "hours": {"type": "integer", "minimum": 1, "maximum": 72, "default": 24},
+            }
+        ),
         read_only=False,
     ),
     Tool(
@@ -265,14 +295,27 @@ class Toolbox:
         if remove:
             conn.execute("DELETE FROM tracked_topics WHERE profile_id = ? AND topic = ?",
                          (PROFILE, topic_key(remove)))  # fmt: skip
-        topics = [r[0] for r in conn.execute(
-            "SELECT topic FROM tracked_topics WHERE profile_id = ? ORDER BY topic", (PROFILE,))]
+        topics = [
+            r[0]
+            for r in conn.execute(
+                "SELECT topic FROM tracked_topics WHERE profile_id = ? ORDER BY topic", (PROFILE,)
+            )
+        ]
         hours = max(1, min(int(hours), 72))
         found = find_matches(conn, now - GRACE, now + timedelta(hours=hours), now,
                              load_rules(conn, PROFILE))  # fmt: skip
-        soon = [_drop_empty({"at": self._t(m.start, now), "title": m.title, "sub": m.sub_title,
-                             "ch": m.names.get(m.picks[0].channel_id),
-                             "cid": m.picks[0].channel_id}) for m in found[:MAX_ITEMS]]
+        soon = [
+            _drop_empty(
+                {
+                    "at": self._t(m.start, now),
+                    "title": m.title,
+                    "sub": m.sub_title,
+                    "ch": m.names.get(m.picks[0].channel_id),
+                    "cid": m.picks[0].channel_id,
+                }
+            )
+            for m in found[:MAX_ITEMS]
+        ]
         return {"topics": topics, "soon": soon, "tz": self.settings.timezone}
 
     def _status(self, conn, now) -> dict:
