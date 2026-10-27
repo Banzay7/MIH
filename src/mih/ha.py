@@ -18,9 +18,11 @@ _HTTP_ERRORS = {401: "ha_unauthorized", 403: "ha_unauthorized", 404: "ha_script_
 
 
 class HaError(Exception):
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, detail: str | None = None):
         super().__init__(message)
         self.code = code
+        # What the script itself said went wrong, for the web UI.
+        self.detail = detail
 
 
 def script_entity(settings: Settings) -> str:
@@ -44,12 +46,17 @@ def variables(settings: Settings, values: dict) -> dict:
 def run_script(
     settings: Settings, values: dict, *, transport: httpx.BaseTransport | None = None
 ) -> None:
-    """Run the script and wait for it. Raises HaError with a code the web UI explains."""
+    """Run the script and wait for it. Raises HaError with a code the web UI explains.
+
+    A script that ends with ``stop: ... response_variable: result`` may answer
+    ``{"ok": false, "error": "..."}``: that is a failure too, with its error as detail."""
     entity = script_entity(settings)
     url = f"{settings.ha_url}/api/services/script/{entity.removeprefix('script.')}"
     try:
         with _client(settings, transport) as client:
-            resp = client.post(url, json=variables(settings, values))
+            resp = client.post(
+                url, params={"return_response": ""}, json=variables(settings, values)
+            )
     except httpx.TimeoutException as exc:
         raise HaError("ha_timeout", "Home Assistant did not answer in time") from exc
     except httpx.HTTPError as exc:
@@ -59,6 +66,20 @@ def run_script(
     if resp.status_code >= 400:
         code = _HTTP_ERRORS.get(resp.status_code, "ha_script_failed")
         raise HaError(code, f"Home Assistant answered {resp.status_code}")
+    answer = _response(resp)
+    if str(answer.get("ok", "")).strip().lower() == "false":
+        detail = str(answer.get("error") or "").strip()[:200] or None
+        raise HaError("ha_not_playing", "the script says the channel did not start", detail)
+
+
+def _response(resp: httpx.Response) -> dict:
+    """The script's own answer in ``service_response``; {} when there is none."""
+    try:
+        body = resp.json()
+    except ValueError:
+        return {}
+    answer = body.get("service_response") if isinstance(body, dict) else None
+    return answer if isinstance(answer, dict) else {}
 
 
 def check(settings: Settings, *, transport: httpx.BaseTransport | None = None) -> dict:

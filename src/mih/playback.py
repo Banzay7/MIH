@@ -231,7 +231,7 @@ def run_ha(
     usable = [s for s in order if locators.get(s) and locators[s]["url"]]
     usable.sort(key=lambda s: any(json.loads(locators[s]["headers"] or "{}").values()))
     picked = usable[: settings.ha_streams]
-    error = None
+    error = detail = None
     if not picked:
         error = "no_stream"
     else:
@@ -246,12 +246,12 @@ def run_ha(
                 "play_url": play_url(settings, target["channel_id"]),
             }, transport=transport)  # fmt: skip
         except ha.HaError as exc:
-            error = exc.code
+            error, detail = exc.code, exc.detail
     conn.execute(
         "UPDATE playback_commands SET state = ?, stream_id = COALESCE(?, stream_id), offered = ?,"
-        " finished_at = ?, error = ? WHERE id = ?",
+        " finished_at = ?, error = ?, detail = ? WHERE id = ?",
         ("failed" if error else "started", picked[0] if picked else None, json.dumps(picked),
-         utc_now(), error, cmd_id),
+         utc_now(), error, detail, cmd_id),
     )  # fmt: skip
     return get_command(conn, cmd_id)
 
@@ -269,6 +269,7 @@ def command_out(row: sqlite3.Row) -> dict:
         "id": row["id"], "device_id": row["device_id"], "target": json.loads(row["target"]),
         "stream_id": row["stream_id"], "state": row["state"], "error": row["error"],
         "taken": row["taken_at"] is not None, "adapter": row["adapter"],
+        "detail": row["detail"],
         "created_at": row["created_at"], "finished_at": row["finished_at"],
     }  # fmt: skip
 
