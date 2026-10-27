@@ -13,10 +13,16 @@ services:
       MIH_DATA_DIR: /data
       MIH_BIND_HOST: 0.0.0.0
       MIH_BIND_PORT: "8765"
+      # MCP server for an agent on this host (docs/agent.md). Inside the container it
+      # listens on every interface; on the host it is published on loopback only.
+      MIH_MCP_HOST: 0.0.0.0
+      MIH_MCP_PORT: "8766"
     # Loopback by default; set MIH_PUBLISH_ADDR to the host's Tailscale/LAN address for access
     # from other devices. Never 0.0.0.0 on a VPS with a public address.
     ports:
       - "${MIH_PUBLISH_ADDR:-127.0.0.1}:${MIH_PUBLISH_PORT:-18765}:8765"
+      # Always loopback, on purpose not configurable: the MCP port never leaves this host.
+      - "127.0.0.1:${MIH_MCP_PUBLISH_PORT:-18766}:8766"
     volumes:
       - data:/data
     networks:
