@@ -68,10 +68,11 @@ const state = {
 
 async function loadChannels() {
   if (state.channelsLoaded) return;
-  for (let offset = 0; offset < 5000; offset += 500) {
-    const page = await api(`/channels?limit=500&offset=${offset}`);
+  // One request for the whole catalog (gzip makes it small); pages only if it grows past it.
+  for (let offset = 0; ; offset += 10000) {
+    const page = await api(`/channels?limit=10000&offset=${offset}`);
     page.items.forEach((c) => state.channels.set(c.id, c));
-    if (page.items.length < 500) break;
+    if (page.items.length < 10000) break;
   }
   state.channelsLoaded = true;
 }
@@ -765,11 +766,20 @@ document.addEventListener("submit", (e) => {
   if (e.target.id === "token-form") {
     e.preventDefault();
     const v = e.target.token.value.trim();
-    if (v) store.set("mih.token", v);
+    if (!v) { toast("Вставьте токен в поле"); return; }
+    store.set("mih.token", v);
     state.channelsLoaded = false;
     state.channels.clear();
-    toast("Токен сохранён");
-    route();
+    // Check it at once: a wrong token should say so here, not on the next screen.
+    api("/health/ready")
+      .then(() => { toast("Токен сохранён"); location.hash = "#/"; })
+      .catch((err) => {
+        if (err instanceof ApiFailure && err.status === 401) {
+          store.set("mih.token", null);
+          toast("Токен не подошёл. Скопируйте MIH_API_TOKEN целиком, без пробелов", 6000);
+        } else toast(errorText(err), 5000);
+        route();
+      });
   } else if (e.target.id === "channel-filter") {
     e.preventDefault();
   } else if (e.target.id === "topic-form") {

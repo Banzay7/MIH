@@ -193,3 +193,16 @@ def test_epg_source_can_be_switched_off_and_deleted(client, tmp_path):
     assert client.get("/api/v1/metrics/summary").json()["channels_with_epg"] == 0
     assert client.delete(f"/api/v1/epg/sources/{epg_id}").status_code == 404
     assert not blobs.exists()
+
+
+def test_api_answers_are_gzipped_and_the_whole_catalog_fits_one_page(client):
+    src = client.post("/api/v1/sources", json={"name": "a"}).json()
+    files = {"file": ("a.m3u", fixture_bytes("provider_a.m3u"), "audio/x-mpegurl")}
+    client.post(f"/api/v1/sources/{src['id']}/upload", files=files)
+    r = client.get("/api/v1/channels?limit=10000", headers={"Accept-Encoding": "gzip"})
+    assert r.status_code == 200 and {i["streams"] for i in r.json()["items"]} >= {1}
+    big = client.get("/api/v1/openapi.json", headers={"Accept-Encoding": "gzip"})
+    assert big.headers.get("content-encoding") == "gzip"  # answers over 1 KB
+    # The web UI's files are not API answers: left as they are.
+    ui = client.get("/", headers={"Accept-Encoding": "gzip"})
+    assert ui.headers.get("content-encoding") is None
