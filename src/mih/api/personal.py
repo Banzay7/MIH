@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse,
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from mih import ha as mih_ha
 from mih import playback
 from mih.alerts import GRACE, best_streams, channel_names, find_matches, load_rules, play_key
 from mih.epg.scope import topic_key
@@ -38,6 +39,8 @@ class PlaybackIn(BaseModel):
     target: PlaybackTargetIn
     device_id: str = Field(default="default", pattern="^[A-Za-z0-9_.-]{1,64}$")
     idempotency_key: str | None = Field(default=None, min_length=8, max_length=100)
+    # Who starts it: agent or ha; none = the server's MIH_PLAYBACK.
+    adapter: str | None = Field(default=None, pattern="^(agent|ha)$")
 
 
 def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> None:
@@ -194,18 +197,40 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
     def play(request: Request, body: PlaybackIn, conn: Conn) -> JSONResponse:
         t = body.target
         settings = request.app.state.settings
+        mode = body.adapter or settings.playback
+        if mode == "ha" and not settings.ha_ready:
+            raise error(
+                "validation_error", "Home Assistant is not set up (MIH_HA_URL, MIH_HA_TOKEN)"
+            )
         try:
             cmd, created = playback.create_command(
                 conn, playback.Target(t.kind, t.channel_id, t.feed_id),
-                device_id=body.device_id, idempotency_key=body.idempotency_key,
-                mode=settings.playback,
+                device_id=body.device_id, idempotency_key=body.idempotency_key, mode=mode,
             )  # fmt: skip
         except playback.PlaybackError as exc:
             raise error(exc.code, str(exc)) from exc
         if created and cmd["state"] == "accepted":
             name = channel_names(conn, {t.channel_id}).get(t.channel_id)
-            playback.wake_agent(settings, cmd, name)
+            if mode == "ha":
+                transport = getattr(request.app.state, "ha_transport", None)
+                cmd = playback.run_ha(conn, settings, cmd["id"], name, transport=transport)
+            else:
+                playback.wake_agent(settings, cmd, name)
         return JSONResponse(status_code=202 if created else 200, content=cmd)
+
+    @app.get("/api/v1/playback/adapters", dependencies=auth)
+    def playback_adapters(request: Request) -> dict:
+        """What the web UI may offer for "На ТВ"; the default is MIH_PLAYBACK."""
+        settings = request.app.state.settings
+        available = ["agent"] + (["ha"] if settings.ha_ready else [])
+        script = mih_ha.script_entity(settings) if settings.ha_ready else None
+        return {"default": settings.playback, "available": available, "ha_script": script}
+
+    @app.post("/api/v1/playback/ha/check", dependencies=auth)
+    def playback_ha_check(request: Request) -> dict:
+        """Does Home Assistant answer, take the token and know the script? Runs nothing."""
+        return mih_ha.check(request.app.state.settings,
+                            transport=getattr(request.app.state, "ha_transport", None))  # fmt: skip
 
     @app.get("/api/v1/playback/commands/{command_id}", dependencies=auth)
     def playback_status(command_id: str, conn: Conn) -> dict:
