@@ -191,15 +191,20 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
         return picks
 
     @app.post("/api/v1/playback/commands", status_code=202, dependencies=auth)
-    def play(body: PlaybackIn, conn: Conn) -> JSONResponse:
+    def play(request: Request, body: PlaybackIn, conn: Conn) -> JSONResponse:
         t = body.target
+        settings = request.app.state.settings
         try:
             cmd, created = playback.create_command(
                 conn, playback.Target(t.kind, t.channel_id, t.feed_id),
                 device_id=body.device_id, idempotency_key=body.idempotency_key,
+                mode=settings.playback,
             )  # fmt: skip
         except playback.PlaybackError as exc:
             raise error(exc.code, str(exc)) from exc
+        if created and cmd["state"] == "accepted":
+            name = channel_names(conn, {t.channel_id}).get(t.channel_id)
+            playback.wake_agent(settings, cmd, name)
         return JSONResponse(status_code=202 if created else 200, content=cmd)
 
     @app.get("/api/v1/playback/commands/{command_id}", dependencies=auth)

@@ -106,6 +106,12 @@ class Settings:
     mcp_host: str = "127.0.0.1"
     mcp_token: str | None = None
     mcp_daily_limit: int = 0
+    # Who carries out the web UI's "На ТВ": agent (the command waits for the agent to take
+    # it over MCP, docs/agent.md) or off (the stream is picked, nothing is started). Off in
+    # this dataclass; from_env defaults to agent. An optional webhook wakes the agent.
+    playback: str = "off"
+    agent_webhook: str | None = None
+    agent_webhook_token: str | None = None
 
     @property
     def db_path(self) -> Path:
@@ -174,6 +180,9 @@ class Settings:
             mcp_host=env.get("MIH_MCP_HOST", "127.0.0.1"),
             mcp_token=env.get("MIH_MCP_TOKEN") or None,
             mcp_daily_limit=int(env.get("MIH_MCP_DAILY_LIMIT", "0")),
+            playback=_choice(env.get("MIH_PLAYBACK", "agent"), "MIH_PLAYBACK", ("agent", "off")),
+            agent_webhook=env.get("MIH_AGENT_WEBHOOK") or None,
+            agent_webhook_token=env.get("MIH_AGENT_WEBHOOK_TOKEN") or None,
         )
 
     def validate_for_serving(self) -> None:

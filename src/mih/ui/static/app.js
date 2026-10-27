@@ -68,10 +68,11 @@ const state = {
 
 async function loadChannels() {
   if (state.channelsLoaded) return;
-  for (let offset = 0; offset < 5000; offset += 500) {
-    const page = await api(`/channels?limit=500&offset=${offset}`);
+  // One request for the whole catalog (gzip makes it small); pages only if it grows past it.
+  for (let offset = 0; ; offset += 10000) {
+    const page = await api(`/channels?limit=10000&offset=${offset}`);
     page.items.forEach((c) => state.channels.set(c.id, c));
-    if (page.items.length < 500) break;
+    if (page.items.length < 10000) break;
   }
   state.channelsLoaded = true;
 }
@@ -105,9 +106,11 @@ async function toggleFav(kind, id) {
 // ---------- Playback ("На ТВ") ----------
 
 const PLAY_TEXT = {
-  accepted: "Команда отправлена на ТВ…",
+  accepted: "Агент включает канал на ТВ…",
   started: "Запущено на ТВ",
-  no_adapter: "Поток выбран, но запуск на ТВ ещё не подключён: он появится с интеграцией Home Assistant.",
+  no_adapter: "Поток выбран, но запуск на ТВ выключен на сервере (MIH_PLAYBACK=off).",
+  no_agent: "Агент не взял команду: он не подключён к MCP или не проверяет очередь.",
+  no_report: "Агент взял команду, но не сообщил, заиграло ли. Проверьте ТВ.",
   no_stream: "У этого канала сейчас нет рабочего потока.",
 };
 
@@ -118,9 +121,10 @@ async function playOnTv(channelId, feedId, button) {
     const target = { kind: "channel", channel_id: channelId };
     if (feedId) target.feed_id = feedId;
     let cmd = await api("/playback/commands", { method: "POST", body: { target, idempotency_key: key } });
-    for (let i = 0; cmd.state === "accepted" && i < 10; i++) {
-      toast(PLAY_TEXT.accepted);
-      await new Promise((r) => setTimeout(r, 1000));
+    // The agent has 30 s to take the command and 90 s to say whether it started.
+    for (let i = 0; cmd.state === "accepted" && i < 60; i++) {
+      toast(PLAY_TEXT.accepted, 3000);
+      await new Promise((r) => setTimeout(r, 2000));
       cmd = await api(`/playback/commands/${enc(cmd.id)}`);
     }
     if (cmd.state === "started") toast(PLAY_TEXT.started);
@@ -569,7 +573,7 @@ async function viewSettings() {
         <span class="muted">С программой</span><span>${metrics.channels_with_epg}${metrics.epg_coverage != null ? ` (${Math.round(metrics.epg_coverage * 100)}%)` : ""}</span>
         <span class="muted">EPG ждёт решения</span><span>${metrics.epg_mappings_needs_review}</span>` : ""}
     </div>
-    <p class="small muted">Запуск на ТВ пока работает как заглушка: команда записывается и поток выбирается, но на устройство ничего не отправляется. Интеграция с Home Assistant будет следующим шагом.</p>
+    <p class="small muted">Кнопка «На ТВ» передаёт канал домашнему агенту: он берёт команду через MCP, включает ТВ и сообщает, заиграло ли.</p>
     <p class="small"><a href="/api/docs">Документация API</a></p>`;
 }
 
@@ -765,11 +769,20 @@ document.addEventListener("submit", (e) => {
   if (e.target.id === "token-form") {
     e.preventDefault();
     const v = e.target.token.value.trim();
-    if (v) store.set("mih.token", v);
+    if (!v) { toast("Вставьте токен в поле"); return; }
+    store.set("mih.token", v);
     state.channelsLoaded = false;
     state.channels.clear();
-    toast("Токен сохранён");
-    route();
+    // Check it at once: a wrong token should say so here, not on the next screen.
+    api("/health/ready")
+      .then(() => { toast("Токен сохранён"); location.hash = "#/"; })
+      .catch((err) => {
+        if (err instanceof ApiFailure && err.status === 401) {
+          store.set("mih.token", null);
+          toast("Токен не подошёл. Скопируйте MIH_API_TOKEN целиком, без пробелов", 6000);
+        } else toast(errorText(err), 5000);
+        route();
+      });
   } else if (e.target.id === "channel-filter") {
     e.preventDefault();
   } else if (e.target.id === "topic-form") {
