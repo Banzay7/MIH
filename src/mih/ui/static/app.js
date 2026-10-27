@@ -576,7 +576,23 @@ async function viewSettings() {
 // ---------- Status: what the service does, did and plans ----------
 
 const JOB_NAMES = { sources: "Обновление плейлистов", epg: "Обновление телепрограммы",
-  health: "Проверка потоков", alerts: "Оповещения по темам", digest: "Сводка за сутки" };
+  health: "Проверка потоков", alerts: "Оповещения по темам", discover: "Поисковик плейлистов",
+  pack: "Упаковщик плейлистов", digest: "Сводка за сутки" };
+
+function discoveryBlock(d) {
+  if (!d || !d.found) return "";
+  const st = d.by_status || {};
+  return html`<h2>Грабер плейлистов</h2>
+    <div class="kv small">
+      <span class="muted">Найдено плейлистов</span><span>${d.found} (репозиториев GitHub ${d.repos}, ждут разбора ${d.repos_waiting})</span>
+      <span class="muted">Ждут проверки</span><span>${st.new || 0}</span>
+      <span class="muted">Живые, ждут упаковщика</span><span>${st.live || 0}</span>
+      <span class="muted">Упакованы</span><span>${st.packed || 0}</span>
+      <span class="muted">Мёртвые / без новых каналов / копии</span><span>${st.dead || 0} / ${st.known || 0} / ${st.duplicate || 0}</span>
+      <span class="muted">Отклонены (логины, DRM, не плейлист)</span><span>${st.rejected || 0}</span>
+      <span class="muted">Каналов из найденного</span><span>${d.auto_channels}, рабочих потоков ${d.auto_working} из ${d.auto_streams}</span>
+    </div>`;
+}
 const LEVEL_ICON = { routine: "·", info: "●", warning: "▲", error: "✖" };
 const JOB_STATUS = { ok: "успешно", warning: "с предупреждениями", error: "ошибка" };
 
@@ -623,6 +639,7 @@ async function viewStatus() {
         <div class="small muted">Следующий: ${j.running_since ? "выполняется сейчас" : (j.next_run_at ? (Date.parse(j.next_run_at) <= Date.now() ? "в ближайшую минуту" : whenShort(j.next_run_at)) : "только вручную")}</div></div>
       <div class="actions"><button class="btn" type="button" data-run-job="${j.name}" ${j.running_since ? raw("disabled") : ""}>Запустить</button></div>
     </article>`)}</div>
+    ${discoveryBlock(s.discovery)}
     <h2>План на сутки</h2>
     ${s.plan.length ? html`<ul class="schedule">${s.plan.map((p) => html`<li><time>${time(p.next_at)}</time><span>${JOB_NAMES[p.job] || p.job}${p.every_minutes && p.runs.length > 4
         ? `, каждые ${everyText(p.every_minutes)}`

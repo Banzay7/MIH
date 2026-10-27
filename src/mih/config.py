@@ -75,6 +75,21 @@ class Settings:
     alert_link: str = "auto"
     # Local time (MIH_TIMEZONE) of the daily digest push; None = no digest.
     digest_at: time | None = time(9, 0)
+    # Playlist discovery (docs/discovery.md): how often the scout looks for new public
+    # playlists and the packer checks the streams of a live one. None = off. Off in this
+    # dataclass, so tests never search the internet; from_env sets 30m and 15m.
+    every_discover: timedelta | None = None
+    every_pack: timedelta | None = None
+    # Playlists the scout samples per run, and streams the packer probes per run.
+    discovery_scout: int = 5
+    discovery_pack_batch: int = 60
+    # The packer stops adding streams once auto-found sources hold this many.
+    discovery_max_streams: int = 30000
+    # Optional: GitHub code search needs a token (any token, no scopes); without one
+    # only repository search runs, at 60 API calls an hour.
+    github_token: str | None = None
+    # Optional JSON with extra pages, Telegram channels and blocked hosts.
+    discovery_file: Path | None = None
 
     @property
     def db_path(self) -> Path:
@@ -126,6 +141,15 @@ class Settings:
             alert_lead=parse_every(env.get("MIH_ALERT_LEAD", "15m"), "MIH_ALERT_LEAD"),
             alert_link=_choice(env.get("MIH_ALERT_LINK", "auto"), "MIH_ALERT_LINK", ALERT_LINKS),
             digest_at=_parse_clock(env.get("MIH_DIGEST_AT", "09:00"), "MIH_DIGEST_AT"),
+            every_discover=parse_every(env.get("MIH_EVERY_DISCOVER", "30m"), "MIH_EVERY_DISCOVER"),
+            every_pack=parse_every(env.get("MIH_EVERY_PACK", "15m"), "MIH_EVERY_PACK"),
+            discovery_scout=max(1, int(env.get("MIH_DISCOVERY_SCOUT", "5"))),
+            discovery_pack_batch=max(1, int(env.get("MIH_DISCOVERY_PACK_BATCH", "60"))),
+            discovery_max_streams=int(env.get("MIH_DISCOVERY_MAX_STREAMS", "30000")),
+            github_token=env.get("MIH_GITHUB_TOKEN") or None,
+            discovery_file=(
+                Path(env["MIH_DISCOVERY_FILE"]) if env.get("MIH_DISCOVERY_FILE") else None
+            ),
         )
 
     def validate_for_serving(self) -> None:
