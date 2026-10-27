@@ -205,3 +205,22 @@ def test_home_assistant_check_and_unset_bridge(tmp_path, client):
     resp = client.post("/api/v1/playback/commands",
                        json={"target": {"channel_id": perviy}, "adapter": "ha"})  # fmt: skip
     assert resp.status_code == 422
+
+
+def test_home_assistant_script_saying_not_ok_fails_with_its_error(tmp_path):
+    import httpx
+
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.url)
+        answer = {"ok": False, "channel": "", "error": "Player did not open"}
+        return httpx.Response(200, json={"changed_states": [], "service_response": answer})
+
+    c = _ha_client(tmp_path, handler)
+    body = {"target": {"channel_id": _channel(c, "первый")}, "adapter": "ha"}
+    cmd = c.post("/api/v1/playback/commands", json=body).json()
+    assert (cmd["state"], cmd["error"], cmd["detail"]) == (
+        "failed", "ha_not_playing", "Player did not open")  # fmt: skip
+    assert "return_response" in seen[0].params
+    c.__exit__(None, None, None)
