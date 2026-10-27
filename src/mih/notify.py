@@ -36,9 +36,13 @@ def send(
     body: str,
     level: str = "info",
     *,
+    click: str | None = None,
+    action: str | None = None,
     transport: httpx.BaseTransport | None = None,
 ) -> str:
-    """Publish one push. Returns "sent", "failed" or "off" (no channel configured)."""
+    """Publish one push. Returns "sent", "failed" or "off" (no channel configured).
+    ``click``: what tapping the push opens (default: the status screen, if the service
+    has a public URL); ``action``: the label of a button that opens the same link."""
     if not settings.ntfy_url:
         return "off"
     try:
@@ -46,8 +50,12 @@ def send(
         # JSON publishing keeps a non-ASCII title intact; headers would need RFC 2047.
         payload = {"topic": topic, "title": title[:250], "message": body[:3500] or title,
                    "priority": _PRIORITY.get(level, 3), "tags": _TAGS.get(level, [])}  # fmt: skip
-        if settings.public_url:
-            payload["click"] = f"{settings.public_url}/#/status"
+        if click is None and settings.public_url:
+            click = f"{settings.public_url}/#/status"
+        if click:
+            payload["click"] = click
+            if action:
+                payload["actions"] = [{"action": "view", "label": action, "url": click}]
         headers = {"Authorization": f"Bearer {settings.ntfy_token}"} if settings.ntfy_token else {}
         with httpx.Client(timeout=10.0, transport=transport) as client:
             resp = client.post(endpoint, json=payload, headers=headers)

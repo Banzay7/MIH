@@ -31,9 +31,13 @@ def record_event(
     *,
     transport: httpx.BaseTransport | None = None,
     requested: bool = False,
+    push: bool | None = None,
+    click: str | None = None,
+    action: str | None = None,
 ) -> dict:
     """Store one event, push it if its level is high enough, and return it. ``requested``:
-    someone asked for this run, so a repeat of an earlier push is still sent."""
+    someone asked for this run, so a repeat of an earlier push is still sent. ``push``:
+    True pushes whatever MIH_NOTIFY_LEVEL says (a topic alert was asked for)."""
     if level not in LEVELS:
         raise ValueError(f"unknown level {level!r}")
     event = {"id": new_id(), "at": utc_now(), "kind": kind, "level": level, "title": title,
@@ -43,11 +47,14 @@ def record_event(
         (event["id"], event["at"], kind, level, title, body,
          json.dumps(data, ensure_ascii=False) if data else None),
     )  # fmt: skip
-    if level != "routine" and LEVELS.index(level) >= LEVELS.index(settings.notify_level):
+    if push is None:
+        push = level != "routine" and LEVELS.index(level) >= LEVELS.index(settings.notify_level)
+    if push:
         if not requested and _pushed_recently(conn, kind, title, event["id"]):
             event["pushed"] = "repeat"  # the same problem every 30 minutes is one push
         else:
-            event["pushed"] = notify.send(settings, title, body, level, transport=transport)
+            event["pushed"] = notify.send(settings, title, body, level, click=click,
+                                          action=action, transport=transport)  # fmt: skip
         conn.execute("UPDATE events SET pushed = ? WHERE id = ?", (event["pushed"], event["id"]))
     cutoff = (datetime.now(UTC) - timedelta(days=settings.history_days)).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
@@ -122,6 +129,20 @@ TEXTS = {
         "ru": "Проверка потоков пропущена: у сервера нет интернета",
     },
     "job.digest": {"en": "MIRTVONLINE: daily summary", "ru": "MIRTVONLINE: сводка за сутки"},
+    "job.alerts": {
+        "en": "Topic alerts: {sent} sent",
+        "ru": "Оповещения по темам: отправлено {sent}",
+    },
+    "job.alerts.none": {
+        "en": "Topic alerts: no topics or favourite programmes yet",
+        "ru": "Оповещения по темам: темы и любимые передачи не заданы",
+    },
+    "alert.title": {"en": "{time} · {title}", "ru": "{time} · {title}"},
+    "alert.started": {"en": "On now · {title}", "ru": "Уже идёт · {title}"},
+    "alert.topic": {"en": "topic «{topic}»", "ru": "тема «{topic}»"},
+    "alert.favourite": {"en": "favourite programme", "ru": "передача из избранного"},
+    "alert.watch": {"en": "Watch", "ru": "Смотреть"},
+    "alert.more": {"en": "More on your topics: {n}", "ru": "Ещё по вашим темам: {n}"},
     "export": {
         "en": "Export: {channels} channels written",
         "ru": "Экспорт: выгружено каналов {channels}",
@@ -165,6 +186,10 @@ TEXTS = {
         "ru": "Проверено потоков: {checked}, не отвечают {failed}",
     },
     "digest.problems": {"en": "Problems:", "ru": "Проблемы:"},
+    "digest.alerts": {
+        "en": "On your topics in the next 24 h:",
+        "ru": "По вашим темам в ближайшие сутки:",
+    },
     "digest.plan": {"en": "Planned:", "ru": "Запланировано:"},
     "every": {"en": "every {n} min", "ru": "каждые {n} мин"},
     "digest.scheduler_off": {
@@ -180,6 +205,7 @@ TEXTS = {
     "name.epg": {"en": "TV guide refresh", "ru": "обновление телепрограммы"},
     "name.health": {"en": "stream check", "ru": "проверка потоков"},
     "name.digest": {"en": "daily summary", "ru": "сводка за сутки"},
+    "name.alerts": {"en": "topic alerts", "ru": "оповещения по темам"},
 }
 
 

@@ -1,5 +1,5 @@
 // Caches the app shell only. API answers are live data and always go to the network.
-const SHELL = "mih-shell-v2";
+const SHELL = "mih-shell-v3";
 const FILES = ["./", "index.html", "app.css", "app.js", "icon.svg", "manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
@@ -14,7 +14,7 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/api/")) return;
+  if (e.request.method !== "GET" || url.origin !== location.origin || /^\/(api|play|lists)\//.test(url.pathname)) return;
   // Network first, so an upgrade shows at once; the cache covers a flaky connection.
   e.respondWith(fetch(e.request).then((resp) => {
     if (resp.ok) { const copy = resp.clone(); caches.open(SHELL).then((c) => c.put(e.request, copy)); }
