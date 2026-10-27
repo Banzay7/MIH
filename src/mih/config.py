@@ -77,7 +77,7 @@ class Settings:
     digest_at: time | None = time(9, 0)
     # Playlist discovery (docs/discovery.md): how often the scout looks for new public
     # playlists and the packer checks the streams of a live one. None = off. Off in this
-    # dataclass, so tests never search the internet; from_env sets 30m and 15m.
+    # dataclass, so tests never search the internet; from_env sets 5m and 15m.
     every_discover: timedelta | None = None
     every_pack: timedelta | None = None
     # Playlists the scout samples per run, and streams the packer probes per run.
@@ -85,6 +85,9 @@ class Settings:
     discovery_pack_batch: int = 60
     # The packer stops adding streams once auto-found sources hold this many.
     discovery_max_streams: int = 30000
+    # How often the search for new playlists starts over (seeds, pages, GitHub searches).
+    # None = daily for the first 60 days of the install, then monthly.
+    discovery_search_every: timedelta | None = None
     # Optional: GitHub code search needs a token (any token, no scopes); without one
     # only repository search runs, at 60 API calls an hour.
     github_token: str | None = None
@@ -146,6 +149,7 @@ class Settings:
             discovery_scout=max(1, int(env.get("MIH_DISCOVERY_SCOUT", "5"))),
             discovery_pack_batch=max(1, int(env.get("MIH_DISCOVERY_PACK_BATCH", "60"))),
             discovery_max_streams=int(env.get("MIH_DISCOVERY_MAX_STREAMS", "30000")),
+            discovery_search_every=_search_every(env.get("MIH_DISCOVERY_SEARCH_EVERY", "auto")),
             github_token=env.get("MIH_GITHUB_TOKEN") or None,
             discovery_file=(
                 Path(env["MIH_DISCOVERY_FILE"]) if env.get("MIH_DISCOVERY_FILE") else None
@@ -177,6 +181,15 @@ def parse_every(value: str, name: str) -> timedelta | None:
     every = timedelta(**{unit: amount})
     if every < timedelta(minutes=5):
         raise ConfigError(f"{name} must be at least 5m")
+    return every
+
+
+def _search_every(value: str) -> timedelta | None:
+    if value.strip().lower() in ("auto", ""):
+        return None
+    every = parse_every(value, "MIH_DISCOVERY_SEARCH_EVERY")
+    if every is None:
+        raise ConfigError("MIH_DISCOVERY_SEARCH_EVERY must be auto or look like 1d, 30d")
     return every
 
 

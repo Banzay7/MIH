@@ -2,9 +2,10 @@
 
 A stream's level says how sure we are that it plays:
 
-- ``ok``: a counted check or a device started it within ``fresh_hours`` (48 h) and
-  nothing has failed since;
-- ``doubtful``: it worked within ``stale_days`` (7 days) but is failing now, or the last
+- ``ok``: a counted check or a device started it within ``fresh_hours`` (10 days) and
+  nothing has failed since; a working stream is checked weekly, so a live one always
+  has a success that recent;
+- ``doubtful``: it worked within ``stale_days`` (14 days) but is failing now, or the last
   success is older than ``fresh_hours``;
 - ``unknown``: never checked yet;
 - ``dead``: never worked, failing for longer, quarantined, gone from its playlist, or
@@ -96,8 +97,8 @@ class ListFilter:
 
 @dataclass(frozen=True)
 class Freshness:
-    fresh_hours: int = 48
-    stale_days: int = 7
+    fresh_hours: int = 10 * 24
+    stale_days: int = 14
 
 
 DEFAULT_FRESHNESS = Freshness()

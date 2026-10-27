@@ -7,12 +7,14 @@ import pytest
 
 from mih.config import Settings
 from mih.discovery.harvest import (
+    REPO_QUERIES,
     SEED_PLAYLISTS,
     SEED_REPOS,
     Plan,
     extract_links,
     harvest,
     load_plan,
+    search_period,
 )
 from mih.discovery.safety import drm_urls, screen, url_problem
 from mih.discovery.scout import pack, scout, summary
@@ -166,18 +168,37 @@ def test_harvest_seeds_repo_trees_and_search(conn, settings):
                 {"full_name": "fresh/iptv", "pushed_at": "2026-10-20T00:00:00Z"}]})  # fmt: skip
         return httpx.Response(404)
 
-    report = harvest(conn, settings, Plan(), NOW, transport=httpx.MockTransport(github))
-    # Seed playlists, then one file from each of the first 8 seed repositories.
-    assert report.found["seed"] == len(SEED_PLAYLISTS) + 8
-    assert report.api_calls == 8 and "/search/repositories" not in calls
+    def go(at=NOW):
+        return harvest(conn, settings, Plan(), at, transport=httpx.MockTransport(github))
+
+    report = go()
+    # Seed playlists, then one file from each of the first 4 seed repositories (4 API calls).
+    assert report.found["seed"] == len(SEED_PLAYLISTS) + 4
+    assert report.api_calls == 4 and "/search/repositories" not in calls
     assert row(conn, "https://raw.githubusercontent.com/iptv-org/iptv/HEAD/streams/ru.m3u")
 
-    # Every seed is scanned now, so the next run has budget left for the search.
-    report = harvest(conn, settings, Plan(), NOW, transport=httpx.MockTransport(github))
-    assert len(SEED_REPOS) == 8 and "/search/repositories" in calls
-    report = harvest(conn, settings, Plan(), NOW, transport=httpx.MockTransport(github))
-    assert report.found == {"github": 1}
+    # The other 4 seeds, then the search, then the repository it found.
+    assert len(SEED_REPOS) == 8 and go().found == {"seed": 4}
+    go()
+    assert calls[-1] == "/search/repositories"
+    assert go().found == {"github": 1}
     assert row(conn, "https://raw.githubusercontent.com/fresh/iptv/HEAD/streams/ru.m3u")
+
+    # The other queries, one page each; then the pass is over until the next day.
+    runs = 0
+    while go(NOW + timedelta(hours=1)).api_calls:
+        runs += 1
+        assert runs < 20
+    assert calls.count("/search/repositories") == len(REPO_QUERIES)
+    assert go(NOW + timedelta(days=1, minutes=1)).api_calls == 4
+
+
+def test_search_runs_daily_at_first_then_monthly(conn, settings):
+    assert search_period(conn, settings, NOW) == timedelta(days=1)
+    assert search_period(conn, settings, NOW + timedelta(days=59)) == timedelta(days=1)
+    assert search_period(conn, settings, NOW + timedelta(days=61)) == timedelta(days=30)
+    fixed = Settings(data_dir=settings.data_dir, discovery_search_every=timedelta(days=7))
+    assert search_period(conn, fixed, NOW) == timedelta(days=7)
 
 
 def test_github_rate_limit_stops_the_run(conn, settings):

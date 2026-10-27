@@ -20,6 +20,8 @@ from mih.sources.fetch import FetchError, check_destination
 MAX_REDIRECTS = 5
 MAX_PLAYLIST_DEPTH = 3
 USER_AGENT = "MIRTVONLINE/0.1 (stream health check)"
+# What a light check reads of the first answer.
+LIGHT_BYTES = 16 * 1024
 
 # Errors that describe the path between the prober and the host more than the stream.
 NETWORK_ERRORS = ("dns", "connect", "timeout", "network")
@@ -68,10 +70,13 @@ def probe_stream(
     policy: HealthPolicy,
     *,
     allow_private: bool,
+    light: bool = False,
 ) -> ProbeResult:
+    """``light``: stop once the stream's manifest answers (or, for a bare stream, after the
+    first LIGHT_BYTES): the weekly check of a stream known to work reads no video."""
     started = time.monotonic()
     request_headers = {"User-Agent": USER_AGENT, **(headers or {})}
-    probe = _Probe(client, request_headers, policy, allow_private, started)
+    probe = _Probe(client, request_headers, policy, allow_private, started, light)
     try:
         return probe.run(url)
     except _Stop as stop:
@@ -79,18 +84,24 @@ def probe_stream(
 
 
 class _Probe:
-    def __init__(self, client, headers, policy, allow_private, started):
+    def __init__(self, client, headers, policy, allow_private, started, light=False):
         self.client, self.headers, self.policy = client, headers, policy
-        self.allow_private, self.started = allow_private, started
+        self.allow_private, self.started, self.light = allow_private, started, light
         self.resolution = self.codec = None
         self.bitrate = None
 
     def run(self, url: str) -> ProbeResult:
-        resp = self.get(url, self.policy.manifest_max_bytes, stage="http")
+        first = LIGHT_BYTES if self.light else self.policy.manifest_max_bytes
+        resp = self.get(url, first, stage="http")
         for _ in range(MAX_PLAYLIST_DEPTH):
             head = resp.body.lstrip(b"\xef\xbb\xbf \t\r\n")[:4096]
             if head.startswith(b"#EXTM3U"):
+                if self.light and len(resp.body) >= first:
+                    # A long manifest cut short: read it whole to find the next step.
+                    resp = self.get(resp.url, self.policy.manifest_max_bytes, stage="http")
                 next_url, is_segment = self.hls(resp)
+                if is_segment and self.light:
+                    return self.result(True, stage="manifest", status=resp.status)
                 stage = "segment" if is_segment else "manifest"
                 limit = self.policy.segment_bytes if is_segment else self.policy.manifest_max_bytes
                 resp = self.get(next_url, limit, stage=stage, ranged=is_segment)

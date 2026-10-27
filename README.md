@@ -30,6 +30,7 @@ MIRTVONLINE не поставляет каналы: он работает тол
 - валидные списки каналов (`mih list`): только каналы, которые сейчас играют, с фильтрами по стране, языку и категории; файлы `<имя>.m3u`, `.csv`, `.json` и отчёт, почему канал не попал; плюс `catalog.jsonl` и `catalog.csv`: весь каталог в одном файле со ссылками, `stream_id`, заголовками и тем, что идёт сейчас. Правила в [docs/lists.md](docs/lists.md).
 - справочник каналов iptv-org (`mih import-directory`): страна, языки и категории для каналов каталога, склейка дублей по `tvg-id` и названиям, по желанию каналы страны без потоков (`--country RU`). Подробно в [docs/directory.md](docs/directory.md).
 
+- инструкция для домашнего агента (Hermes, Home Assistant, скрипт): что забирать, как найти и запустить канал, как сообщить, заиграл ли он. См. [docs/agent.md](docs/agent.md).
 - грабер плейлистов: сам находит публичные плейлисты (сиды, поиск по GitHub, страницы и Telegram), выборочно проверяет их и понемногу добавляет в каталог только рабочие потоки; утечки подписок и DRM отсеиваются. См. [docs/discovery.md](docs/discovery.md).
 - статус и уведомления: встроенный планировщик `mih serve` обновляет плейлисты и программу по URL, проверяет потоки и раз в день присылает сводку. Экран «Статус» в веб-интерфейсе показывает, что сервис делает сейчас, итог каждой задачи, план на сутки и ленту событий. Важное (ошибки, изменения в каталоге, запуск и остановка) приходит пушем через [ntfy](https://ntfy.sh), повторяющаяся проблема не чаще раза в 6 часов, рутинные запуски попадают только в ленту и сводку. См. [docs/notifications.md](docs/notifications.md).
 
@@ -48,7 +49,7 @@ MIH_DATA_DIR=./data .venv/bin/mih search "новости завтра вечер
 MIH_DATA_DIR=./data .venv/bin/mih stats
 # выгрузка каталога с категориями в папку (по умолчанию MIH_EXPORT_DIR или ./data/export)
 MIH_DATA_DIR=./data .venv/bin/mih export --out /path/to/folder
-# валидный список: российские новости, только проверенные за 48 часов
+# валидный список: российские новости, только проверенные за 10 дней
 MIH_DATA_DIR=./data .venv/bin/mih list --name ru-news --country RU --category news
 # проверить потоки, которым пора (удобно запускать по cron/systemd-таймеру)
 MIH_DATA_DIR=./data .venv/bin/mih health-check
@@ -94,7 +95,7 @@ docker compose -f docker-compose.example.yml up -d --build
 | `MIH_SCHEDULER` | `1` | `0` выключает встроенный планировщик `mih serve`; задачи тогда запускаются только вручную |
 | `MIH_EVERY_SOURCES`, `MIH_EVERY_EPG`, `MIH_EVERY_HEALTH` | `6h`, `12h`, `10m` | Как часто обновлять плейлисты и программу по URL и проверять потоки (`30m`, `6h`, `1d`, `off`) |
 | `MIH_EVERY_ALERTS`, `MIH_ALERT_LEAD` | `5m`, `15m` | Оповещения по темам: как часто смотреть программу и за сколько до начала присылать пуш; `off` в `MIH_ALERT_LEAD` выключает ([подробнее](docs/notifications.md#оповещения-по-темам)) |
-| `MIH_EVERY_DISCOVER`, `MIH_EVERY_PACK` | `30m`, `15m` | Грабер плейлистов: поисковик и упаковщик ([docs/discovery.md](docs/discovery.md)); там же `MIH_GITHUB_TOKEN`, `MIH_DISCOVERY_FILE` и пределы |
+| `MIH_EVERY_DISCOVER`, `MIH_EVERY_PACK` | `5m`, `15m` | Грабер плейлистов: поисковик и упаковщик ([docs/discovery.md](docs/discovery.md)); там же `MIH_DISCOVERY_SEARCH_EVERY`, `MIH_GITHUB_TOKEN`, `MIH_DISCOVERY_FILE` и пределы |
 | `MIH_ALERT_LINK` | `auto` | Что открывает пуш о передаче: `play` (ссылка `MIH_PUBLIC_URL/play/…`), `stream` (сам адрес потока), `none`; `auto` = `play` при заданном `MIH_PUBLIC_URL`, иначе `stream` |
 | `MIH_DIGEST_AT` | `09:00` | Время ежедневной сводки по `MIH_TIMEZONE`; `off` выключает |
 | `MIH_NTFY_URL` | — | Адрес топика ntfy (`https://ntfy.sh/<топик>` или свой сервер); пусто = без пушей |

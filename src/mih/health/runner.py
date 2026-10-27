@@ -19,6 +19,7 @@ from mih.health.policy import (
     StreamState,
     decide,
     format_ts,
+    in_trial,
     next_check,
     parse_ts,
 )
@@ -137,7 +138,8 @@ def record(
 ):
     """Store one observation and move the stream's state. Runs inside the caller's
     transaction when there is one."""
-    row = conn.execute(f"SELECT {_STATE_COLS} FROM streams WHERE id = ?", (stream_id,)).fetchone()
+    row = conn.execute(f"SELECT {_STATE_COLS}, first_seen_at FROM streams WHERE id = ?",
+                       (stream_id,)).fetchone()  # fmt: skip
     before = _state(row)
     decision = decide(before, obs, policy)
     res = result or ProbeResult(obs.success, error_kind=error_kind, startup_ms=startup_ms)
@@ -152,6 +154,11 @@ def record(
     )  # fmt: skip
     s = decision.state
     checked = obs.vantage != "device"
+    nxt = next_check(s, obs.at, policy, counted=decision.counted,
+                     first_seen=parse_ts(row["first_seen_at"]))  # fmt: skip
+    if not checked and not obs.success:
+        # The TV could not play it: look at it now instead of at the weekly check.
+        checked, nxt = True, obs.at
     conn.execute(
         "UPDATE streams SET status = ?, availability_reason = ?, status_changed_at = ?,"
         " last_ok_at = ?, first_fail_at = ?, streak_failures = ?, streak_windows = ?,"
@@ -161,8 +168,8 @@ def record(
         (s.status, s.availability_reason, format_ts(s.status_changed_at),
          format_ts(s.last_ok_at), format_ts(s.first_fail_at), s.streak_failures,
          s.streak_windows, s.last_fail_window, format_ts(s.last_device_ok_at),
-         format_ts(s.last_device_fail_at), checked, format_ts(obs.at), checked,
-         format_ts(next_check(s, obs.at, policy, counted=decision.counted)), stream_id),
+         format_ts(s.last_device_fail_at), obs.vantage != "device", format_ts(obs.at), checked,
+         format_ts(nxt), stream_id),
     )  # fmt: skip
     if decision.cause:
         conn.execute(
@@ -175,7 +182,7 @@ def record(
 
 
 def _due(conn, now: datetime, limit: int, stream_ids: list[str] | None) -> list[sqlite3.Row]:
-    cols = f"s.id, s.source_id, {_STATE_COLS}, l.url, l.headers"
+    cols = f"s.id, s.source_id, s.first_seen_at, {_STATE_COLS}, l.url, l.headers"
     base = (
         f"SELECT {cols} FROM streams s JOIN stream_locators l ON l.stream_id = s.id"
         " JOIN sources src ON src.id = s.source_id AND src.enabled = 1"
@@ -210,10 +217,16 @@ def _probe_all(client, rows, settings: Settings, policy: HealthPolicy) -> list[P
     for row in rows:
         per_source[row["source_id"]]  # create up front, outside the worker threads
 
+    now = datetime.now(UTC)
+
     def one(row) -> ProbeResult:
+        # A stream that has been working past its trial gets the light weekly check: the
+        # manifest answers, no video is read.
+        light = (row["status"] == "active" and not row["streak_failures"]
+                 and not in_trial(parse_ts(row["first_seen_at"]), now, policy))  # fmt: skip
         with per_source[row["source_id"]]:
             headers = json.loads(row["headers"]) if row["headers"] else None
-            return probe_stream(client, row["url"], headers, policy,
+            return probe_stream(client, row["url"], headers, policy, light=light,
                                 allow_private=settings.allow_private_sources)  # fmt: skip
 
     with ThreadPoolExecutor(max_workers=policy.concurrency) as pool:
