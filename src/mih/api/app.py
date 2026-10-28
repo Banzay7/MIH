@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import queue
 import sqlite3
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
@@ -21,6 +22,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from mih import __version__, db
 from mih.api import personal
+from mih.api.cache import SharedCache, respond
 from mih.config import Settings
 from mih.epg import guide
 from mih.epg.coverage import working_coverage
@@ -91,12 +93,39 @@ class SourceIn(BaseModel):
 _bearer = HTTPBearer(auto_error=False)
 
 
+class ConnPool:
+    """Connections kept open between requests: opening one costs a file open and four
+    PRAGMAs, more than most of the queries behind the web UI."""
+
+    def __init__(self, path, keep: int = 16):
+        self.path, self.keep = path, keep
+        self._idle: queue.SimpleQueue[sqlite3.Connection] = queue.SimpleQueue()
+
+    def take(self) -> sqlite3.Connection:
+        try:
+            return self._idle.get_nowait()
+        except queue.Empty:
+            return db.connect(self.path)
+
+    def give(self, c: sqlite3.Connection) -> None:
+        if c.in_transaction:  # a request that failed half way
+            c.execute("ROLLBACK")
+        if self._idle.qsize() < self.keep:
+            self._idle.put(c)
+        else:
+            c.close()
+
+
 def get_conn(request: Request) -> Iterator[sqlite3.Connection]:
-    c = db.connect(request.app.state.settings.db_path)
+    pool: ConnPool = request.app.state.pool
+    c = pool.take()
     try:
         yield c
-    finally:
+    except BaseException:
         c.close()
+        raise
+    else:
+        pool.give(c)
 
 
 def require_token(
@@ -136,24 +165,23 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        if settings.workers > 1:
+            yield  # ``mih serve`` runs the jobs once for all its workers
+            return
         # Imported here: the scheduler pulls in every job, the API module stays light.
-        from mih.scheduler import Scheduler, service_event
+        from mih.scheduler import background
 
-        scheduler = Scheduler(settings, health_policy) if settings.scheduler_enabled else None
-        service_event(settings, "service.started")
-        if scheduler:
-            scheduler.start()
-        try:
+        with background(settings, health_policy):
             yield
-        finally:
-            if scheduler:
-                scheduler.stop()
-            service_event(settings, "service.stopped")
 
     app = FastAPI(title="MIRTVONLINE API", version=__version__, docs_url="/api/docs",
                   openapi_url="/api/v1/openapi.json", lifespan=lifespan)  # fmt: skip
     app.state.settings = settings
-    app.add_middleware(_ApiGzip)
+    app.state.pool = ConnPool(settings.db_path)
+    app.state.cache = cache = SharedCache()
+    app.add_middleware(_ForgetOnChange, cache=cache)
+    app.add_middleware(_Gzip)
+
     auth = [Depends(require_token)]
 
     @app.exception_handler(ApiError)
@@ -218,11 +246,20 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
 
     @app.get("/api/v1/channels", dependencies=auth)
     def list_channels(
+        request: Request,
         conn: Conn,
         q: str | None = None,
         limit: Annotated[int, Query(ge=1, le=10000)] = 100,
         offset: Annotated[int, Query(ge=0)] = 0,
-    ) -> dict:
+    ):
+        if q:
+            return _channels(conn, q, limit, offset)
+        # The whole catalog is what every visitor loads first: one copy for everyone.
+        entry = cache.get(f"channels:{limit}:{offset}", CHANNELS_TTL,
+                          lambda: _channels(conn, None, limit, offset))  # fmt: skip
+        return respond(request, entry, max_age=int(CHANNELS_TTL))
+
+    def _channels(conn: sqlite3.Connection, q: str | None, limit: int, offset: int) -> dict:
         where, params = "", []
         if q:
             where = (" WHERE c.id IN (SELECT channel_id FROM channel_aliases"
@@ -403,11 +440,18 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
 
     @app.get("/api/v1/now", dependencies=auth)
     def on_now(
+        request: Request,
         conn: Conn,
         channel_id: Annotated[list[str] | None, Query()] = None,
         timeshift: bool = False,
-    ) -> dict:
+    ):
         """What is on now and next, per feed. +N feeds are left out unless asked for."""
+        key = f"now:{timeshift}:{','.join(sorted(channel_id)) if channel_id else '*'}"
+        entry = cache.get(key, NOW_TTL, lambda: _on_now(conn, channel_id, timeshift))
+        return respond(request, entry, max_age=int(NOW_TTL))
+
+    def _on_now(conn: sqlite3.Connection, channel_id: list[str] | None,
+                timeshift: bool) -> dict:  # fmt: skip
         guides = guide.feed_guides(conn, channel_id)
         if not timeshift:
             guides = {k: g for k, g in guides.items() if g.shift_minutes == 0}
@@ -488,7 +532,11 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         return search(conn, req, datetime.now(UTC))
 
     @app.get("/api/v1/metrics/summary", dependencies=auth)
-    def metrics_summary(conn: Conn) -> dict:
+    def metrics_summary(request: Request, conn: Conn):
+        entry = cache.get("metrics", CHANNELS_TTL, lambda: _metrics(conn))
+        return respond(request, entry, max_age=int(CHANNELS_TTL))
+
+    def _metrics(conn: sqlite3.Connection) -> dict:
         channels = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
         with_epg = conn.execute(f"SELECT COUNT(*) FROM ({_EPG_CHANNELS})").fetchone()[0]
         review = conn.execute(
@@ -542,15 +590,42 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     return app
 
 
-class _ApiGzip:
-    """Gzip for /api answers only: the channel list and "now" are hundreds of KB of JSON.
-    Playlists and guides keep their bytes as they are; some players mishandle an encoding."""
+# How long a shared answer is reused (seconds). Imports and checks run every few minutes
+# at most, and "now" moves on programme boundaries, so this is not noticeable.
+CHANNELS_TTL = 60.0
+NOW_TTL = 30.0
 
-    def __init__(self, app):
-        self.app, self.gzip = app, GZipMiddleware(app, minimum_size=1024)
+
+def app_from_env() -> FastAPI:
+    """For ``mih serve`` with MIH_WORKERS > 1: each worker process builds its own app."""
+    return create_app(Settings.from_env())
+
+
+class _ForgetOnChange:
+    """A change made through the API shows at once; the background jobs' changes show
+    within the shared cache's few seconds. Plain ASGI: Starlette's @middleware("http")
+    costs every request a task and a queue."""
+
+    def __init__(self, app, cache: SharedCache):
+        self.app, self.cache = app, cache
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] == "http" and scope["path"].startswith("/api/"):
+        await self.app(scope, receive, send)
+        if scope["type"] == "http" and scope["method"] not in ("GET", "HEAD", "OPTIONS"):
+            self.cache.clear()
+
+
+class _Gzip:
+    """Gzip for the API and the web UI's files. Playlists and guides keep their bytes as
+    they are; some players mishandle an encoding. Level 6: level 9 costs several times
+    the CPU for a few percent less."""
+
+    def __init__(self, app):
+        self.app = app
+        self.gzip = GZipMiddleware(app, minimum_size=1024, compresslevel=6)
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and not scope["path"].startswith(("/lists/", "/play/")):
             return await self.gzip(scope, receive, send)
         return await self.app(scope, receive, send)
 

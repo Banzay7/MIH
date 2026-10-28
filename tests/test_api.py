@@ -203,6 +203,50 @@ def test_api_answers_are_gzipped_and_the_whole_catalog_fits_one_page(client):
     assert r.status_code == 200 and {i["streams"] for i in r.json()["items"]} >= {1}
     big = client.get("/api/v1/openapi.json", headers={"Accept-Encoding": "gzip"})
     assert big.headers.get("content-encoding") == "gzip"  # answers over 1 KB
-    # The web UI's files are not API answers: left as they are.
-    ui = client.get("/", headers={"Accept-Encoding": "gzip"})
-    assert ui.headers.get("content-encoding") is None
+    # The web UI's script is compressed too; playlists and guides never are (players).
+    ui = client.get("/app.js", headers={"Accept-Encoding": "gzip"})
+    assert ui.headers.get("content-encoding") == "gzip"
+
+
+def test_shared_answers_carry_an_etag_and_change_after_an_import(client):
+    first = client.get("/api/v1/channels?limit=10000")
+    assert first.json()["items"] == [] and first.headers["cache-control"].startswith("private")
+    again = client.get("/api/v1/channels?limit=10000",
+                       headers={"If-None-Match": first.headers["etag"]})  # fmt: skip
+    assert again.status_code == 304 and again.content == b""
+    src = client.post("/api/v1/sources", json={"name": "a"}).json()
+    files = {"file": ("a.m3u", fixture_bytes("provider_a.m3u"), "audio/x-mpegurl")}
+    client.post(f"/api/v1/sources/{src['id']}/upload", files=files)
+    after = client.get("/api/v1/channels?limit=10000",
+                       headers={"If-None-Match": first.headers["etag"]})  # fmt: skip
+    assert after.status_code == 200 and after.json()["items"]
+    # A search is per query: never shared.
+    assert "etag" not in client.get("/api/v1/channels?q=perviy").headers
+
+
+def test_a_stale_shared_answer_is_served_while_another_request_rebuilds_it():
+    import threading
+
+    from mih.api.cache import SharedCache
+
+    cache, builds, release = SharedCache(), [], threading.Event()
+
+    def build(n):
+        def go():
+            builds.append(n)
+            if n == 2:
+                release.wait(5)
+            return {"n": n}
+
+        return go
+
+    assert cache.get("k", 0.0, build(1)).body == b'{"n":1}'
+    rebuild = threading.Thread(target=lambda: cache.get("k", 0.0, build(2)))
+    rebuild.start()
+    while builds[-1] != 2:
+        pass
+    # The rebuild is under way: the old answer comes back at once, nothing is built.
+    assert cache.get("k", 0.0, build(3)).body == b'{"n":1}'
+    release.set()
+    rebuild.join()
+    assert builds == [1, 2]
