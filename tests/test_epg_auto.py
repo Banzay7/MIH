@@ -151,3 +151,31 @@ def test_guide_job_reports_coverage_and_comes_back_for_new_guides(conn, settings
     # Off: the guide refresh does not look for guides.
     event = run_job(conn, settings, "epg")
     assert "coverage" not in event["data"]
+
+
+def test_temporary_files_go_next_to_the_database(conn, settings):
+    tmp = conn.execute("PRAGMA temp_store_directory").fetchone()[0]
+    assert tmp == str(settings.db_path.parent / "tmp")
+
+
+def test_a_guide_failing_in_the_database_does_not_stop_the_others(conn, settings, monkeypatch):
+    import sqlite3
+
+    from mih import scheduler
+
+    for name in ("a", "b"):
+        conn.execute(
+            "INSERT INTO epg_sources (id, name, url, created_at) VALUES (?, ?, ?, ?)",
+            (name, name, f"https://{name}.example/guide.xml", format_ts(NOW)),
+        )
+    seen = []
+
+    def importer(conn, settings, source_id):
+        seen.append(source_id)
+        if source_id == "a":
+            raise sqlite3.OperationalError("database or disk is full")
+
+    monkeypatch.setattr(scheduler, "import_epg_from_url", importer)
+    event = scheduler.run_job(conn, settings, "epg")
+    assert seen == ["a", "b"]
+    assert event["data"]["problems"] == 1 and event["data"]["ok"] == 1

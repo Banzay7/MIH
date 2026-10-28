@@ -210,7 +210,8 @@ def _refresh(conn, settings, table: str, importer: Callable, describe: Callable,
     for row in rows:
         try:
             report = importer(conn, settings, row["id"])
-        except (FetchError, SourceError) as exc:
+        except (FetchError, SourceError, sqlite3.DatabaseError) as exc:
+            # One source failing (even in the database) must not stop the others.
             problems += 1
             lines.append(f"{row['name']}: {t(settings, 'error', error=exc)}")
             continue

@@ -33,7 +33,7 @@ services:
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
-    mem_limit: ${MIH_MEM_LIMIT:-512m}
+    mem_limit: ${MIH_MEM_LIMIT:-1536m}
     cpus: ${MIH_CPUS:-1.0}
     pids_limit: 256
     logging:
