@@ -45,11 +45,17 @@ class Target:
     kind: str  # 'channel'
     channel_id: str
     feed_id: str | None = None
+    # A programme to start from its beginning: UTC ISO times and the title.
+    start: str | None = None
+    stop: str | None = None
+    title: str | None = None
 
     def as_dict(self) -> dict:
         out = {"kind": self.kind, "channel_id": self.channel_id}
         if self.feed_id:
             out["feed_id"] = self.feed_id
+        if self.start:
+            out.update({"start": self.start, "stop": self.stop, "title": self.title})
         return out
 
 
@@ -232,6 +238,22 @@ def run_ha(
     usable.sort(key=lambda s: any(json.loads(locators[s]["headers"] or "{}").values()))
     picked = usable[: settings.ha_streams]
     error = detail = None
+    catchup_url = None
+    if picked and target.get("start") and target.get("stop"):
+        from mih import catchup
+
+        now = datetime.now(UTC)
+        start = datetime.fromisoformat(target["start"])
+        stop = datetime.fromisoformat(target["stop"])
+        if start <= now:
+            for s in picked:
+                catchup_url = catchup.build_url(
+                    catchup.stream_attrs(conn, s), locators[s]["url"], start, stop, now
+                )
+                if catchup_url:
+                    break
+            if not catchup_url:
+                detail = "live_no_catchup"
     if not picked:
         error = "no_stream"
     else:
@@ -244,6 +266,9 @@ def run_ha(
                 "stream_id": picked[0],
                 "command_id": cmd_id,
                 "play_url": play_url(settings, target["channel_id"]),
+                "program": target.get("title"),
+                "start_ts": target.get("start"),
+                "catchup_url": catchup_url,
             }, transport=transport)  # fmt: skip
         except ha.HaError as exc:
             error, detail = exc.code, exc.detail
