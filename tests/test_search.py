@@ -154,3 +154,38 @@ def test_index_follows_programme_changes_and_rebuilds(conn, settings, loaded):
 def test_odd_input_is_safe(loaded):
     for query in ['"', "*", "AND OR NOT", 'роб"от*', "", "   ", "a"]:
         _find(loaded, query)  # no FTS syntax error leaks out
+
+
+def test_paging_reports_totals_and_slices_each_type(loaded):
+    full = _find(loaded, "наука", limit=100)
+    assert full["total"]["airing"] == len(_titles(full)) == 2
+    first = _find(loaded, "наука", limit=1)
+    second = _find(loaded, "наука", limit=1, offset=1)
+    assert first["total"] == second["total"] == full["total"]
+    assert _titles(first) + _titles(second) == _titles(full)
+    assert _titles(_find(loaded, "наука", limit=1, offset=2)) == []
+    channels = _find(loaded, "канал", target_types=["channel"], limit=1)
+    assert channels["total"]["channel"] >= 1
+    assert len([i for i in channels["items"] if i["type"] == "channel"]) == 1
+
+
+def test_strict_search_takes_whole_words_only(loaded):
+    assert _titles(_find(loaded, "роботы"))  # "роботы" also finds "робот…" by stem
+    assert _titles(_find(loaded, "роботы", strict=True)) == [("Наука", "2026-10-26T12:00:00Z")]
+    assert _titles(_find(loaded, "робот", strict=True)) == [("Наука", "2026-10-27T17:00:00Z")]
+    assert _titles(_find(loaded, "оров", strict=True)) == []  # no substring fallback
+    assert not _find(loaded, "перв", target_types=["channel"], strict=True)["items"]
+    assert _find(loaded, "первый", target_types=["channel"], strict=True)["items"]
+
+
+def test_min_relevance_keeps_the_best_matches(loaded):
+    loose = _titles(_find(loaded, "наука роботы"))
+    assert _titles(_find(loaded, "наука роботы", min_relevance=1.0)) == loose[:1]
+
+
+def test_playable_only_leaves_out_channels_without_streams(loaded):
+    assert _titles(_find(loaded, "наука", playable_only=True)) == _titles(_find(loaded, "наука"))
+    loaded.execute("UPDATE streams SET status = 'quarantine'")
+    assert _titles(_find(loaded, "наука", playable_only=True)) == []
+    found = _find(loaded, "первый", target_types=["channel"], playable_only=True)
+    assert found["items"] == [] and found["total"] == {"channel": 0}

@@ -77,6 +77,10 @@ class SearchIn(BaseModel):
     filters: SearchFilters = Field(default_factory=SearchFilters)
     tz: str | None = Field(default=None, max_length=64)
     limit: int = Field(default=20, ge=1, le=100)
+    offset: int = Field(default=0, ge=0, le=10000)
+    strict: bool = False  # whole words only
+    min_relevance: float = Field(default=0.0, ge=0.0, le=1.0)
+    playable_only: bool = False
     ai: bool = False  # spec 20: AI_OFF; accepted for forward compatibility, ignored
 
 
@@ -546,7 +550,10 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
                             languages=f.languages, time=f.time,
                             start=_aware(f.start) if f.start else None,
                             end=_aware(f.end) if f.end else None,
-                            channel_ids=f.channel_ids, tz=tz, limit=body.limit)  # fmt: skip
+                            channel_ids=f.channel_ids, tz=tz, limit=body.limit,
+                            offset=body.offset, strict=body.strict,
+                            min_relevance=body.min_relevance,
+                            playable_only=body.playable_only)  # fmt: skip
         return search(conn, req, datetime.now(UTC))
 
     @app.get("/api/v1/metrics/summary", dependencies=auth)

@@ -22,6 +22,7 @@ _WEIGHTS = (10.0, 4.0, 1.0, 3.0)
 _FIELDS = ("title", "sub_title", "description", "categories")
 _CANDIDATES = 1000
 _DEFAULT_HORIZON = timedelta(days=7)
+_PLAYABLE = "s.availability_reason IS NULL AND s.status NOT IN ('quarantine', 'archived')"
 
 
 @dataclass
@@ -35,6 +36,13 @@ class SearchRequest:
     channel_ids: list[str] = field(default_factory=list)
     tz: str = "UTC"
     limit: int = 20
+    offset: int = 0
+    # Whole words only: no stemming, no prefix and no substring fallback.
+    strict: bool = False
+    # 0..1: drop programmes scoring below this share of the best match's score.
+    min_relevance: float = 0.0
+    # Leave out programmes and channels with no stream that can be played.
+    playable_only: bool = False
 
 
 def search(conn: sqlite3.Connection, req: SearchRequest, now: datetime) -> dict:
@@ -51,11 +59,18 @@ def search(conn: sqlite3.Connection, req: SearchRequest, now: datetime) -> dict:
         if lang not in parsed.languages:
             parsed.languages.append(lang)
 
-    out: dict = {"query": parsed.as_dict(), "items": []}
+    # Each type is paged on its own: the UI shows channels and programmes as two lists,
+    # each with its own "show more"; total says how many there are in all.
+    out: dict = {"query": parsed.as_dict(), "items": [], "total": {},
+                 "limit": req.limit, "offset": req.offset}  # fmt: skip
     if "airing" in req.target_types:
-        out["items"] += _airings(conn, parsed, req, now)
+        airings = _airings(conn, parsed, req, now)
+        out["total"]["airing"] = len(airings)
+        out["items"] += airings[req.offset : req.offset + req.limit]
     if "channel" in req.target_types and parsed.terms:
-        out["items"] += _channels(conn, parsed, req.limit)
+        channels, total = _channels(conn, parsed, req)
+        out["total"]["channel"] = total
+        out["items"] += channels
     return out
 
 
@@ -86,9 +101,13 @@ def _airings(
 
     scores: dict[int, float] | None = None
     if parsed.terms:
-        scores = _text_matches(conn, parsed.terms)
+        scores = _text_matches(conn, parsed.terms, req.strict)
         if not scores:
             return []
+        if req.min_relevance > 0:
+            # bm25 ranks are negative, best first; keep those close enough to the best.
+            floor = min(scores.values()) * req.min_relevance
+            scores = {k: v for k, v in scores.items() if v <= floor}
 
     marks = ",".join("?" * len(guides))
     sql = (
@@ -112,6 +131,8 @@ def _airings(
         if parsed.languages and lang not in parsed.languages:
             continue
         g = guides[r["epg_channel_id"]]
+        if req.playable_only and not stream_counts.get(g.channel_id):
+            continue
         key = (r["programme_id"], g.channel_id)
         if key in seen:  # repeats of the same show on the same channel collapse
             seen[key]["more_airings"] += 1
@@ -122,7 +143,7 @@ def _airings(
             channel_name=names.get(g.channel_id),
             lang=lang,
             score=round(-(scores or {}).get(r["prow"], 0.0), 4),
-            why_matched=_why(conn, r["prow"], parsed, lang),
+            why_matched=_why(conn, r["prow"], parsed, lang, req.strict),
             streams_available=stream_counts.get(g.channel_id, 0),
             more_airings=0,
         )
@@ -134,18 +155,22 @@ def _airings(
     elif parsed.past:
         items.sort(key=lambda i: i["start"], reverse=True)  # "history": latest first
     # Otherwise ("future", "now") they stay in start order.
-    return items[: req.limit]
+    return items
 
 
-def _text_matches(conn: sqlite3.Connection, terms: list[str]) -> dict[int, float]:
-    """rowid -> bm25 (lower is better). All terms must match; trigram as a fallback."""
-    match = " AND ".join(_term_expr(t) for t in terms)
+def _text_matches(
+    conn: sqlite3.Connection, terms: list[str], strict: bool = False
+) -> dict[int, float]:
+    """rowid -> bm25 (lower is better). All terms must match; trigram as a fallback,
+    except in strict mode, where every term is a whole word."""
+    expr = _quote if strict else _term_expr
+    match = " AND ".join(expr(t) for t in terms)
     rows = conn.execute(
         "SELECT rowid, bm25(programme_fts, ?, ?, ?, ?) AS rank FROM programme_fts"
         " WHERE programme_fts MATCH ? ORDER BY rank LIMIT ?",
         (*_WEIGHTS, match, _CANDIDATES),
     ).fetchall()
-    if rows:
+    if rows or strict:
         return {r["rowid"]: r["rank"] for r in rows}
     long_terms = [t for t in terms if len(t) >= 3]
     if not long_terms:
@@ -170,7 +195,9 @@ def _quote(text: str) -> str:
     return '"' + text.replace('"', '""') + '"'
 
 
-def _why(conn: sqlite3.Connection, prow: int, parsed: ParsedQuery, lang: str | None) -> list:
+def _why(
+    conn: sqlite3.Connection, prow: int, parsed: ParsedQuery, lang: str | None, strict: bool = False
+) -> list:
     row = conn.execute(
         "SELECT title, sub_title, description, categories FROM programme_fts WHERE rowid = ?",
         (prow,),
@@ -180,7 +207,10 @@ def _why(conn: sqlite3.Connection, prow: int, parsed: ParsedQuery, lang: str | N
         s = stem(term)
         for f in _FIELDS:
             words = re.findall(r"[\w+]+", row[f] or "")
-            hit = next((w for w in words if w.startswith(s)), None)
+            if strict:
+                hit = next((w for w in words if w.casefold() == term), None)
+            else:
+                hit = next((w for w in words if w.startswith(s)), None)
             if hit:
                 why.append({"field": f, "term": term, "matched": hit})
                 break
@@ -194,24 +224,40 @@ def _why(conn: sqlite3.Connection, prow: int, parsed: ParsedQuery, lang: str | N
     return why
 
 
-def _channels(conn: sqlite3.Connection, parsed: ParsedQuery, limit: int) -> list[dict]:
+def _channels(
+    conn: sqlite3.Connection, parsed: ParsedQuery, req: SearchRequest
+) -> tuple[list[dict], int]:
     clauses, params = [], []
     for term in parsed.terms:
-        clauses.append("EXISTS (SELECT 1 FROM channel_aliases a WHERE a.channel_id = c.id"
-                       " AND a.kind = 'name' AND a.value LIKE ? ESCAPE '\\')")  # fmt: skip
-        params.append("%" + _like_escape(term) + "%")
+        t = _like_escape(term)
+        if req.strict:  # the term is a whole word of the name
+            clauses.append("EXISTS (SELECT 1 FROM channel_aliases a WHERE a.channel_id = c.id"
+                           " AND a.kind = 'name' AND (a.value = ?"
+                           " OR a.value LIKE ? ESCAPE '\\' OR a.value LIKE ? ESCAPE '\\'"
+                           " OR a.value LIKE ? ESCAPE '\\'))")  # fmt: skip
+            params += [term, t + " %", "% " + t + " %", "% " + t]
+        else:
+            clauses.append("EXISTS (SELECT 1 FROM channel_aliases a WHERE a.channel_id = c.id"
+                           " AND a.kind = 'name' AND a.value LIKE ? ESCAPE '\\')")  # fmt: skip
+            params.append("%" + t + "%")
+    if req.playable_only:
+        clauses.append(f"EXISTS (SELECT 1 FROM streams s JOIN feeds f ON f.id = s.feed_id"
+                       f" WHERE f.channel_id = c.id AND {_PLAYABLE})")  # fmt: skip
+    where = " AND ".join(clauses)
+    total = conn.execute(f"SELECT COUNT(*) FROM channels c WHERE {where}", params).fetchone()[0]
     rows = conn.execute(
-        f"SELECT c.id, c.canonical_name, c.country FROM channels c WHERE {' AND '.join(clauses)}"
-        " ORDER BY c.canonical_name COLLATE NOCASE LIMIT ?",
-        (*params, limit),
+        f"SELECT c.id, c.canonical_name, c.country FROM channels c WHERE {where}"
+        " ORDER BY c.canonical_name COLLATE NOCASE LIMIT ? OFFSET ?",
+        (*params, req.limit, req.offset),
     ).fetchall()
     counts = _stream_counts(conn, {r["id"] for r in rows})
-    return [
+    items = [
         {"type": "channel", "channel_id": r["id"], "channel_name": r["canonical_name"],
          "country": r["country"], "streams_available": counts.get(r["id"], 0),
          "why_matched": [{"field": "channel_name", "term": t} for t in parsed.terms]}
         for r in rows
     ]  # fmt: skip
+    return items, total
 
 
 def _stream_counts(conn: sqlite3.Connection, channel_ids: set[str]) -> dict[str, int]:
@@ -220,8 +266,7 @@ def _stream_counts(conn: sqlite3.Connection, channel_ids: set[str]) -> dict[str,
     marks = ",".join("?" * len(channel_ids))
     rows = conn.execute(
         "SELECT f.channel_id, COUNT(*) AS n FROM streams s JOIN feeds f ON f.id = s.feed_id"
-        f" WHERE f.channel_id IN ({marks}) AND s.availability_reason IS NULL"
-        " AND s.status NOT IN ('quarantine', 'archived') GROUP BY f.channel_id",
+        f" WHERE f.channel_id IN ({marks}) AND {_PLAYABLE} GROUP BY f.channel_id",
         tuple(channel_ids),
     ).fetchall()
     return {r["channel_id"]: r["n"] for r in rows}
