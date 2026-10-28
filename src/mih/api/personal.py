@@ -31,10 +31,17 @@ class TopicIn(BaseModel):
     topic: str = Field(min_length=2, max_length=64)
 
 
+def _utc_iso(value: str) -> str:
+    dt = datetime.fromisoformat(value)
+    return (dt if dt.tzinfo else dt.replace(tzinfo=UTC)).astimezone(UTC).isoformat()
+
+
 class PlaybackTargetIn(BaseModel):
     kind: str = Field(default="channel", pattern="^channel$")
     channel_id: str = Field(min_length=1, max_length=64)
     feed_id: str | None = Field(default=None, max_length=64)
+    # A guide airing: start it from its beginning when it is already running (catch-up).
+    airing_id: str | None = Field(default=None, max_length=64)
 
 
 class PlaybackIn(BaseModel):
@@ -204,9 +211,23 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
             raise error(
                 "validation_error", "Home Assistant is not set up (MIH_HA_URL, MIH_HA_TOKEN)"
             )
+        extra = {}
+        if t.airing_id:
+            row = conn.execute(
+                "SELECT a.start_utc, a.stop_utc, p.title FROM airings a"
+                " JOIN programmes p ON p.id = a.programme_id WHERE a.id = ?",
+                (t.airing_id,),
+            ).fetchone()
+            if row is None:
+                raise error("not_found", "airing not found")
+            extra = {
+                "start": _utc_iso(row["start_utc"]),
+                "stop": _utc_iso(row["stop_utc"]),
+                "title": row["title"],
+            }
         try:
             cmd, created = playback.create_command(
-                conn, playback.Target(t.kind, t.channel_id, t.feed_id),
+                conn, playback.Target(t.kind, t.channel_id, t.feed_id, **extra),
                 device_id=body.device_id, idempotency_key=body.idempotency_key, mode=mode,
             )  # fmt: skip
         except playback.PlaybackError as exc:
