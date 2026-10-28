@@ -8,8 +8,14 @@ from pathlib import Path
 
 
 def connect(path: Path | str) -> sqlite3.Connection:
+    tmp = None
     if str(path) != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
+        # Large deletes and sorts spill into temporary files. In a container /tmp is
+        # often a small tmpfs, and a full one fails the whole import ("database or
+        # disk is full"); next to the database there is room.
+        tmp = Path(path).parent / "tmp"
+        tmp.mkdir(exist_ok=True)
     # isolation_level=None: transactions are opened explicitly with BEGIN, so a whole
     # import commits or rolls back as one unit (spec 16, step 8).
     conn = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
@@ -17,6 +23,8 @@ def connect(path: Path | str) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA busy_timeout = 5000")
+    if tmp is not None:
+        conn.execute(f"PRAGMA temp_store_directory = '{str(tmp).replace(chr(39), chr(39) * 2)}'")
     return conn
 
 
