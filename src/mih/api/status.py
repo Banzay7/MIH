@@ -15,7 +15,7 @@ from mih.api.app import ApiError, Conn
 from mih.config import LEVELS, Settings
 from mih.events import list_events, record_event, t
 from mih.health.policy import HealthPolicy
-from mih.scheduler import JOBS, JobBusy, run_job, status_snapshot
+from mih.scheduler import JOBS, JobBusy, job_process, run_job, status_snapshot
 
 JobName = Annotated[str, Path(pattern=f"^({'|'.join(JOBS)})$")]
 
@@ -44,6 +44,12 @@ def build_router(settings: Settings, policy: HealthPolicy, auth: list,
         running = conn.execute("SELECT running_since FROM jobs WHERE name = ?", (name,)).fetchone()
         if running and running["running_since"]:
             raise ApiError("conflict", f"job {name} is already running")
+
+        if settings.scheduler_mode == "process":
+            # Its own Python, like the scheduler's, so the web UI keeps its pace.
+            proc = job_process("run-job", name)
+            threading.Thread(target=proc.wait, name=f"mih-job-{name}", daemon=True).start()
+            return {"job": name, "accepted": True}
 
         def work() -> None:
             c = db.connect(settings.db_path)

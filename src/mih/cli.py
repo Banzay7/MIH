@@ -39,6 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("serve", help="run the HTTP API (and the MCP server if MIH_MCP_PORT is set)")
     sub.add_parser("mcp", help="MCP server on stdin/stdout, for an agent on this host")
+    sub.add_parser("scheduler", help="run the background jobs (started by `mih serve` itself)")
     sub.add_parser("migrate", help="create or upgrade the database")
     imp = sub.add_parser("import-file", help="import a local M3U file into a named source")
     imp.add_argument("path", type=Path)
@@ -100,6 +101,19 @@ def main(argv: list[str] | None = None) -> int:
     job = sub.add_parser("run-job", help="run a background job now; the result is pushed")
     job.add_argument("name", choices=JOBS)
     sub.add_parser("notify-test", help="send a test push to MIH_NTFY_URL")
+    lt = sub.add_parser("loadtest", help="many people opening the web UI at once; prints timings")
+    lt.add_argument("--url", help="server address (default: this server, MIH_BIND_PORT)")
+    lt.add_argument("--users", type=int, default=100, help="people at once (default 100)")
+    lt.add_argument("--seconds", type=float, default=30, help="how long (default 30)")
+    lt.add_argument(
+        "--think",
+        type=float,
+        default=10,
+        help="seconds a person waits before opening the screen again (default 10)",
+    )
+    lt.add_argument("--fresh", action="store_true",
+                    help="every visit downloads everything, as on a first visit")  # fmt: skip
+    lt.add_argument("--procs", type=int, help="load generator processes (default: CPU count)")
     dsc = sub.add_parser("discovery", help="what the playlist scout found and packed")
     dsc.add_argument("--status", help="list the playlists in this state (live, packed, dead...)")
     dsc.add_argument("--limit", type=int, default=50)
@@ -108,6 +122,10 @@ def main(argv: list[str] | None = None) -> int:
     settings = Settings.from_env()
     if args.cmd == "serve":
         return _serve(settings)
+    if args.cmd == "scheduler":
+        return _scheduler(settings)
+    if args.cmd == "loadtest":
+        return _loadtest(settings, args)
     if args.cmd == "mcp":
         from mih.mcp.server import run_stdio
 
@@ -266,6 +284,32 @@ def _import_event(conn, settings: Settings, source: str, report) -> None:
                  status=status), data=report.stats())  # fmt: skip
 
 
+def _scheduler(settings: Settings) -> int:
+    import signal
+    import threading
+
+    from mih.scheduler import Scheduler
+
+    done = threading.Event()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, lambda *_: done.set())
+    scheduler = Scheduler(settings, HealthPolicy.from_env())
+    scheduler.start()
+    done.wait()
+    scheduler.stop(timeout=10)
+    return 0
+
+
+def _loadtest(settings: Settings, args) -> int:
+    from mih.loadtest import run
+
+    url = args.url or f"http://127.0.0.1:{settings.bind_port}"
+    report = run(url, settings.api_token, args.users, args.seconds, args.think, args.fresh,
+                 args.procs)  # fmt: skip
+    print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+    return 0 if not report.errors else 3
+
+
 def _serve(settings: Settings) -> int:
     try:
         settings.validate_for_serving()
@@ -286,7 +330,19 @@ def _serve(settings: Settings) -> int:
         mcp = uvicorn.Server(uvicorn.Config(create_mcp_app(settings), host=settings.mcp_host,
                                             port=settings.mcp_port, lifespan="off"))  # fmt: skip
         threading.Thread(target=mcp.run, name="mcp", daemon=True).start()
-    uvicorn.run(create_app(settings), host=settings.bind_host, port=settings.bind_port)
+    # Browsers keep a connection for a while; 5 s (uvicorn's default) closes it under them.
+    opts = {"host": settings.bind_host, "port": settings.bind_port, "timeout_keep_alive": 30}
+    if settings.workers == 1:
+        uvicorn.run(create_app(settings), **opts)
+        return 0
+    from mih.scheduler import background
+
+    conn = db.connect(settings.db_path)  # once here, not in every worker at the same time
+    db.migrate(conn)
+    ensure_index(conn)
+    conn.close()
+    with background(settings, HealthPolicy.from_env()):
+        uvicorn.run("mih.api.app:app_from_env", factory=True, workers=settings.workers, **opts)
     return 0
 
 
