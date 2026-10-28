@@ -95,7 +95,7 @@ class Settings:
     github_token: str | None = None
     # Optional JSON with extra pages, Telegram channels and blocked hosts.
     discovery_file: Path | None = None
-    # Country the TVs are in (two letters, e.g. "vn"): its channels that a geo block hides
+    # Country the TVs are in (two letters, e.g. "de"): its channels that a geo block hides
     # from this server are still imported by the packer, for a TV at home to confirm.
     home_country: str | None = None
     # Google Drive upload of channels.json/csv (docs/drive.md): the JSON token that

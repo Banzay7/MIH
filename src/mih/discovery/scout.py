@@ -13,7 +13,7 @@ A probe result is kept per stream URL for a week, so forks of one playlist cost 
 
 Home country (MIH_HOME_COUNTRY): a server abroad cannot open many of the home country's
 channels (geo block), though they play at home. A stream of that country (by its tvg-id,
-e.g. "VTV1.vn") whose probe failed the way a geo block fails (HTTP 403/451, no answer,
+e.g. "ZDF.de") whose probe failed the way a geo block fails (HTTP 403/451, no answer,
 or a [Geo-blocked] label) is imported anyway, marked blocked_by_geo, and waits for a TV
 at home to confirm it.
 """
