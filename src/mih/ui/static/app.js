@@ -32,6 +32,17 @@ const store = {
   set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
 
+// What the visitor chose in Settings; each read falls back to the default.
+const PAGE_SIZES = [20, 50, 100];
+const RELEVANCE = [["0", "Все совпадения"], ["0.3", "Хорошие совпадения"], ["0.7", "Только лучшие"]];
+const prefs = {
+  pageSize: () => (PAGE_SIZES.includes(Number(store.get("mih.pageSize"))) ? Number(store.get("mih.pageSize")) : 50),
+  strict: () => store.get("mih.strict") === "1",
+  relevance: () => (RELEVANCE.some(([v]) => v === store.get("mih.relevance")) ? store.get("mih.relevance") : "0"),
+  playableOnly: () => store.get("mih.playable") === "1",
+  logos: () => store.get("mih.logos", "1") === "1",
+};
+
 // ---------- API ----------
 
 class ApiFailure extends Error {
@@ -205,7 +216,7 @@ function logo(channelId, name, big = false) {
   const ch = state.channels.get(channelId);
   const url = ch?.logo_url;
   const cls = big ? "logo big" : "logo";
-  if (url && /^https?:\/\//i.test(url) && store.get("mih.logos", "1") === "1") {
+  if (url && /^https?:\/\//i.test(url) && prefs.logos()) {
     return html`<img class="${cls}" src="${url}" alt="" loading="lazy" referrerpolicy="no-referrer"
       data-fallback="${initials(name)}">`;
   }
@@ -248,6 +259,55 @@ function toast(text, ms = 3000) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, ms);
 }
+
+// ---------- Paged lists: the first page, the rest on "Показать ещё" ----------
+
+// A long list renders one page; the button appends the next page in place, so the
+// screen neither reloads nor jumps to the top. fetchMore(offset, size) asks the server
+// for lists it pages itself (search); other lists are already in memory.
+const pagers = new Map();
+let pagerSeq = 0;
+
+function paged(items, card, { total = items.length, fetchMore = null } = {}) {
+  const id = `list-${++pagerSeq}`;
+  const first = items.slice(0, prefs.pageSize());
+  pagers.set(id, { items, card, total, fetchMore, shown: first.length });
+  return html`<div class="grid" id="${id}">${first.map(card)}</div>${moreButton(id)}`;
+}
+
+function moreButton(id) {
+  const p = pagers.get(id);
+  const left = p.total - p.shown;
+  if (left <= 0) return "";
+  const next = Math.min(left, prefs.pageSize());
+  return html`<button class="btn more" type="button" data-more="${id}">Показать ещё ${next} · осталось ${nf.format(left)}</button>`;
+}
+
+async function showMore(btn) {
+  const id = btn.dataset.more;
+  const p = pagers.get(id);
+  const list = document.getElementById(id);
+  if (!p || !list) return;
+  const size = prefs.pageSize();
+  btn.disabled = true;
+  try {
+    if (p.fetchMore && p.items.length < Math.min(p.total, p.shown + size)) {
+      const more = await p.fetchMore(p.items.length, size);
+      p.items.push(...more);
+      if (!more.length) p.total = p.items.length; // the server has fewer than it said
+    }
+    const chunk = p.items.slice(p.shown, p.shown + size);
+    list.insertAdjacentHTML("beforeend", chunk.map((x) => String(p.card(x))).join(""));
+    p.shown += chunk.length;
+    btn.outerHTML = String(moreButton(id));
+  } catch (e) {
+    btn.disabled = false;
+    toast(errorText(e), 5000);
+  }
+}
+
+const refreshButton = () => html`<button class="btn" type="button" data-refresh title="Загрузить свежие данные">↻ Обновить</button>`;
+const heading = (title) => html`<div class="head"><h1>${title}</h1>${refreshButton()}</div>`;
 
 // ---------- Cards ----------
 
@@ -323,20 +383,23 @@ async function viewHome() {
   const soon = data.items.filter((i) => i.next && Date.parse(i.next.start) <= soonLimit)
     .sort((a, b) => Date.parse(a.next.start) - Date.parse(b.next.start)).slice(0, 12);
   const noGuide = state.channels.size - new Set(data.items.map((i) => i.channel_id)).size;
+  const all = prefs.playableOnly() ? onAir.filter((i) => state.channels.get(i.channel_id)?.streams !== 0) : onAir;
   return html`
-    <h1>Сейчас в эфире</h1>
+    ${heading("Сейчас в эфире")}
     <p class="muted small">${onAir.length} в эфире · ${state.channels.size} каналов в каталоге${noGuide > 0 ? ` · без программы: ${noGuide}` : ""}</p>
     ${favNow.length ? html`<h2>Избранное</h2><div class="grid">${favNow.map(nowCard)}</div>` : ""}
     ${soon.length ? html`<h2>Скоро начнётся</h2><div class="grid">${soon.map((i) => airingCard({
       ...i.next, channel_name: i.channel_name }))}</div>` : ""}
-    <h2>Все каналы в эфире</h2>
-    ${onAir.length ? html`<div class="grid">${onAir.map(nowCard)}</div>`
+    <h2>Все каналы в эфире${all.length ? ` · ${nf.format(all.length)}` : ""}</h2>
+    ${all.length ? paged(all, nowCard)
       : html`<div class="empty">Нет данных о текущем эфире. Загрузите программу передач (EPG).</div>`}`;
 }
 
 const SEARCH_TIMES = [["", "Любое время"], ["now", "Сейчас"], ["today", "Сегодня"], ["tonight", "Вечером"], ["tomorrow", "Завтра"]];
 const SEARCH_LANGS = [["", "Любой язык"], ["ru", "Русский"], ["en", "Английский"], ["vi", "Вьетнамский"]];
 const SEARCH_TYPES = [["", "Всё"], ["airing", "Передачи"], ["channel", "Каналы"]];
+const SEARCH_MODES = [["0", "Обычный поиск"], ["1", "Строгий: целые слова"]];
+const SEARCH_KEYS = ["time", "lang", "type", "strict"];
 
 function chipRow(name, options, current) {
   return html`<div class="row" role="group">${options.map(([v, label]) =>
@@ -344,14 +407,19 @@ function chipRow(name, options, current) {
       aria-pressed="${v === current}">${label}</button>`)}</div>`;
 }
 
+// Filters only change the choice; the search runs on Enter or the "Найти" button.
 async function viewSearch(params) {
   const q = params.get("q") || "";
   const timeF = params.get("time") || "";
   const lang = params.get("lang") || "";
   const type = params.get("type") || "";
+  const strict = params.get("strict") || (prefs.strict() ? "1" : "0");
   document.getElementById("search-input").value = q;
   const filters = html`<div class="filters">
     ${chipRow("time", SEARCH_TIMES, timeF)}${chipRow("lang", SEARCH_LANGS, lang)}${chipRow("type", SEARCH_TYPES, type)}
+    ${chipRow("strict", SEARCH_MODES, strict)}
+    <div class="row"><button class="btn tv" type="button" id="search-run">Найти</button>
+      <span class="small muted">или Enter в строке поиска</span></div>
   </div>`;
   if (!q && !timeF) {
     return html`<h1>Поиск</h1>${filters}
@@ -360,11 +428,16 @@ async function viewSearch(params) {
   }
   render(html`<h1>Поиск</h1>${filters}${skeleton(3)}`);
   await Promise.all([loadChannels(), state.favoritesLoaded ? null : loadFavorites()]);
-  const body = { query: q, tz: TZ, limit: 50, filters: {} };
+  const body = { query: q, tz: TZ, limit: prefs.pageSize(), filters: {}, strict: strict === "1",
+    min_relevance: Number(prefs.relevance()), playable_only: prefs.playableOnly() };
   if (timeF) body.filters.time = timeF;
   if (lang) body.filters.languages = [lang];
   if (type) body.target_types = [type];
   const res = await api("/search", { method: "POST", body });
+  const total = res.total || {};
+  const more = (kind) => async (offset, limit) =>
+    (await api("/search", { method: "POST", body: { ...body, target_types: [kind], offset, limit } }))
+      .items.filter((i) => i.type === kind);
   const pq = res.query;
   const understood = [
     pq.terms.length ? `слова: ${pq.terms.join(", ")}` : null,
@@ -376,8 +449,10 @@ async function viewSearch(params) {
   return html`<h1>Поиск</h1>${filters}
     ${understood.length ? html`<p class="small muted">Понял запрос так: ${understood.join(" · ")}</p>` : ""}
     ${pq.terms.length ? html`<p><button class="btn" type="button" data-follow="${pq.terms.join(" ")}">🔔 Следить за темой «${pq.terms.join(" ")}»</button></p>` : ""}
-    ${channels.length ? html`<h2>Каналы</h2><div class="grid">${channels.map(channelCard)}</div>` : ""}
-    ${airings.length ? html`<h2>Передачи</h2><div class="grid">${airings.map(airingCard)}</div>` : ""}
+    ${channels.length ? html`<h2>Каналы · ${nf.format(total.channel ?? channels.length)}</h2>
+      ${paged(channels, channelCard, { total: total.channel ?? channels.length, fetchMore: more("channel") })}` : ""}
+    ${airings.length ? html`<h2>Передачи · ${nf.format(total.airing ?? airings.length)}</h2>
+      ${paged(airings, airingCard, { total: total.airing ?? airings.length, fetchMore: more("airing") })}` : ""}
     ${!res.items.length ? html`<div class="empty">Ничего не нашлось. Попробуйте другие слова или уберите фильтры.</div>` : ""}`;
 }
 
@@ -385,13 +460,14 @@ async function viewChannels(params) {
   const q = params.get("q") || "";
   const epg = params.get("epg") === "1";
   const country = params.get("country") || "";
-  const shown = Number(params.get("n") || 60);
+  const playable = prefs.playableOnly();
   render(html`<h1>Каналы</h1>${skeleton(6)}`);
   await Promise.all([loadChannels(), state.favoritesLoaded ? null : loadFavorites()]);
   const all = [...state.channels.values()];
   const countries = [...new Set(all.map((c) => c.country).filter(Boolean))].sort();
   const needle = q.trim().toLocaleLowerCase("ru").replaceAll("ё", "е");
   const list = all.filter((c) => (!epg || c.has_epg) && (!country || c.country === country) &&
+    (!playable || c.streams !== 0) &&
     (!needle || c.canonical_name.toLocaleLowerCase("ru").replaceAll("ё", "е").includes(needle)));
   return html`<h1>Каналы</h1>
     <form class="filters row" id="channel-filter">
@@ -401,11 +477,10 @@ async function viewChannels(params) {
         ${countries.map((c) => html`<option value="${c}" ${c === country ? raw("selected") : ""}>${c}</option>`)}
       </select>` : ""}
       <label class="row small"><input type="checkbox" name="epg" value="1" ${epg ? raw("checked") : ""}> только с программой</label>
+      <div class="row"><button class="btn tv" type="submit">Показать</button></div>
     </form>
-    <p class="small muted">Найдено: ${list.length}</p>
-    ${list.length ? html`<div class="grid">${list.slice(0, shown).map(channelCard)}</div>`
-      : html`<div class="empty">Нет каналов под эти условия.</div>`}
-    ${list.length > shown ? html`<a class="btn more" href="${"#/channels?" + new URLSearchParams({ q, country, epg: epg ? "1" : "", n: String(shown + 60) })}">Показать ещё</a>` : ""}`;
+    <p class="small muted">Найдено: ${nf.format(list.length)}${playable ? " · без рабочих потоков скрыты (см. настройки)" : ""}</p>
+    ${list.length ? paged(list, channelCard) : html`<div class="empty">Нет каналов под эти условия.</div>`}`;
 }
 
 function feedLabel(f) {
@@ -481,7 +556,7 @@ async function viewProgramme(id) {
   const other = p.titles.filter((t) => t.text !== p.title);
   return html`
     <div class="hero">
-      ${p.icon_url && /^https?:\/\//i.test(p.icon_url) && store.get("mih.logos", "1") === "1"
+      ${p.icon_url && /^https?:\/\//i.test(p.icon_url) && prefs.logos()
         ? html`<img class="logo big" src="${p.icon_url}" alt="" referrerpolicy="no-referrer" data-fallback="">` : ""}
       <div class="body">
         <h1>${p.title}</h1>
@@ -552,7 +627,7 @@ async function viewFavorites() {
     return html`<h1>Избранное</h1><div class="empty"><p>Здесь пока пусто.</p>
       <p class="small">Нажмите ★ у канала или передачи, чтобы добавить.</p></div>${topicsHtml}`;
   }
-  return html`<h1>Избранное</h1>
+  return html`${heading("Избранное")}
     ${channels.length ? html`<h2>Каналы</h2><div class="grid">${channels.map((f) => {
       if (!f.name) {
         return html`<article class="card"><span class="logo" aria-hidden="true">?</span>
@@ -586,14 +661,36 @@ async function viewSettings() {
         ${hasToken ? html`<button class="btn" type="button" id="token-clear">Забыть токен</button>` : ""}</div>
       <span class="small muted">Хранится только в этом браузере. Без токена каталог открывается лишь на том же компьютере, где запущен сервер.</span>
     </form>
-    <label class="row field"><input type="checkbox" id="logos" ${store.get("mih.logos", "1") === "1" ? raw("checked") : ""}>
+    <h2>Выдача</h2>
+    <div class="field">
+      <label for="pref-size">Сколько показывать сразу</label>
+      <select id="pref-size">${PAGE_SIZES.map((n) => html`<option value="${n}" ${n === prefs.pageSize() ? raw("selected") : ""}>${n}</option>`)}</select>
+      <span class="small muted">На страницах «Эфир», «Каналы» и «Поиск»; остальное по кнопке «Показать ещё».</span>
+    </div>
+    <div class="field">
+      <span>Поиск по умолчанию</span>
+      <label class="row"><input type="radio" name="pref-strict" value="0" ${prefs.strict() ? "" : raw("checked")}>
+        Обычный: находит формы слова («робот» найдёт «роботы») и части слов</label>
+      <label class="row"><input type="radio" name="pref-strict" value="1" ${prefs.strict() ? raw("checked") : ""}>
+        Строгий: только слово целиком, как написано</label>
+      <span class="small muted">На странице поиска режим можно переключить для одного запроса.</span>
+    </div>
+    <div class="field">
+      <label for="pref-relevance">Точность поиска передач</label>
+      <select id="pref-relevance">${RELEVANCE.map(([v, label]) => html`<option value="${v}" ${v === prefs.relevance() ? raw("selected") : ""}>${label}</option>`)}</select>
+      <span class="small muted">«Только лучшие» убирает передачи, где слово нашлось лишь в описании, если есть совпадения в названии.</span>
+    </div>
+    <label class="row field"><input type="checkbox" id="pref-playable" ${prefs.playableOnly() ? raw("checked") : ""}>
+      Скрывать каналы и передачи, у которых нет рабочих потоков</label>
+    <label class="row field"><input type="checkbox" id="logos" ${prefs.logos() ? raw("checked") : ""}>
       Показывать логотипы каналов (картинки грузятся с сайтов из плейлиста)</label>
+    <p class="small muted">Эти настройки хранятся в этом браузере и действуют со следующего поиска или открытия страницы.</p>
     <h2>Сервер</h2>
     <div class="kv small">
       <span class="muted">Версия</span><span>${health?.version || "—"}</span>
       <span class="muted">Часовой пояс браузера</span><span>${TZ}</span>
-      ${metrics ? html`<span class="muted">Каналов</span><span>${metrics.channels}</span>
-        <span class="muted">С программой</span><span>${metrics.channels_with_epg}${metrics.epg_coverage != null ? ` (${Math.round(metrics.epg_coverage * 100)}%)` : ""}</span>
+      ${metrics ? html`<span class="muted">Каналов</span><span>${nf.format(metrics.channels)}</span>
+        <span class="muted">С программой</span><span>${nf.format(metrics.channels_with_epg)}${metrics.epg_coverage != null ? ` (${Math.round(metrics.epg_coverage * 100)}%)` : ""}</span>
         <span class="muted">EPG ждёт решения</span><span>${metrics.epg_mappings_needs_review}</span>` : ""}
     </div>
     <h2>Кнопка «На ТВ»</h2>
@@ -658,7 +755,7 @@ async function viewStatus() {
     ? html`<ul class="plain">${s.running.map((r) => html`<li><span class="live">●</span> ${JOB_NAMES[r.job] || r.job}, с ${time(r.since)}</li>`)}</ul>`
     : html`<p class="muted">Сейчас ничего не выполняется.</p>`;
   const n = s.notifications;
-  return html`<h1>Статус</h1>
+  return html`${heading("Статус")}
     <div class="kv small">
       <span class="muted">Версия</span><span>${s.version}</span>
       <span class="muted">Запущен</span><span>${whenShort(s.started_at)}</span>
@@ -840,6 +937,7 @@ function setTab(name) {
 
 async function route() {
   const seq = ++renderSeq;
+  pagers.clear();
   const hash = location.hash.slice(1) || "/";
   const [path, query = ""] = hash.split("?");
   const params = new URLSearchParams(query);
@@ -882,7 +980,7 @@ document.getElementById("search-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const q = document.getElementById("search-input").value.trim();
   const cur = new URLSearchParams(location.hash.split("?")[1] || "");
-  const keep = location.hash.startsWith("#/search") ? { time: cur.get("time"), lang: cur.get("lang"), type: cur.get("type") } : {};
+  const keep = location.hash.startsWith("#/search") ? Object.fromEntries(SEARCH_KEYS.map((k) => [k, cur.get(k)])) : {};
   go("/search", { q, ...keep });
   document.getElementById("search-input").blur();
 });
@@ -900,11 +998,27 @@ document.addEventListener("click", (e) => {
     playOnTv(play.dataset.play, play.dataset.feed || null, play);
     return;
   }
+  const more = e.target.closest("[data-more]");
+  if (more) { showMore(more); return; }
+  if (e.target.closest("[data-refresh]")) {
+    state.channelsLoaded = false;
+    route();
+    return;
+  }
   const chip = e.target.closest("[data-filter]");
   if (chip) {
+    // Only marks the choice (kept in the address); "Найти" or Enter runs the search.
+    chip.parentElement.querySelectorAll("[data-filter]").forEach((c) => {
+      c.classList.toggle("on", c === chip);
+      c.setAttribute("aria-pressed", String(c === chip));
+    });
     const cur = new URLSearchParams(location.hash.split("?")[1] || "");
-    cur.set(chip.dataset.filter, chip.dataset.value);
-    go("/search", Object.fromEntries(cur));
+    if (chip.dataset.value) cur.set(chip.dataset.filter, chip.dataset.value); else cur.delete(chip.dataset.filter);
+    history.replaceState(null, "", "#/search?" + cur);
+    return;
+  }
+  if (e.target.id === "search-run") {
+    document.getElementById("search-form").requestSubmit();
     return;
   }
   const follow = e.target.closest("[data-follow]");
@@ -970,6 +1084,8 @@ document.addEventListener("submit", (e) => {
       });
   } else if (e.target.id === "channel-filter") {
     e.preventDefault();
+    const f = new FormData(e.target);
+    go("/channels", { q: (f.get("q") || "").trim(), country: f.get("country"), epg: f.get("epg") });
   } else if (e.target.id === "topic-form") {
     e.preventDefault();
     const topic = e.target.topic.value.trim();
@@ -977,28 +1093,23 @@ document.addEventListener("submit", (e) => {
   }
 });
 
-let filterTimer;
+// Settings save as they change; nothing on screen reloads by itself.
+const PREF_KEYS = { "pref-size": "mih.pageSize", "pref-relevance": "mih.relevance" };
+document.addEventListener("change", (e) => {
+  const t = e.target;
+  if (PREF_KEYS[t.id]) { store.set(PREF_KEYS[t.id], t.value); toast("Сохранено"); }
+  else if (t.name === "pref-strict") { store.set("mih.strict", t.value); toast("Сохранено"); }
+  else if (t.id === "pref-playable") { store.set("mih.playable", t.checked ? "1" : "0"); toast("Сохранено"); }
+});
+
 document.addEventListener("input", (e) => {
-  const form = e.target.closest("#channel-filter");
-  if (form) {
-    clearTimeout(filterTimer);
-    filterTimer = setTimeout(() => {
-      const f = new FormData(form);
-      const next = "#/channels?" + new URLSearchParams({ q: f.get("q") || "", country: f.get("country") || "", epg: f.get("epg") || "" });
-      history.replaceState(null, "", next);
-      const pos = e.target.selectionStart;
-      route().then(() => {
-        const input = document.querySelector('#channel-filter [name="q"]');
-        if (input && e.target.name === "q") { input.focus(); input.setSelectionRange(pos, pos); }
-      });
-    }, e.target.type === "search" ? 250 : 0);
-  }
   if (e.target.name === "adapter") {
     store.set("mih.adapter", e.target.value);
     toast(e.target.value === "ha" ? "«На ТВ» теперь идёт напрямую в Home Assistant" : "«На ТВ» теперь выполняет агент");
   }
   if (e.target.id === "logos") {
     store.set("mih.logos", e.target.checked ? "1" : "0");
+    toast("Сохранено");
   }
 });
 
@@ -1014,15 +1125,7 @@ document.addEventListener("error", (e) => {
   }
 }, true);
 
-// Live screens go stale: refresh "now" once a minute while the tab is visible.
-setInterval(() => {
-  const h = location.hash;
-  if (document.visibilityState === "visible" && (h === "" || h === "#/" || h.startsWith("#/favorites"))) route();
-}, 60000);
-// The status screen follows running jobs more closely.
-setInterval(() => {
-  if (document.visibilityState === "visible" && location.hash.startsWith("#/status")) route();
-}, 15000);
+// No timers re-render a screen: it changes only on a click (↻ Обновить, a tab, a link).
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => { /* http on a LAN address: no PWA, still works */ });
