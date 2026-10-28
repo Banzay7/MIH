@@ -120,6 +120,8 @@ def import_xmltv(
         )  # fmt: skip
         ids = {xid: _upsert_channel(conn, epg_source_id, xid, scan.channels.get(xid), now_s)
                for xid in set(scan.channels) | set(counts)}  # fmt: skip
+        conn.executemany("UPDATE epg_channels SET programme_count = ? WHERE id = ?",
+                         [(counts.get(xid, 0), cid) for xid, cid in ids.items()])  # fmt: skip
         # Map first, so a guide channel the catalog gained since the last import is
         # already in scope for this one.
         mapped = refresh_mappings(conn, now_s, epg_source_id=epg_source_id)
@@ -168,8 +170,12 @@ def import_xmltv(
             " AND id NOT IN (SELECT target_id FROM favorites WHERE target_kind = 'programme')"
         )
         drop_orphans(conn)
-        # Guide channels no playlist carries still belong in the catalog.
-        report.channels_added = add_guide_channels(conn, now_s, epg_source_id=epg_source_id)
+        # Guide channels no playlist carries still belong in the catalog, unless the
+        # autopilot added the guide on trial only to find guides for channels it has.
+        auto = conn.execute("SELECT auto FROM epg_sources WHERE id = ?",
+                            (epg_source_id,)).fetchone()  # fmt: skip
+        if not (auto and auto[0]):
+            report.channels_added = add_guide_channels(conn, now_s, epg_source_id=epg_source_id)
         link_and_merge(conn)
 
         report.mapped = mapped["auto"] + mapped["approved"]

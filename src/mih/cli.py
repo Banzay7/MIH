@@ -18,6 +18,7 @@ from mih.directory import (
     import_directory,
 )
 from mih.discovery.scout import summary
+from mih.epg.coverage import working_coverage
 from mih.epg.importer import import_xmltv
 from mih.epg.service import create_epg_source
 from mih.events import record_event, t
@@ -94,6 +95,7 @@ def main(argv: list[str] | None = None) -> int:
     lst.add_argument("--presets", action="store_true",
                      help="build every list of MIH_LISTS_FILE into <export>/lists")  # fmt: skip
     sub.add_parser("stats", help="print catalog counts")
+    sub.add_parser("epg-coverage", help="working channels with a guide, by country")
     sub.add_parser("status", help="what the service is doing, recent events, the plan")
     job = sub.add_parser("run-job", help="run a background job now; the result is pushed")
     job.add_argument("name", choices=JOBS)
@@ -210,6 +212,8 @@ def main(argv: list[str] | None = None) -> int:
             "SELECT COUNT(*) FROM match_decisions WHERE decision = 'needs_review'"
         ).fetchone()[0]
         print(json.dumps(counts, indent=2))
+    elif args.cmd == "epg-coverage":
+        print(json.dumps(working_coverage(conn).to_dict(), ensure_ascii=False, indent=2))
     elif args.cmd == "status":
         print(json.dumps(status_snapshot(conn, settings), ensure_ascii=False, indent=2))
     elif args.cmd == "run-job":
