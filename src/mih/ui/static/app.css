@@ -10,6 +10,8 @@
   --live: #e0362f;
   --ok: #17803d;
   --warn: #a15c00;
+  --seg-work: #93b4f5;
+  --seg-none: #c9cdd6;
   --radius: 12px;
   --gap: 12px;
   color-scheme: light;
@@ -27,6 +29,8 @@
     --live: #ff5a52;
     --ok: #4cc27a;
     --warn: #f0a945;
+    --seg-work: #34508f;
+    --seg-none: #3a3f4b;
     color-scheme: dark;
   }
 }
@@ -169,3 +173,28 @@ button.chip, a.chip { cursor: pointer; padding: 6px 12px; font-size: .88rem; }
 .event.warning .lvl { color: var(--warn); }
 .event.error .lvl { color: var(--live); }
 .event.routine { opacity: .8; }
+
+/* Coverage */
+.tiles { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 12px 0 4px; }
+.tile { display: grid; gap: 2px; padding: 12px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
+.tile b { font-size: 1.5rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.panel { padding: 12px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); min-width: 0; }
+.bars { display: grid; gap: 6px; }
+.bar-row { display: grid; grid-template-columns: minmax(90px, 32%) 1fr max-content; gap: 10px; align-items: center; font-size: .85rem; }
+.bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-track { height: 14px; min-width: 0; }
+.bar-fill { display: flex; height: 100%; min-width: 2px; max-width: 100%; border-radius: 3px; overflow: hidden; }
+.bar-fill i { display: block; height: 100%; flex-basis: 0; min-width: 1px; }
+.bar-value { color: var(--muted); font-variant-numeric: tabular-nums; }
+.seg-guide, .s-guide { background: var(--accent); stroke: var(--accent); }
+.seg-work, .s-work { background: var(--seg-work); stroke: var(--seg-work); }
+.seg-dead { background: var(--live); }
+.seg-none, .seg-step, .s-all { background: var(--seg-none); stroke: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 4px; }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.growth path { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; background: none; }
+.growth .grid { stroke: var(--line); }
+.growth text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) { .bar-row { grid-template-columns: minmax(80px, 38%) 1fr max-content; gap: 6px; font-size: .8rem; } }
+@media (max-width: 720px) { .tabs { overflow-x: auto; justify-content: flex-start; scrollbar-width: none; } }

@@ -37,6 +37,7 @@ from mih.health.policy import HealthPolicy
 from mih.health.runner import run_checks
 from mih.ids import utc_now
 from mih.lists import build_presets, load_presets
+from mih.report import REPORT_EVERY, report_path, write_report
 from mih.sources.fetch import FetchError
 from mih.sources.service import SourceError, import_from_url
 
@@ -261,8 +262,18 @@ def _rebuild_lists(conn, settings, data: dict, guide_max_age: timedelta = GUIDE_
         return t(settings, "error", error=exc)
     data["lists"] = {r.name: r.channels for r in built}
     data["lists_with_guide"] = {r.name: r.with_guide for r in built}
+    _refresh_report(conn, settings, timedelta(0) if guide_max_age == timedelta(0) else REPORT_EVERY)
     return t(settings, "health.lists",
              lists=", ".join(f"{r.name} {r.channels} ({r.with_guide})" for r in built))  # fmt: skip
+
+
+def _refresh_report(conn, settings, every: timedelta) -> None:
+    """The «Покрытие» tab's numbers (mih.report): after a guide import at once, after
+    other work at most every REPORT_EVERY. A failure here never fails the job."""
+    try:
+        write_report(conn, report_path(settings.data_dir), every=every)
+    except (sqlite3.Error, OSError, ValueError, KeyError):
+        log.exception("coverage report failed")
 
 
 def _job_sources(conn, settings, policy, now, transport) -> Outcome:
