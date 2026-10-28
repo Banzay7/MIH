@@ -25,6 +25,8 @@ from mih.config import Settings
 from mih.discovery.harvest import harvest, load_plan
 from mih.discovery.scout import pack, scout, summary
 from mih.drive import DriveError, sync_drive
+from mih.epg.auto import run_autopilot
+from mih.epg.coverage import working_coverage
 from mih.epg.service import import_epg_from_url
 from mih.events import list_events, record_event, t
 from mih.health.policy import HealthPolicy
@@ -45,6 +47,8 @@ _DOWN = ("suspect", "quarantine", "archived")
 # Between guide imports, a list's guide file is still rewritten this often, so the
 # day it starts with moves on.
 GUIDE_MAX_AGE = timedelta(hours=6)
+# A guide refresh that put new guides on trial runs again this soon to fetch them.
+AUTOPILOT_AGAIN = timedelta(minutes=5)
 
 
 class JobBusy(Exception):
@@ -61,6 +65,8 @@ class Outcome:
     # Nothing worth a line in the feed (a scan that found nothing new): only the job row
     # is updated, unless someone asked for the run.
     quiet: bool = False
+    # Run again this soon instead of at the usual interval (new work for the job).
+    again_in: timedelta | None = None
 
 
 def _fmt(dt: datetime) -> str:
@@ -174,6 +180,8 @@ def run_job(
         outcome.level = "info"  # someone asked for it and waits for the answer
     finished = datetime.now(UTC)
     planned = next_run(settings, name, finished)
+    if outcome.again_in is not None and (planned is None or finished + outcome.again_in < planned):
+        planned = finished + outcome.again_in
     conn.execute(
         "UPDATE jobs SET running_since = NULL, last_finished_at = ?, last_status = ?,"
         " last_summary = ?, next_run_at = ? WHERE name = ?",
@@ -260,8 +268,30 @@ def _job_sources(conn, settings, policy, now, transport) -> Outcome:
 
 def _job_epg(conn, settings, policy, now, transport) -> Outcome:
     out = _refresh(conn, settings, "epg_sources", import_epg_from_url, _describe_guide, "job.epg")
+    if settings.epg_auto:
+        _guide_autopilot(conn, settings, now, out)
     out.lines.append(_rebuild_lists(conn, settings, out.data, guide_max_age=timedelta(0)))
     return out
+
+
+def _guide_autopilot(conn, settings, now, out: Outcome) -> None:
+    """Measure how many working channels have a guide; try guides for those without."""
+    cov = working_coverage(conn)
+    auto = run_autopilot(conn, settings, cov, now)
+    if auto.dropped:  # what a dropped guide covered is gone
+        cov = working_coverage(conn)
+    out.data["coverage"] = {"working": cov.working, "with_guide": cov.with_guide}
+    out.data["autopilot"] = auto.to_dict()
+    out.lines.append(t(settings, "epg.coverage", with_guide=cov.with_guide, working=cov.working))
+    for key in ("added", "kept", "dropped"):
+        items = getattr(auto, key)
+        if items:
+            out.lines.append(t(settings, f"epg.auto.{key}", items=", ".join(items)))
+    if auto.added:
+        # The new guides are fetched by the next run, which also judges them.
+        out.again_in = AUTOPILOT_AGAIN
+    if auto.kept:
+        out.level = "info" if out.level == "routine" else out.level
 
 
 def _job_health(conn, settings, policy, now, transport) -> Outcome:

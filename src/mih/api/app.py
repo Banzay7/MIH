@@ -23,6 +23,7 @@ from mih import __version__, db
 from mih.api import personal
 from mih.config import Settings
 from mih.epg import guide
+from mih.epg.coverage import working_coverage
 from mih.epg.importer import EPGImportReport, import_xmltv, iso
 from mih.epg.mapping import refresh_mappings, set_manual
 from mih.epg.service import (
@@ -296,6 +297,17 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     def remove_epg_source(source_id: str, conn: Conn) -> dict:
         _require_epg_source(conn, source_id)
         return {"deleted": delete_epg_source(conn, settings, source_id)}
+
+    @app.get("/api/v1/epg/coverage", dependencies=auth)
+    def epg_coverage(conn: Conn) -> dict:
+        """Working channels with a guide, by country (most channels without one first),
+        and the public guides the autopilot tried (MIH_EPG_AUTO)."""
+        tried = conn.execute(
+            "SELECT guide, country, verdict, gain, added_at, judged_at FROM epg_auto"
+            " ORDER BY added_at DESC"
+        ).fetchall()
+        return {**working_coverage(conn).to_dict(), "autopilot": settings.epg_auto,
+                "guides_tried": [dict(r) for r in tried]}  # fmt: skip
 
     @app.get("/api/v1/epg/sources/{source_id}/snapshots", dependencies=auth)
     def list_epg_snapshots(source_id: str, conn: Conn) -> dict:

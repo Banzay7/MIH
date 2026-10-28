@@ -221,6 +221,22 @@ TEXTS = {
         "en": "{programmes} programmes, +{created} airings, {changed} changed",
         "ru": "передач {programmes}, эфиров +{created}, изменено {changed}",
     },
+    "epg.coverage": {
+        "en": "working channels with a guide: {with_guide} of {working}",
+        "ru": "рабочих каналов с программой: {with_guide} из {working}",
+    },
+    "epg.auto.added": {
+        "en": "guides on trial: {items}",
+        "ru": "гиды на пробу: {items}",
+    },
+    "epg.auto.kept": {
+        "en": "guides kept (+channels): {items}",
+        "ru": "гиды оставлены (+каналов): {items}",
+    },
+    "epg.auto.dropped": {
+        "en": "guides dropped (nothing new): {items}",
+        "ru": "гиды убраны (ничего не дали): {items}",
+    },
     "health.failed": {"en": "not responding: {failed}", "ru": "не отвечают: {failed}"},
     "health.down": {"en": "became unavailable: {n}", "ru": "стали недоступны: {n}"},
     "health.up": {"en": "came back: {n}", "ru": "снова работают: {n}"},

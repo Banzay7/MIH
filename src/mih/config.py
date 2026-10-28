@@ -32,8 +32,13 @@ class Settings:
     fetch_timeout_s: float = 30.0
     fetch_max_bytes: int = 50 * 1024 * 1024
     allow_private_sources: bool = False
-    # A guide is usually gzip; this caps the unpacked XML (decompression bombs).
-    epg_max_bytes: int = 256 * 1024 * 1024
+    # A guide is usually gzip; this caps the unpacked XML (decompression bombs). The
+    # import reads it as a stream, so a large guide costs time, not memory.
+    epg_max_bytes: int = 1024 * 1024 * 1024
+    # Guide autopilot (mih.epg.auto): after a guide refresh, try public guides for the
+    # countries whose working channels have none, keep those that help. Off in this
+    # dataclass, so tests never reach the internet; from_env turns it on.
+    epg_auto: bool = False
     # Past airings are kept this many days; other history (playlist and guide
     # snapshots) for history_days.
     epg_retention_days: int = 3
@@ -162,7 +167,8 @@ class Settings:
             fetch_timeout_s=float(env.get("MIH_FETCH_TIMEOUT_S", "30")),
             fetch_max_bytes=int(env.get("MIH_FETCH_MAX_BYTES", str(50 * 1024 * 1024))),
             allow_private_sources=env.get("MIH_ALLOW_PRIVATE_SOURCES", "") == "1",
-            epg_max_bytes=int(env.get("MIH_EPG_MAX_BYTES", str(256 * 1024 * 1024))),
+            epg_max_bytes=int(env.get("MIH_EPG_MAX_BYTES", str(1024 * 1024 * 1024))),
+            epg_auto=env.get("MIH_EPG_AUTO", "1") != "0",
             epg_retention_days=int(env.get("MIH_EPG_RETENTION_DAYS", "3")),
             history_days=int(env.get("MIH_HISTORY_DAYS", "90")),
             epg_scope=_choice(env.get("MIH_EPG_SCOPE", "tracked"), "MIH_EPG_SCOPE", EPG_SCOPES),
