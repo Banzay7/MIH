@@ -1,3 +1,6 @@
-.env
+# Settings and their backup copies hold tokens: never commit them.
+.env*
+!.env.example
+deploy.log
 state/
 backups/
