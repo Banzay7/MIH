@@ -9,6 +9,7 @@ from datetime import time, timedelta
 from pathlib import Path
 
 EPG_SCOPES = ("tracked", "mapped", "all")
+SCHEDULER_MODES = ("process", "thread")
 LANGS = ("en", "ru")
 ALERT_LINKS = ("auto", "play", "stream", "none")
 # Event levels, lowest first. "routine" events only go to the feed and the daily digest.
@@ -68,6 +69,13 @@ class Settings:
     # Built-in scheduler of ``mih serve``. Off in this dataclass so tests and one-off CLI
     # commands never start background work; from_env turns it on unless MIH_SCHEDULER=0.
     scheduler_enabled: bool = False
+    # process: the jobs run in a child process of ``mih serve``, so an import or a stream
+    # check never slows the web UI down (one Python runs one thread at a time).
+    # thread: in the server's own process, as before; uses less memory.
+    scheduler_mode: str = "thread"
+    # Processes answering HTTP. One is plenty for a household; more only help with more
+    # CPUs (MIH_CPUS of the stand). The jobs still run once.
+    workers: int = 1
     # How often each job runs; None = never on its own (still runs on request).
     every_sources: timedelta | None = timedelta(hours=6)
     every_epg: timedelta | None = timedelta(hours=12)
@@ -183,6 +191,10 @@ class Settings:
             ),  # fmt: skip
             public_url=(env.get("MIH_PUBLIC_URL") or "").rstrip("/") or None,
             scheduler_enabled=env.get("MIH_SCHEDULER", "1") != "0",
+            scheduler_mode=_choice(
+                env.get("MIH_SCHEDULER_MODE", "process"), "MIH_SCHEDULER_MODE", SCHEDULER_MODES
+            ),  # fmt: skip
+            workers=max(1, int(env.get("MIH_WORKERS", "1"))),
             every_sources=parse_every(env.get("MIH_EVERY_SOURCES", "6h"), "MIH_EVERY_SOURCES"),
             every_epg=parse_every(env.get("MIH_EVERY_EPG", "12h"), "MIH_EVERY_EPG"),
             every_health=parse_every(env.get("MIH_EVERY_HEALTH", "10m"), "MIH_EVERY_HEALTH"),
@@ -225,6 +237,8 @@ class Settings:
             raise ConfigError("MIH_HA_URL must start with http:// or https://")
         if self.playback == "ha" and not self.ha_ready:
             raise ConfigError("MIH_PLAYBACK=ha needs MIH_HA_URL and MIH_HA_TOKEN")
+        if self.workers > 1 and self.scheduler_enabled and self.scheduler_mode == "thread":
+            raise ConfigError("MIH_WORKERS > 1 needs MIH_SCHEDULER_MODE=process")
         if self.mcp_token and len(self.mcp_token) < 24:
             raise ConfigError("MIH_MCP_TOKEN must be at least 24 characters")
         no_token = not (self.mcp_token or self.api_token)

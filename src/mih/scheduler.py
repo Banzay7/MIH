@@ -10,9 +10,13 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import sqlite3
+import subprocess
+import sys
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -584,6 +588,39 @@ class Scheduler:
         finally:
             conn.close()
         return ran
+
+
+def job_process(*args: str) -> subprocess.Popen:
+    """``mih <args>`` in a Python of its own, at a lower priority than the web server:
+    a stream check or a guide import never makes the web UI wait, even on one CPU."""
+    cmd = [sys.executable, "-m", "mih.cli", *args]
+    nice = shutil.which("nice")
+    return subprocess.Popen([nice, "-n", "10", *cmd] if nice else cmd)
+
+
+@contextmanager
+def background(settings: Settings, policy: HealthPolicy | None = None) -> Iterator[None]:
+    """The jobs of ``mih serve`` while the server runs, and its start and stop events."""
+    scheduler = child = None
+    if settings.scheduler_enabled and settings.scheduler_mode == "thread":
+        scheduler = Scheduler(settings, policy)
+    service_event(settings, "service.started")
+    if scheduler:
+        scheduler.start()
+    elif settings.scheduler_enabled:
+        child = job_process("scheduler")
+    try:
+        yield
+    finally:
+        if scheduler:
+            scheduler.stop()
+        if child:
+            child.terminate()
+            try:
+                child.wait(15)
+            except subprocess.TimeoutExpired:
+                child.kill()
+        service_event(settings, "service.stopped")
 
 
 def service_event(settings: Settings, kind: str) -> None:
