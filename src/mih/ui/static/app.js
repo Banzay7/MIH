@@ -685,6 +685,150 @@ async function viewStatus() {
     ${s.events.length ? html`<ul class="events">${s.events.map(eventItem)}</ul>` : html`<div class="empty">Событий пока нет.</div>`}`;
 }
 
+// ---------- Coverage ----------
+
+const nf = new Intl.NumberFormat("ru-RU");
+const pct = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : "—");
+let regionNames = null;
+try { regionNames = new Intl.DisplayNames(["ru"], { type: "region" }); } catch { /* old browser */ }
+function countryName(cc) {
+  if (cc === "?") return "Страна не указана";
+  try { return regionNames?.of(cc) || cc; } catch { return cc; }
+}
+const REASONS = {
+  no_stream: "Нет ссылки на поток (канал только из программы)", gone: "Поток удалён", no_answer: "Не отвечает",
+  bad_manifest: "Битый плейлист потока", geo_suspect: "Похоже на гео-блок", server_error: "Ошибка сервера",
+  unchecked: "Ещё не проверен", drm: "Защищён DRM", bad_content: "Не видео", bad_url: "Неверная ссылка",
+  player_error: "Не играет на ТВ", absent: "Пропал из плейлиста", blocked_by_geo: "Гео-блок",
+};
+const DISCOVERY_STEPS = [
+  ["urls_checked", "Ссылок проверено", false], ["repos", "Репозиториев найдено", false],
+  ["found", "Плейлистов найдено", false], ["new", "Ждут первой пробы", false],
+  ["live", "Живые, ждут упаковщика", true], ["packed", "Упакованы", true],
+  ["dead", "Мёртвые", false], ["known", "Без новых каналов", false], ["duplicate", "Копии", false],
+  ["rejected", "Отклонены (логины, DRM)", false],
+  ["auto_streams", "Потоков упаковано", true], ["auto_channels", "Каналов из упакованного", true],
+];
+const SEG = ["seg-guide", "seg-work", "seg-dead", "seg-none"];
+
+// One row of horizontal bars; segs: [[value, class, name]]; scale: the longest row's total.
+function barRow(label, segs, scale, right) {
+  const total = segs.reduce((a, [v]) => a + v, 0);
+  const tip = `${label}: ` + segs.map(([v, , name]) => `${name} ${nf.format(v)}`).join(", ");
+  return html`<div class="bar-row" title="${tip}">
+    <span class="bar-label">${label}</span>
+    <span class="bar-track"><span class="bar-fill" style="width:${scale ? ((100 * total) / scale).toFixed(2) : 0}%">${segs.filter(([v]) => v > 0).map(([v, cls]) =>
+      html`<i class="${cls}" style="flex-grow:${v}"></i>`)}</span></span>
+    <span class="bar-value">${right}</span></div>`;
+}
+const legend = (items) => html`<div class="legend small muted">${items.map(([cls, name]) => html`<span><i class="${cls}"></i>${name}</span>`)}</div>`;
+
+function growthChart(history) {
+  if (!history || history.length < 2) return html`<p class="small muted">График роста появится, когда наберётся хотя бы два дня наблюдений.</p>`;
+  // Drawn at the panel's own width, so the labels keep their size on a phone and a desktop.
+  const W = Math.max(280, Math.round(view.clientWidth - 58)), H = 200, L = 52, R = 8, T = 10, B = 24;
+  const max = Math.max(...history.map((p) => p.all)) || 1;
+  const x = (i) => L + ((W - L - R) * i) / (history.length - 1);
+  const y = (v) => T + (H - T - B) * (1 - v / max);
+  const line = (k) => history.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p[k]).toFixed(1)}`).join("");
+  const ticks = [0, 0.5, 1].map((f) => Math.round(max * f));
+  const series = [["all", "s-all", "все"], ["working", "s-work", "живые"], ["guide", "s-guide", "живые с программой"]];
+  const fmtD = (d) => new Date(d + "T00:00:00Z").toLocaleDateString("ru-RU", { day: "numeric", month: "short", timeZone: "UTC" });
+  return html`<svg class="growth" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Рост каталога по дням">
+    ${ticks.map((v) => html`<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"></line><text x="${L - 6}" y="${y(v)}" dy="0.35em" text-anchor="end">${nf.format(v)}</text>`)}
+    ${series.map(([k, cls]) => html`<path class="${cls}" d="${line(k)}"></path>`)}
+    <text x="${L}" y="${H - 6}">${fmtD(history[0].day)}</text>
+    <text x="${W - R}" y="${H - 6}" text-anchor="end">${fmtD(history[history.length - 1].day)}</text>
+  </svg>${legend(series.map(([, cls, name]) => [cls, name]))}`;
+}
+
+async function viewCoverage(params) {
+  const r = await api("/report");
+  if (!r.funnel) return html`<h1>Покрытие</h1><div class="empty">Отчёт ещё не построен. Он появится после ближайшей проверки потоков.</div>`;
+  const f = r.funnel, d = r.discovery || {}, st = d.by_status || {};
+  const tile = (label, v, note) => html`<div class="tile"><span class="small muted">${label}</span><b>${nf.format(v)}</b><span class="small muted">${note}</span></div>`;
+
+  const funnel = [["all", "Все каналы в каталоге"], ["streams", "Есть ссылка на поток"], ["working", "Поток живой"], ["guide", "Живой и с программой"]];
+  const sort = params.get("sort") === "gap" ? "gap" : "all";
+  const showAll = params.get("all") === "1";
+  let countries = [...(r.by_country || [])];
+  if (sort === "gap") countries.sort((a, b) => (b.working - b.guide) - (a.working - a.guide));
+  // Channels without a country are a pile of their own: last, and not setting the scale.
+  countries = [...countries.filter((c) => c.country !== "?"), ...countries.filter((c) => c.country === "?")];
+  const shown = showAll ? countries : [...countries.slice(0, 30).filter((c) => c.country !== "?"), ...countries.filter((c) => c.country === "?")];
+  const cmax = Math.max(...shown.filter((c) => c.country !== "?").map((c) => c.all), 1);
+  const link = (p) => "#/coverage?" + new URLSearchParams(Object.entries({ sort, all: showAll ? "1" : "", ...p }).filter(([, v]) => v));
+
+  const reasons = Object.entries(r.not_working || {}).sort((a, b) => b[1] - a[1]);
+  const rmax = Math.max(...reasons.map(([, n]) => n), 1);
+  const steps = DISCOVERY_STEPS.map(([k, label, hot]) => [label, k in st ? st[k] : (d[k] ?? 0), hot]).filter(([, v]) => v);
+  const dmax = Math.max(...steps.map(([, v]) => v), 1);
+  const days = r.new_streams || [];
+  const daymax = Math.max(...days.map((x) => x.streams), 1);
+  const fmtDay = (s) => new Date(s + "T00:00:00Z").toLocaleDateString("ru-RU", { day: "numeric", month: "long", timeZone: "UTC" });
+  const sources = r.sources || [];
+  const smax = Math.max(...sources.map((x) => x.streams), 1);
+  const g = r.guides || {}, ap = g.autopilot || {};
+
+  return html`<h1>Покрытие</h1>
+    <p class="small muted">Обновлено: ${whenShort(r.generated_at)}. Живой значит: поток отвечал при последней проверке.</p>
+    <div class="tiles">
+      ${tile("Все каналы", f.all, "в каталоге")}
+      ${tile("Со ссылкой на поток", f.streams, pct(f.streams, f.all) + " от всех")}
+      ${tile("Живые", f.working, pct(f.working, f.all) + " от всех")}
+      ${tile("Живые с программой", f.guide, pct(f.guide, f.working) + " от живых")}
+      ${tile("Найдено грабером", d.auto_channels || 0, "каналов")}
+    </div>
+
+    <h2>Воронка каталога</h2>
+    <div class="panel bars">${funnel.map(([k, label], i) => barRow(label, [[f[k], i === 3 ? "seg-guide" : "seg-step", "каналов"]], f.all, `${nf.format(f[k])} · ${pct(f[k], f.all)}`))}</div>
+
+    <h2>Рост каталога</h2>
+    <div class="panel">${growthChart(r.history)}</div>
+
+    <h2>По странам</h2>
+    <div class="row">
+      <a class="chip ${sort === "all" ? "on" : ""}" href="${link({ sort: "" })}">Больше всего каналов</a>
+      <a class="chip ${sort === "gap" ? "on" : ""}" href="${link({ sort: "gap" })}">Больше всего без программы</a>
+    </div>
+    <div class="panel bars">
+      ${legend([["seg-guide", "живой, есть программа"], ["seg-work", "живой, без программы"], ["seg-dead", "ссылка есть, не отвечает"], ["seg-none", "нет ссылки"]])}
+      <p class="small muted">Справа: доля живых каналов страны, у которых есть программа.</p>
+      ${shown.map((c) => barRow(countryName(c.country), [[c.guide, SEG[0], "с программой"], [c.working - c.guide, SEG[1], "без программы"],
+        [Math.max(0, c.streams - c.working), SEG[2], "не отвечает"], [Math.max(0, c.all - c.streams), SEG[3], "нет ссылки"]], cmax,
+        c.working ? pct(c.guide, c.working) : "—"))}
+      ${countries.length > 30 ? html`<a class="btn more" href="${link({ all: showAll ? "" : "1" })}">${showAll ? "Только первые 30" : `Все страны (${countries.length})`}</a>` : ""}
+    </div>
+
+    <h2>Поисковик и упаковщик</h2>
+    <div class="panel bars">${steps.map(([label, v, hot]) => barRow(label, [[v, hot ? "seg-guide" : "seg-step", label]], dmax, nf.format(v)))}</div>
+
+    <h2>Новые потоки по дням</h2>
+    <div class="panel bars">
+      ${legend([["seg-guide", "живые сейчас"], ["seg-none", "не отвечают"]])}
+      ${days.length ? days.map((x) => barRow(fmtDay(x.day), [[x.working, "seg-guide", "живые"], [x.streams - x.working, "seg-none", "не отвечают"]], daymax, nf.format(x.streams)))
+        : html`<p class="small muted">За последние 30 дней новых потоков не было.</p>`}
+    </div>
+
+    <h2>Потоки по источникам</h2>
+    <div class="panel bars">
+      ${legend([["seg-guide", "живые"], ["seg-none", "не отвечают"]])}
+      ${sources.map((x) => barRow(x.auto ? `Найдено грабером (${nf.format(x.playlists)} плейл.)` : x.name,
+        [[x.working, "seg-guide", "живые"], [x.streams - x.working, "seg-none", "не отвечают"]], smax, nf.format(x.streams)))}
+    </div>
+
+    <h2>Почему канал не попал в живые</h2>
+    <div class="panel bars">${reasons.length ? reasons.map(([k, n]) => barRow(REASONS[k] || k, [[n, k === "no_stream" ? "seg-none" : "seg-dead", "каналов"]], rmax, nf.format(n)))
+      : html`<p class="small muted">Все каналы живые.</p>`}</div>
+
+    <h2>Программа передач</h2>
+    <div class="kv small">
+      <span class="muted">Источников программы</span><span>${nf.format(g.sources || 0)}</span>
+      <span class="muted">Автопилот: оставлены / на пробе</span><span>${ap.kept || 0} / ${ap.trial || 0}</span>
+      <span class="muted">Автопилот: бесполезные / сломанные</span><span>${ap.useless || 0} / ${ap.broken || 0}</span>
+    </div>`;
+}
+
 // ---------- Router ----------
 
 let renderSeq = 0;
@@ -709,6 +853,7 @@ async function route() {
   else if (parts[0] === "favorites") { tab = "favorites"; fn = viewFavorites; }
   else if (parts[0] === "settings") { tab = "settings"; fn = viewSettings; }
   else if (parts[0] === "status") { tab = "status"; fn = viewStatus; }
+  else if (parts[0] === "coverage") { tab = "coverage"; fn = () => viewCoverage(params); }
   else fn = async () => html`<div class="empty">Страница не найдена. <a href="#/">На главную</a></div>`;
   setTab(tab);
   try {

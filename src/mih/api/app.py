@@ -38,6 +38,7 @@ from mih.epg.service import (
 from mih.health.policy import HealthPolicy
 from mih.identity.normalize import fold
 from mih.ids import utc_now
+from mih.report import read_report, report_path, write_report
 from mih.search.engine import SearchRequest, search
 from mih.search.index import ensure_index
 from mih.sources.fetch import FetchError
@@ -336,15 +337,32 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         return {"deleted": delete_epg_source(conn, settings, source_id)}
 
     @app.get("/api/v1/epg/coverage", dependencies=auth)
-    def epg_coverage(conn: Conn) -> dict:
+    def epg_coverage(request: Request, conn: Conn):
         """Working channels with a guide, by country (most channels without one first),
-        and the public guides the autopilot tried (MIH_EPG_AUTO)."""
+        and the public guides the autopilot tried (MIH_EPG_AUTO). It walks the whole
+        catalog, so one copy is kept for COVERAGE_TTL."""
+        entry = cache.get("epg-coverage", COVERAGE_TTL, lambda: _coverage(conn))
+        return respond(request, entry, max_age=int(CHANNELS_TTL))
+
+    def _coverage(conn: sqlite3.Connection) -> dict:
         tried = conn.execute(
             "SELECT guide, country, verdict, gain, added_at, judged_at FROM epg_auto"
             " ORDER BY added_at DESC"
         ).fetchall()
         return {**working_coverage(conn).to_dict(), "autopilot": settings.epg_auto,
                 "guides_tried": [dict(r) for r in tried]}  # fmt: skip
+
+    @app.get("/api/v1/report", dependencies=auth)
+    def coverage_report(request: Request, conn: Conn):
+        """The «Покрытие» tab: what plays, what has a guide, by country and source, and
+        what the playlist scout brought in (mih.report). The background jobs keep the
+        file current; only a service that never wrote one builds it here."""
+        entry = cache.get("report", CHANNELS_TTL, lambda: _report(conn))
+        return respond(request, entry, max_age=int(CHANNELS_TTL))
+
+    def _report(conn: sqlite3.Connection) -> dict:
+        path = report_path(settings.data_dir)
+        return read_report(path) or write_report(conn, path, every=timedelta(0)) or {}
 
     @app.get("/api/v1/epg/sources/{source_id}/snapshots", dependencies=auth)
     def list_epg_snapshots(source_id: str, conn: Conn) -> dict:
@@ -593,6 +611,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
 # How long a shared answer is reused (seconds). Imports and checks run every few minutes
 # at most, and "now" moves on programme boundaries, so this is not noticeable.
 CHANNELS_TTL = 60.0
+COVERAGE_TTL = 600.0
 NOW_TTL = 30.0
 
 
