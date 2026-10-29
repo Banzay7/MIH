@@ -466,10 +466,42 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         conn: Conn,
         channel_id: Annotated[list[str] | None, Query()] = None,
         timeshift: bool = False,
+        on_air: bool = False,
+        soon: Annotated[int | None, Query(ge=1, le=24 * 60)] = None,
+        playable_only: bool = False,
+        limit: Annotated[int | None, Query(ge=1, le=10000)] = None,
+        offset: Annotated[int, Query(ge=0)] = 0,
     ):
-        """What is on now and next, per feed. +N feeds are left out unless asked for."""
-        key = f"now:{timeshift}:{','.join(sorted(channel_id)) if channel_id else '*'}"
-        entry = cache.get(key, NOW_TTL, lambda: _on_now(conn, channel_id, timeshift))
+        """What is on now and next, per feed. +N feeds are left out unless asked for.
+
+        on_air keeps feeds with something on now; soon=N keeps those whose next show
+        starts within N minutes, soonest first; limit/offset page the result, and total
+        counts it. The UI asks for one page of "on air" instead of the whole guide."""
+        ids = ",".join(sorted(channel_id)) if channel_id else "*"
+        paged = on_air or soon or playable_only or limit is not None or offset
+        if not paged:
+            key = f"now:{timeshift}:{ids}"
+            entry = cache.get(key, NOW_TTL, lambda: _on_now(conn, channel_id, timeshift))
+            return respond(request, entry, max_age=int(NOW_TTL))
+        key = f"now:{timeshift}:{ids}:{on_air}:{soon}:{playable_only}:{limit}:{offset}"
+        base = f"now-base:{timeshift}:{ids}"
+
+        def build() -> dict:
+            data = cache.remember(base, NOW_TTL, lambda: _on_now(conn, channel_id, timeshift))
+            items = data["items"]
+            if on_air:
+                items = [i for i in items if i["now"]]
+            if playable_only:
+                items = [i for i in items if i["streams"]]
+            if soon:
+                horizon = iso(datetime.now(UTC) + timedelta(minutes=soon))
+                items = sorted((i for i in items if i["next"] and i["next"]["start"] <= horizon),
+                               key=lambda i: i["next"]["start"])  # fmt: skip
+            end = None if limit is None else offset + limit
+            return {"items": items[offset:end], "total": len(items), "offset": offset,
+                    "channels": data["channels"], "guided": data["guided"]}  # fmt: skip
+
+        entry = cache.get(key, NOW_TTL, build)
         return respond(request, entry, max_age=int(NOW_TTL))
 
     def _on_now(conn: sqlite3.Connection, channel_id: list[str] | None,
@@ -478,14 +510,18 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         if not timeshift:
             guides = {k: g for k, g in guides.items() if g.shift_minutes == 0}
         state = guide.now_and_next(conn, datetime.now(UTC), guides)
-        names = _channel_names(conn, {g.channel_id for g in guides.values()})
+        info = _channel_cards(conn, {g.channel_id for g in guides.values()})
         items = [
-            {"channel_id": g.channel_id, "channel_name": names.get(g.channel_id),
+            {"channel_id": g.channel_id, "channel_name": info.get(g.channel_id, {}).get("name"),
+             "logo_url": info.get(g.channel_id, {}).get("logo_url"),
+             "streams": info.get(g.channel_id, {}).get("streams", 0),
              "feed_id": g.feed_id, **state[g.feed_id]}
             for g in guides.values()
         ]  # fmt: skip
         items.sort(key=lambda i: ((i["channel_name"] or "").casefold(), i["feed_id"]))
-        return {"items": items}
+        channels = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
+        return {"items": items, "channels": channels,
+                "guided": len({g.channel_id for g in guides.values()})}  # fmt: skip
 
     @app.get("/api/v1/airings", dependencies=auth)
     def list_airings(
@@ -670,14 +706,21 @@ def _epg_out(g: guide.FeedGuide | None) -> dict:
             "borrowed_from_feed_id": g.borrowed_from}  # fmt: skip
 
 
-def _channel_names(conn: sqlite3.Connection, ids: set[str]) -> dict[str, str]:
+def _channel_cards(conn: sqlite3.Connection, ids: set[str]) -> dict[str, dict]:
+    """Name, logo and playable stream count: what a card shows next to the guide."""
     if not ids:
         return {}
     marks = ",".join("?" * len(ids))
     rows = conn.execute(
-        f"SELECT id, canonical_name FROM channels WHERE id IN ({marks})", tuple(ids)
+        "SELECT c.id, c.canonical_name, c.logo_url, COALESCE(sc.n, 0) AS streams FROM channels c"
+        " LEFT JOIN (SELECT f.channel_id, COUNT(*) AS n FROM streams s"
+        "   JOIN feeds f ON f.id = s.feed_id WHERE s.availability_reason IS NULL"
+        f"   AND f.channel_id IN ({marks}) GROUP BY f.channel_id) sc ON sc.channel_id = c.id"
+        f" WHERE c.id IN ({marks})",
+        (*ids, *ids),
     ).fetchall()
-    return {r["id"]: r["canonical_name"] for r in rows}
+    return {r["id"]: {"name": r["canonical_name"], "logo_url": r["logo_url"],
+                      "streams": r["streams"]} for r in rows}  # fmt: skip
 
 
 def _aware(dt: datetime) -> datetime:

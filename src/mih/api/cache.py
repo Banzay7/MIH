@@ -40,6 +40,8 @@ class SharedCache:
         self._items: dict[str, Entry] = {}
         self._locks: dict[str, threading.Lock] = {}
         self._guard = threading.Lock()
+        # Parsed objects that several cached answers are cut from; cleared with them.
+        self.memo: dict[str, tuple[float, object]] = {}
 
     def get(self, key: str, ttl: float, build: Callable[[], dict]) -> Entry:
         entry = self._items.get(key)
@@ -69,6 +71,16 @@ class SharedCache:
     def clear(self) -> None:
         with self._guard:
             self._items.clear()
+            self.memo.clear()
+
+    def remember(self, key: str, ttl: float, build: Callable[[], object]) -> object:
+        """A parsed object kept for ``ttl``: the base that paged answers are cut from."""
+        hit = self.memo.get(key)
+        if hit and time.monotonic() - hit[0] < ttl:
+            return hit[1]
+        value = build()
+        self.memo[key] = (time.monotonic(), value)
+        return value
 
     def _lock(self, key: str) -> threading.Lock:
         with self._guard:
