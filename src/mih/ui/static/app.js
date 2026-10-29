@@ -706,6 +706,11 @@ async function viewSettings() {
     <label class="row field"><input type="checkbox" id="logos" ${prefs.logos() ? raw("checked") : ""}>
       Показывать логотипы каналов (картинки грузятся с сайтов из плейлиста)</label>
     <p class="small muted">Эти настройки хранятся в этом браузере и действуют со следующего поиска или открытия страницы.</p>
+    <h2>История поиска</h2>
+    <label class="row field"><input type="checkbox" id="pref-history" ${historyOn() ? raw("checked") : ""}>
+      Запоминать мои поиски и показывать их списком под строкой поиска</label>
+    <div class="row field"><span class="small muted" id="history-count">Сохранено запросов: ${searchHistory().length}</span>
+      <button class="btn" type="button" id="history-clear" ${searchHistory().length ? "" : raw("disabled")}>Очистить историю поиска</button></div>
     <h2>Сервер</h2>
     <div class="kv small">
       <span class="muted">Версия</span><span>${health?.version || "—"}</span>
@@ -947,6 +952,98 @@ async function viewCoverage(params) {
     </div>`;
 }
 
+// ---------- Past searches: a list under the search field, kept in this browser ----------
+
+const HISTORY_MAX = 30;
+const historyOn = () => store.get("mih.historyOff") !== "1";
+
+function searchHistory() {
+  try {
+    const v = JSON.parse(store.get("mih.history") || "[]");
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string" && x) : [];
+  } catch { return []; }
+}
+
+const sameQuery = (a, b) => a.toLocaleLowerCase("ru") === b.toLocaleLowerCase("ru");
+
+function rememberSearch(q) {
+  if (!q || !historyOn()) return;
+  const rest = searchHistory().filter((x) => !sameQuery(x, q));
+  store.set("mih.history", JSON.stringify([q, ...rest].slice(0, HISTORY_MAX)));
+}
+
+function forgetSearch(q) {
+  const rest = searchHistory().filter((x) => !sameQuery(x, q));
+  store.set("mih.history", rest.length ? JSON.stringify(rest) : null);
+}
+
+const searchInput = document.getElementById("search-input");
+const historyBox = document.getElementById("search-history");
+let historyPick = -1;
+
+// The list shows what matches the typed text; it only fills the field and searches on a
+// click or Enter, never by itself.
+function showHistory() {
+  const typed = searchInput.value.trim().toLocaleLowerCase("ru");
+  const items = searchHistory().filter((q) => !typed || q.toLocaleLowerCase("ru").includes(typed)).slice(0, 10);
+  if (!items.length || (items.length === 1 && sameQuery(items[0], searchInput.value.trim()))) { hideHistory(); return; }
+  historyPick = Math.min(historyPick, items.length - 1);
+  historyBox.innerHTML = String(html`${items.map((q, i) => html`<div class="item ${i === historyPick ? "on" : ""}" role="option"
+      aria-selected="${i === historyPick}"><button type="button" class="q" data-history="${q}">${q}</button>
+      <button type="button" class="del" data-history-del="${q}" title="Убрать из истории" aria-label="Убрать «${q}» из истории">×</button></div>`)}
+    <div class="foot small"><span class="muted">Прошлые поиски</span><button type="button" data-history-clear>Очистить историю</button></div>`);
+  historyBox.hidden = false;
+  searchInput.setAttribute("aria-expanded", "true");
+}
+
+function hideHistory() {
+  historyBox.hidden = true;
+  historyPick = -1;
+  searchInput.setAttribute("aria-expanded", "false");
+}
+
+function clearHistory() {
+  store.set("mih.history", null);
+  hideHistory();
+  toast("История поиска очищена");
+}
+
+searchInput.addEventListener("focus", showHistory);
+searchInput.addEventListener("input", () => { historyPick = -1; showHistory(); });
+searchInput.addEventListener("blur", () => setTimeout(hideHistory, 150));
+searchInput.addEventListener("keydown", (e) => {
+  if (historyBox.hidden) { if (e.key === "ArrowDown") showHistory(); return; }
+  const rows = historyBox.querySelectorAll(".item");
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    // -1 is the typed text itself: the arrows cycle through it and the list.
+    const n = rows.length;
+    if (e.key === "ArrowDown") historyPick = historyPick + 1 >= n ? -1 : historyPick + 1;
+    else historyPick = historyPick <= -1 ? n - 1 : historyPick - 1;
+    rows.forEach((r, i) => { r.classList.toggle("on", i === historyPick); r.setAttribute("aria-selected", String(i === historyPick)); });
+  } else if (e.key === "Enter" && historyPick >= 0) {
+    searchInput.value = rows[historyPick].querySelector(".q").dataset.history;
+  } else if (e.key === "Escape") {
+    hideHistory();
+  }
+});
+// Clicks inside the list must not blur the field first.
+historyBox.addEventListener("mousedown", (e) => e.preventDefault());
+historyBox.addEventListener("click", (e) => {
+  const pick = e.target.closest("[data-history]");
+  const del = e.target.closest("[data-history-del]");
+  if (pick) {
+    searchInput.value = pick.dataset.history;
+    document.getElementById("search-form").requestSubmit();
+  } else if (del) {
+    forgetSearch(del.dataset.historyDel);
+    showHistory();
+    searchInput.focus();
+  } else if (e.target.closest("[data-history-clear]")) {
+    clearHistory();
+  }
+});
+
 // ---------- Router ----------
 
 let renderSeq = 0;
@@ -1000,6 +1097,8 @@ window.addEventListener("hashchange", () => { route(); view.focus({ preventScrol
 document.getElementById("search-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const q = document.getElementById("search-input").value.trim();
+  rememberSearch(q);
+  hideHistory();
   const cur = new URLSearchParams(location.hash.split("?")[1] || "");
   const keep = location.hash.startsWith("#/search") ? Object.fromEntries(SEARCH_KEYS.map((k) => [k, cur.get(k)])) : {};
   go("/search", { q, ...keep });
@@ -1077,6 +1176,12 @@ document.addEventListener("click", (e) => {
       .finally(() => { e.target.disabled = false; });
     return;
   }
+  if (e.target.id === "history-clear") {
+    clearHistory();
+    e.target.disabled = true;
+    document.getElementById("history-count").textContent = "Сохранено запросов: 0";
+    return;
+  }
   if (e.target.id === "token-clear") {
     store.set("mih.token", null);
     state.channelsLoaded = false;
@@ -1121,6 +1226,10 @@ document.addEventListener("change", (e) => {
   if (PREF_KEYS[t.id]) { store.set(PREF_KEYS[t.id], t.value); toast("Сохранено"); }
   else if (t.name === "pref-strict") { store.set("mih.strict", t.value); toast("Сохранено"); }
   else if (t.id === "pref-playable") { store.set("mih.playable", t.checked ? "1" : "0"); toast("Сохранено"); }
+  else if (t.id === "pref-history") {
+    store.set("mih.historyOff", t.checked ? null : "1");
+    toast(t.checked ? "Поиски будут запоминаться" : "Новые поиски больше не запоминаются");
+  }
 });
 
 document.addEventListener("input", (e) => {
