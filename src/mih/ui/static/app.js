@@ -227,6 +227,7 @@ async function playOnTv(channelId, feedId, button) {
     if (feedId) target.feed_id = feedId;
     const body = { target, idempotency_key: key };
     if (playAdapter()) body.adapter = playAdapter();
+    if (store.get("mih.quality")) body.quality = store.get("mih.quality");
     let cmd = await api("/playback/commands", { method: "POST", body });
     // The agent has 30 s to take the command; then silence for 100 s means it plays,
     // so once it is taken the toast says so and only a failure or a slow start changes it.
@@ -819,6 +820,14 @@ async function viewSettings() {
       ${adapters.available.includes("ha") ? html`<div class="row"><button class="btn" type="button" id="ha-check">${t("Проверить связь с HA")}</button></div>` : ""}
       <span class="small muted">${t("Выбор хранится в этом браузере. Home Assistant получает адреса потоков и название канала и запускает свой скрипт, агент не участвует.")}</span>
     </div>` : ""}
+    <h2>${t("Качество при запуске")}</h2>
+    <div class="field">
+      ${[["720", t("До 720p: быстрее старт, меньше буферизации (по умолчанию)")],
+         ["auto", t("Авто: плеер выбирает сам")],
+         ["best", t("Лучшее: самое высокое качество, дольше старт")]].map(([v, label]) =>
+        html`<label class="row"><input type="radio" name="quality" value="${v}" ${(store.get("mih.quality") || "720") === v ? raw("checked") : ""}> ${label}</label>`)}
+      <span class="small muted">${t("Для потоков с несколькими качествами сервер отдаёт телевизору подходящее. Выбор хранится в этом браузере.")}</span>
+    </div>
     <p class="small"><a href="/api/docs">${t("Документация API")}</a></p>`;
 }
 
@@ -1351,6 +1360,10 @@ document.addEventListener("input", (e) => {
   if (e.target.name === "adapter") {
     store.set("mih.adapter", e.target.value);
     toast(e.target.value === "ha" ? t("«На ТВ» теперь идёт напрямую в Home Assistant") : t("«На ТВ» теперь выполняет агент"));
+  }
+  if (e.target.name === "quality") {
+    store.set("mih.quality", e.target.value);
+    toast(t("Сохранено"));
   }
   if (e.target.id === "logos") {
     store.set("mih.logos", e.target.checked ? "1" : "0");

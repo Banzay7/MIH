@@ -51,11 +51,15 @@ class Target:
     start: str | None = None
     stop: str | None = None
     title: str | None = None
+    # The picture to start with (mih.quality); none = MIH_PLAY_QUALITY.
+    quality: str | None = None
 
     def as_dict(self) -> dict:
         out = {"kind": self.kind, "channel_id": self.channel_id}
         if self.feed_id:
             out["feed_id"] = self.feed_id
+        if self.quality:
+            out["quality"] = self.quality
         if self.start:
             out.update({"start": self.start, "stop": self.stop, "title": self.title})
         return out
@@ -268,10 +272,16 @@ def run_ha(
     if not picked:
         error = "no_stream"
     else:
+        from mih.quality import resolve_many
+
+        urls = resolve_many(settings, [(locators[s]["url"],
+                                        json.loads(locators[s]["headers"] or "{}"))
+                                       for s in picked],
+                            target.get("quality") or settings.play_quality)  # fmt: skip
         try:
             ha.run_script(settings, {
-                "url": locators[picked[0]]["url"],
-                "urls": [locators[s]["url"] for s in picked],
+                "url": urls[0],
+                "urls": urls,
                 "channel": channel_name,
                 "channel_id": target["channel_id"],
                 "stream_id": picked[0],

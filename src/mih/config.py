@@ -145,6 +145,9 @@ class Settings:
     ha_script: str = "mih_play"
     # How many stream URLs the script gets (url = the best, urls = all of them).
     ha_streams: int = 3
+    # The picture a launch starts with when the request names none (mih.quality):
+    # auto (the player picks), 720, 1080 or best.
+    play_quality: str = "720"
     # Renames of the script's variables, e.g. {"channel": "name"}; "" leaves one out.
     ha_fields: dict = field(default_factory=dict)
     # The script may wait for the TV to wake up, so give it time.
@@ -237,6 +240,11 @@ class Settings:
             ha_token=env.get("MIH_HA_TOKEN") or None,
             ha_script=env.get("MIH_HA_SCRIPT") or "mih_play",
             ha_streams=max(1, int(env.get("MIH_HA_STREAMS", "3"))),
+            play_quality=_choice(
+                env.get("MIH_PLAY_QUALITY", "720").strip().lower(),
+                "MIH_PLAY_QUALITY",
+                ("auto", "720", "1080", "best"),
+            ),
             ha_fields=_parse_fields(env.get("MIH_HA_FIELDS", "")),
             ha_timeout_s=float(env.get("MIH_HA_TIMEOUT_S", "60")),
         )
