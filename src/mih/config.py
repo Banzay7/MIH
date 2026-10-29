@@ -10,7 +10,7 @@ from pathlib import Path
 
 EPG_SCOPES = ("tracked", "mapped", "all")
 SCHEDULER_MODES = ("process", "thread")
-LANGS = ("en", "ru")
+LANGS = ("en", "ru", "vi")
 ALERT_LINKS = ("auto", "play", "stream", "none")
 # Event levels, lowest first. "routine" events only go to the feed and the daily digest.
 LEVELS = ("routine", "info", "warning", "error")

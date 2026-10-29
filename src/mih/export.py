@@ -52,7 +52,12 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
                 "tong hop"),
     "regional": ("regional", "регион", "local", "dia phuong"),
     "shop": ("shop", "магазин", "mua sam"),
-    "adult": ("adult", "xxx", "18+", "взросл"),
+    "adult": ("adult", "xxx", "18+", "+18", "18 плюс", "взросл", "для взрослых", "эрот",
+              "erotic", "erotik", "porn", "порн", "sex", "секс", "nsfw", "playboy",
+              "hustler", "brazzers", "dorcel", "penthouse", "redlight", "red light",
+              "nguoi lon", "интим", "русская ночь", "ню арт", "шалун", "babes tv",
+              "barely legal", "private tv", "vivid red", "vivid tv", "xy max", "exxxotica",
+              "o la la", "o-la-la", "beate uhse", "evil angel", "fap tv"),
 }  # fmt: skip
 
 # iptv-org categories -> the catalog's (CATEGORIES above).

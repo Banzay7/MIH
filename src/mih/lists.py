@@ -74,6 +74,27 @@ _LANGS = {
     "georgian": "ka", "kat": "ka", "geo": "ka",
     "azerbaijani": "az", "aze": "az",
     "uzbek": "uz", "uzb": "uz",
+    # ISO 639-2/3 codes (iptv-org, XMLTV guides) of other common languages.
+    "jpn": "ja", "kor": "ko", "ara": "ar", "hin": "hi", "ita": "it", "por": "pt",
+    "pol": "pl", "tur": "tr", "nld": "nl", "dut": "nl", "tha": "th", "ind": "id",
+    "fas": "fa", "per": "fa", "heb": "he", "ell": "el", "gre": "el", "ces": "cs",
+    "cze": "cs", "ron": "ro", "rum": "ro", "hun": "hu", "swe": "sv", "fin": "fi",
+    "nor": "no", "nob": "no", "dan": "da", "bul": "bg", "srp": "sr", "hrv": "hr",
+    "slk": "sk", "slo": "sk", "slv": "sl", "lit": "lt", "lav": "lv", "est": "et",
+    "khm": "km", "lao": "lo", "mya": "my", "bur": "my", "msa": "ms", "may": "ms",
+    "fil": "tl", "tgl": "tl", "urd": "ur", "ben": "bn", "tam": "ta", "tel": "te",
+    "mon": "mn", "kir": "ky", "tgk": "tg", "tuk": "tk", "mkd": "mk", "mac": "mk",
+    "sqi": "sq", "alb": "sq", "bos": "bs", "cat": "ca", "eus": "eu", "baq": "eu",
+    "glg": "gl", "isl": "is", "ice": "is", "gle": "ga", "cym": "cy", "wel": "cy",
+    "mlt": "mt", "amh": "am", "swa": "sw", "som": "so", "pus": "ps", "kur": "ku",
+    "nep": "ne", "sin": "si", "mal": "ml", "kan": "kn", "mar": "mr", "guj": "gu",
+    "pan": "pa", "yue": "zh", "cmn": "zh", "hat": "ht", "hau": "ha", "yor": "yo",
+    "japanese": "ja", "korean": "ko", "arabic": "ar", "hindi": "hi", "italian": "it",
+    "portuguese": "pt", "polish": "pl", "turkish": "tr", "dutch": "nl", "thai": "th",
+    "indonesian": "id", "persian": "fa", "hebrew": "he", "greek": "el", "czech": "cs",
+    "romanian": "ro", "hungarian": "hu", "swedish": "sv", "finnish": "fi",
+    "norwegian": "no", "danish": "da", "bulgarian": "bg", "serbian": "sr",
+    "croatian": "hr", "khmer": "km", "malay": "ms", "mongolian": "mn",
 }  # fmt: skip
 
 # iptv-org ids look like "Perviykanal.ru@SD": the suffix is the channel's country.
@@ -122,8 +143,32 @@ class ListResult:
 
 
 def normalize_lang(value: str) -> str:
-    v = fold(value).strip()
-    return _LANGS.get(v, v)
+    """Russian, rus, ru-RU and ru_RU are all ru."""
+    v = fold(value).strip().replace("_", "-")
+    base = v.split("-", 1)[0] if re.fullmatch(r"[a-z]{2,3}-[a-z0-9]{2,8}", v) else v
+    return _LANGS.get(base, base)
+
+
+def store_tags(conn: sqlite3.Connection, catalog: list[dict]) -> int:
+    """Write each channel's categories and languages to channel_tags for the search.
+    Called after every catalog build, so the tags follow the rules in mih.export."""
+    rows = {(ch["id"], "category", c) for ch in catalog for c in ch["categories"] if c != "other"}
+    rows |= {(ch["id"], "language", code) for ch in catalog for lang in ch["languages"]
+             if (code := normalize_lang(lang)) and len(code) <= 3}  # fmt: skip
+    own = not conn.in_transaction
+    if own:
+        conn.execute("BEGIN")
+    try:
+        conn.execute("DELETE FROM channel_tags")
+        conn.executemany("INSERT OR IGNORE INTO channel_tags (channel_id, kind, value)"
+                         " VALUES (?, ?, ?)", sorted(rows))  # fmt: skip
+        if own:
+            conn.execute("COMMIT")
+    except Exception:
+        if own:
+            conn.execute("ROLLBACK")
+        raise
+    return len(rows)
 
 
 def normalize_country(value: str) -> str:
@@ -495,6 +540,7 @@ def build_presets(
     A list's playlist points players to its own guide (url-tvg) when the service knows
     its public address (MIH_PUBLIC_URL), unless the list names another ``epg_url``."""
     catalog = build_catalog(conn)
+    store_tags(conn, catalog)
     built = []
     for name, spec in presets.items():
         epg_url = spec.get("epg_url")

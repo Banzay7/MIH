@@ -15,7 +15,8 @@ from zoneinfo import ZoneInfo
 
 from mih.epg import guide
 from mih.epg.importer import iso
-from mih.search.genres import genre_match
+from mih.lists import normalize_lang
+from mih.search.genres import genre_categories, genre_match
 from mih.search.query import ParsedQuery, parse_query, stem
 from mih.search.topics import WHOLE_WORD_BELOW, variants
 
@@ -46,7 +47,8 @@ class SearchRequest:
     min_relevance: float = 0.0
     # Leave out programmes and channels with no stream that can be played.
     playable_only: bool = False
-    # Programmes of any of these genres (genres.py); channels are then left out.
+    # Programmes of any of these genres (genres.py), and channels of the matching catalog
+    # categories (GENRE_CATEGORIES); a genre without one leaves channels out.
     genres: list[str] = field(default_factory=list)
 
 
@@ -82,7 +84,12 @@ def search(conn: sqlite3.Connection, req: SearchRequest, now: datetime) -> dict:
         out["items"] += airings[req.offset : req.offset + req.limit]
     # No words: channels only when nothing narrows to programmes (all of them, by name).
     browse = not parsed.terms and not req.genres and parsed.time is None
-    if "channel" in req.target_types and (parsed.terms or parsed.channels_only or browse):
+    by_genre = bool(req.genres) and bool(genre_categories(req.genres))
+    if req.genres and not by_genre:
+        browse = False
+    if "channel" in req.target_types and (
+        parsed.terms or parsed.channels_only or browse or by_genre
+    ):
         channels, total = _channels(conn, parsed, req)
         if not total and widened:
             channels, total = _channels(conn, widened, req)
@@ -295,10 +302,24 @@ def _channels(
             clauses.append("EXISTS (SELECT 1 FROM channel_aliases a WHERE a.channel_id = c.id"
                            f" AND a.kind = 'name' AND ({ors}))")  # fmt: skip
             params += likes
-    countries = sorted({c for lang in parsed.languages for c in _LANG_COUNTRIES.get(lang, ())})
-    if (parsed.channels_only or parsed.language_from_script) and countries:
-        clauses.append(f"UPPER(c.country) IN ({','.join('?' * len(countries))})")
-        params += countries
+    if parsed.languages:
+        # A channel in the language: the catalog says so, or it says nothing and the
+        # channel is from a country that speaks it.
+        langs = ",".join("?" * len(parsed.languages))
+        countries = sorted({c for lang in parsed.languages for c in _LANG_COUNTRIES.get(lang, ())})
+        clauses.append(
+            "(EXISTS (SELECT 1 FROM channel_tags g WHERE g.channel_id = c.id"
+            f" AND g.kind = 'language' AND g.value IN ({langs}))"
+            " OR (NOT EXISTS (SELECT 1 FROM channel_tags g WHERE g.channel_id = c.id"
+            " AND g.kind = 'language')"
+            f" AND UPPER(c.country) IN ({','.join('?' * len(countries)) or 'NULL'})))"
+        )
+        params += [*parsed.languages, *countries]
+    cats = genre_categories(req.genres)
+    if cats:
+        clauses.append("c.id IN (SELECT channel_id FROM channel_tags WHERE kind = 'category'"
+                       f" AND value IN ({','.join('?' * len(cats))}))")  # fmt: skip
+        params += cats
     if req.playable_only:
         clauses.append(f"EXISTS (SELECT 1 FROM streams s JOIN feeds f ON f.id = s.feed_id"
                        f" WHERE f.channel_id = c.id AND {_PLAYABLE})")  # fmt: skip
@@ -349,15 +370,36 @@ _VI_LETTERS = set("ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽ�
 _LANG_COUNTRIES = {"vi": ("VN",), "ru": ("RU", "BY", "KZ", "KG"),
                    "en": ("US", "GB", "CA", "AU", "IE", "NZ")}  # fmt: skip
 
-_LANG_CODES = {"rus": "ru", "eng": "en", "vie": "vi"}
-
 
 def _lang_code(lang: str | None) -> str | None:
     """Guides write "ru", "rus", "vi-VN" or "en_GB"; filters use the two-letter code."""
     if not lang:
         return None
     base = lang.replace("_", "-").split("-", 1)[0].strip().casefold()
-    return _LANG_CODES.get(base, base) or None
+    return normalize_lang(base) or None
+
+
+def languages(conn: sqlite3.Connection) -> list[dict]:
+    """Every language the guide's programmes and the catalog's channels are in, most
+    common first: the search page's language list. Programmes without a language count
+    under the one their title's script suggests only for ru, vi and en (as in search)."""
+    progs: dict[str, int] = {}
+    for r in conn.execute("SELECT lang, COUNT(*) AS n FROM programmes GROUP BY lang"):
+        code = _lang_code(r["lang"])
+        if code and re.fullmatch(r"[a-z]{2,3}", code):
+            progs[code] = progs.get(code, 0) + r["n"]
+    chans = {
+        r["value"]: r["n"]
+        for r in conn.execute(
+            "SELECT value, COUNT(*) AS n FROM channel_tags WHERE kind = 'language' GROUP BY value"
+        )
+    }
+    for code in ("ru", "en", "vi"):  # always offered: the beta's languages
+        chans.setdefault(code, 0)
+    out = [{"code": c, "programmes": progs.get(c, 0), "channels": chans.get(c, 0)}
+           for c in set(progs) | set(chans)]  # fmt: skip
+    out.sort(key=lambda x: (-(x["programmes"] + x["channels"]), x["code"]))
+    return out
 
 
 def _guess_lang(title: str) -> str | None:

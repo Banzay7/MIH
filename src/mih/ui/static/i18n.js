@@ -16,6 +16,7 @@ const LOCALE = LOCALES[LANG];
 
 const DICT = {
 en: {
+  "Язык": "Language",
   " (не настроен на сервере: MIH_HA_URL, MIH_HA_TOKEN)": " (not set up on the server: MIH_HA_URL, MIH_HA_TOKEN)",
   " · +{0} ч": " · +{0} h",
   " · без программы: {0}": " · without a guide: {0}",
@@ -395,6 +396,7 @@ en: {
   "🔔 Следить за темой «{0}»": "🔔 Follow the topic “{0}”"
 },
 vi: {
+  "Язык": "Ngôn ngữ",
   " (не настроен на сервере: MIH_HA_URL, MIH_HA_TOKEN)": " (chưa cấu hình trên máy chủ: MIH_HA_URL, MIH_HA_TOKEN)",
   " · +{0} ч": " · +{0} giờ",
   " · без программы: {0}": " · không có lịch: {0}",

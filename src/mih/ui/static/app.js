@@ -286,6 +286,13 @@ function progress(a) {
 }
 
 const LANGS = { ru: t("русский"), en: t("английский"), vi: t("вьетнамский") };
+// Any language code ("ja", "rus", "vi-VN") by its name in the interface language.
+let langNames = null;
+try { langNames = new Intl.DisplayNames([LANG], { type: "language" }); } catch { /* old browser */ }
+function langName(code) {
+  try { const n = langNames?.of(code); if (n && n.toLowerCase() !== String(code).toLowerCase()) return n; } catch { /* odd code */ }
+  return LANGS[code] || code;
+}
 const FIELDS = { title: t("в названии"), sub_title: t("в подзаголовке"), description: t("в описании"),
   categories: t("в жанре"), channel_name: t("в названии канала"), time: t("время"), language: t("язык"),
   topic: t("тема"), programme: t("в избранном") };
@@ -423,7 +430,7 @@ function airingCard(a) {
       ${progress(a)}
       <div class="chips">
         ${why.map((w) => html`<span class="chip" title="${t("Почему найдено")}">${FIELDS[w.field] || w.field}: ${w.matched && w.matched !== "substring" ? w.matched : w.term}</span>`)}
-        ${a.lang ? html`<span class="chip">${LANGS[a.lang] || a.lang}</span>` : ""}
+        ${a.lang ? html`<span class="chip">${langName(a.lang)}</span>` : ""}
         ${a.more_airings ? html`<span class="chip">${t("ещё показов: {0}", a.more_airings)}</span>` : ""}
         ${a.streams_available === 0 ? html`<span class="chip">${t("нет рабочих потоков")}</span>` : ""}
       </div>
@@ -481,7 +488,19 @@ async function viewHome() {
 }
 
 const SEARCH_TIMES = [["", t("Любое время")], ["now", t("Сейчас")], ["today", t("Сегодня")], ["tonight", t("Вечером")], ["tomorrow", t("Завтра")]];
-const SEARCH_LANGS = [["", t("Любой язык")], ["ru", t("Русский")], ["en", t("Английский")], ["vi", t("Вьетнамский")]];
+// Languages of the guide and the catalog (GET /search/languages): Russian, Vietnamese and
+// English first, then the rest by name in the interface language.
+const LANGS_FIRST = ["ru", "vi", "en"];
+async function searchLangOptions(current) {
+  let codes = [];
+  try { codes = (await api("/search/languages")).items.map((l) => l.code); } catch { /* list stays short */ }
+  codes = [...new Set([...LANGS_FIRST, ...codes, ...(current ? [current] : [])])];
+  const upper = (s) => s.charAt(0).toLocaleUpperCase(LOCALE) + s.slice(1);
+  const first = LANGS_FIRST.map((c) => [c, upper(langName(c))]);
+  const rest = codes.filter((c) => !LANGS_FIRST.includes(c)).map((c) => [c, upper(langName(c))])
+    .sort((a, b) => a[1].localeCompare(b[1], LOCALE));
+  return [["", t("Любой язык")], ...first, ...rest];
+}
 const SEARCH_TYPES = [["", t("Всё")], ["airing", t("Передачи")], ["channel", t("Каналы")]];
 const SEARCH_MODES = [["0", t("Обычный поиск")], ["1", t("Строгий: целые слова")]];
 const SEARCH_KEYS = ["time", "lang", "type", "strict", "genre"];
@@ -510,9 +529,13 @@ async function viewSearch(params) {
   const strict = params.get("strict") || (prefs.strict() ? "1" : "0");
   const genre = GENRES.some(([g]) => g === params.get("genre")) ? params.get("genre") : "";
   document.getElementById("search-input").value = q;
+  const langOptions = await searchLangOptions(lang);
   const filters = html`<div class="filters">
-    ${chipRow("time", SEARCH_TIMES, timeF)}${chipRow("lang", SEARCH_LANGS, lang)}${chipRow("type", SEARCH_TYPES, type)}
-    <div class="row"><select data-filter-select="genre" aria-label="${t("Тематика")}">
+    ${chipRow("time", SEARCH_TIMES, timeF)}${chipRow("type", SEARCH_TYPES, type)}
+    <div class="row"><select data-filter-select="lang" aria-label="${t("Язык")}">
+      ${langOptions.map(([c, label]) => html`<option value="${c}" ${c === lang ? raw("selected") : ""}>${label}</option>`)}
+    </select>
+    <select data-filter-select="genre" aria-label="${t("Тематика")}">
       <option value="">${t("Любая тематика")}</option>
       ${GENRES.map(([g, label]) => html`<option value="${g}" ${g === genre ? raw("selected") : ""}>${label}</option>`)}
     </select></div>
@@ -545,7 +568,7 @@ async function viewSearch(params) {
   const understood = [
     pq.terms.length ? t("слова: {0}", pq.terms.join(", ")) : null,
     pq.time ? t("время: {0}", TIMES[pq.time] || pq.time) : null,
-    pq.languages.length ? t("язык: {0}", pq.languages.map((l) => LANGS[l] || l).join(", ")) : null,
+    pq.languages.length ? t("язык: {0}", pq.languages.map(langName).join(", ")) : null,
     genre ? t("тематика: {0}", genreName(genre)) : null,
   ].filter(Boolean);
   const channels = res.items.filter((i) => i.type === "channel");
@@ -608,7 +631,7 @@ function feedLabel(f) {
   const parts = [];
   if (f.region) parts.push(f.region);
   if (f.offset_minutes) parts.push(t("{0}{1} ч", f.offset_minutes > 0 ? "+" : "", f.offset_minutes / 60));
-  if (f.audio_lang) parts.push(LANGS[f.audio_lang] || f.audio_lang);
+  if (f.audio_lang) parts.push(langName(f.audio_lang));
   return parts.join(", ") || t("Основной");
 }
 
@@ -673,7 +696,7 @@ async function viewProgramme(id) {
   const p = await api(`/programmes/${enc(id)}`);
   const now = Date.now();
   const upcoming = p.airings.filter((a) => Date.parse(a.stop) > now);
-  const meta = [p.episode_num, p.lang ? LANGS[p.lang] || p.lang : null, p.rating].filter(Boolean);
+  const meta = [p.episode_num, p.lang ? langName(p.lang) : null, p.rating].filter(Boolean);
   const other = p.titles.filter((x) => x.text !== p.title);
   return html`
     <div class="hero">
@@ -913,7 +936,7 @@ function eventItem(e) {
 }
 
 async function viewStatus() {
-  const s = await api("/status");
+  const s = await api(`/status?lang=${LANG}`);
   const running = s.running.length
     ? html`<ul class="plain">${s.running.map((r) => html`<li><span class="live">●</span> ${t("{0}, с {1}", JOB_NAMES[r.job] || r.job, time(r.since))}</li>`)}</ul>`
     : html`<p class="muted">${t("Сейчас ничего не выполняется.")}</p>`;

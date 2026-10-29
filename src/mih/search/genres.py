@@ -40,6 +40,21 @@ GENRES: dict[str, tuple[str, ...]] = {
 }
 
 
+# Genre -> the catalog's channel categories (mih.export.CATEGORIES) it also lists channels
+# of: «Для взрослых» finds adult channels even when they have no guide. Genres with no
+# category of their own list programmes only.
+GENRE_CATEGORIES: dict[str, tuple[str, ...]] = {
+    "news": ("news",), "sport": ("sport",), "movie": ("movies",), "series": ("series",),
+    "cartoon": ("kids",), "kids": ("kids",), "documentary": ("documentary",),
+    "music": ("music",), "entertainment": ("entertainment",), "religion": ("religion",),
+    "science": ("education", "documentary"), "adult": ("adult",),
+}  # fmt: skip
+
+
+def genre_categories(ids: list[str]) -> list[str]:
+    return sorted({c for gid in ids for c in GENRE_CATEGORIES.get(gid, ())})
+
+
 def genre_match(ids: list[str]) -> str:
     """An FTS5 query for programmes of any of these genres, in title or categories.
     Raises ValueError for an unknown id."""
