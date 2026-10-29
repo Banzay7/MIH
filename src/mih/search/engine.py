@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 
 from mih.epg import guide
 from mih.epg.importer import iso
+from mih.search.genres import genre_match
 from mih.search.query import ParsedQuery, parse_query, stem
 from mih.search.topics import WHOLE_WORD_BELOW, variants
 
@@ -23,6 +24,7 @@ _WEIGHTS = (10.0, 4.0, 1.0, 3.0)
 _FIELDS = ("title", "sub_title", "description", "categories")
 _CANDIDATES = 1000
 _DEFAULT_HORIZON = timedelta(days=7)
+_BROWSE_HORIZON = timedelta(hours=6)
 _PLAYABLE = "s.availability_reason IS NULL AND s.status NOT IN ('quarantine', 'archived')"
 
 
@@ -44,6 +46,8 @@ class SearchRequest:
     min_relevance: float = 0.0
     # Leave out programmes and channels with no stream that can be played.
     playable_only: bool = False
+    # Programmes of any of these genres (genres.py); channels are then left out.
+    genres: list[str] = field(default_factory=list)
 
 
 def search(conn: sqlite3.Connection, req: SearchRequest, now: datetime) -> dict:
@@ -68,7 +72,9 @@ def search(conn: sqlite3.Connection, req: SearchRequest, now: datetime) -> dict:
         airings = _airings(conn, parsed, req, now)
         out["total"]["airing"] = len(airings)
         out["items"] += airings[req.offset : req.offset + req.limit]
-    if "channel" in req.target_types and (parsed.terms or parsed.channels_only):
+    # No words: channels only when nothing narrows to programmes (all of them, by name).
+    browse = not parsed.terms and not req.genres and parsed.time is None
+    if "channel" in req.target_types and (parsed.terms or parsed.channels_only or browse):
         channels, total = _channels(conn, parsed, req)
         out["total"]["channel"] = total
         out["items"] += channels
@@ -90,10 +96,10 @@ def _override_time(parsed: ParsedQuery, name: str, now: datetime, tz: ZoneInfo) 
 def _airings(
     conn: sqlite3.Connection, parsed: ParsedQuery, req: SearchRequest, now: datetime
 ) -> list[dict]:
-    if not parsed.terms and parsed.time is None:
-        return []
     start = parsed.window_start or now
-    end = parsed.window_end or now + _DEFAULT_HORIZON
+    # No words, no genre and no time: "everything" is what is on now and in the next hours.
+    browse = not parsed.terms and not req.genres and parsed.time is None
+    end = parsed.window_end or now + (_BROWSE_HORIZON if browse else _DEFAULT_HORIZON)
     # Only feeds with a guide of their own: a +2 copy of the same show is noise here.
     guides = {g.epg_channel_id: g for g in guide.feed_guides(conn, req.channel_ids or None)
               .values() if g.shift_minutes == 0}  # fmt: skip
@@ -121,6 +127,9 @@ def _airings(
     if scores is not None:
         sql += f" AND p.rowid IN ({','.join('?' * len(scores))})"
         params += list(scores)
+    if req.genres:
+        sql += " AND p.rowid IN (SELECT rowid FROM programme_fts WHERE programme_fts MATCH ?)"
+        params.append(genre_match(req.genres))
     sql += " ORDER BY a.start_utc"
     rows = conn.execute(sql, params).fetchall()
 
