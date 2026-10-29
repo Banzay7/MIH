@@ -37,6 +37,7 @@ const PAGE_SIZES = [20, 50, 100];
 const RELEVANCE = [["0", "Все совпадения"], ["0.3", "Хорошие совпадения"], ["0.7", "Только лучшие"]];
 const prefs = {
   pageSize: () => (PAGE_SIZES.includes(Number(store.get("mih.pageSize"))) ? Number(store.get("mih.pageSize")) : 50),
+  nowSize: () => (PAGE_SIZES.includes(Number(store.get("mih.nowSize"))) ? Number(store.get("mih.nowSize")) : 50),
   strict: () => store.get("mih.strict") === "1",
   relevance: () => (RELEVANCE.some(([v]) => v === store.get("mih.relevance")) ? store.get("mih.relevance") : "0"),
   playableOnly: () => store.get("mih.playable") === "1",
@@ -212,9 +213,8 @@ function initials(name) {
     .slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?";
 }
 
-function logo(channelId, name, big = false) {
-  const ch = state.channels.get(channelId);
-  const url = ch?.logo_url;
+function logo(channelId, name, big = false, logoUrl = null) {
+  const url = logoUrl || state.channels.get(channelId)?.logo_url;
   const cls = big ? "logo big" : "logo";
   if (url && /^https?:\/\//i.test(url) && prefs.logos()) {
     return html`<img class="${cls}" src="${url}" alt="" loading="lazy" referrerpolicy="no-referrer"
@@ -268,10 +268,10 @@ function toast(text, ms = 3000) {
 const pagers = new Map();
 let pagerSeq = 0;
 
-function paged(items, card, { total = items.length, fetchMore = null } = {}) {
+function paged(items, card, { total = items.length, fetchMore = null, size = prefs.pageSize() } = {}) {
   const id = `list-${++pagerSeq}`;
-  const first = items.slice(0, prefs.pageSize());
-  pagers.set(id, { items, card, total, fetchMore, shown: first.length });
+  const first = items.slice(0, size);
+  pagers.set(id, { items, card, total, fetchMore, size, shown: first.length });
   return html`<div class="grid" id="${id}">${first.map(card)}</div>${moreButton(id)}`;
 }
 
@@ -279,7 +279,7 @@ function moreButton(id) {
   const p = pagers.get(id);
   const left = p.total - p.shown;
   if (left <= 0) return "";
-  const next = Math.min(left, prefs.pageSize());
+  const next = Math.min(left, p.size);
   return html`<button class="btn more" type="button" data-more="${id}">Показать ещё ${next} · осталось ${nf.format(left)}</button>`;
 }
 
@@ -288,7 +288,7 @@ async function showMore(btn) {
   const p = pagers.get(id);
   const list = document.getElementById(id);
   if (!p || !list) return;
-  const size = prefs.pageSize();
+  const size = p.size;
   btn.disabled = true;
   try {
     if (p.fetchMore && p.items.length < Math.min(p.total, p.shown + size)) {
@@ -315,7 +315,7 @@ function nowCard(item) {
   const name = item.channel_name || state.channels.get(item.channel_id)?.canonical_name || "Канал";
   const cur = item.now, nxt = item.next;
   return html`<article class="card">
-    ${logo(item.channel_id, name)}
+    ${logo(item.channel_id, name, false, item.logo_url)}
     <div class="body">
       <a class="stretch title" href="#/channel/${enc(item.channel_id)}">${name}</a>
       ${cur ? html`<div class="line">${cur.title}</div>${progress(cur)}
@@ -331,7 +331,7 @@ function airingCard(a) {
   const name = a.channel_name || state.channels.get(a.channel_id)?.canonical_name || "";
   const why = (a.why_matched || []).filter((w) => w.field !== "time" && w.field !== "language");
   return html`<article class="card">
-    ${logo(a.channel_id, name)}
+    ${logo(a.channel_id, name, false, a.logo_url)}
     <div class="body">
       <a class="stretch title" href="#/programme/${enc(a.programme_id)}">${a.title}</a>
       ${a.sub_title ? html`<div class="small line">${a.sub_title}</div>` : ""}
@@ -366,32 +366,33 @@ function channelCard(c) {
 
 // ---------- Views ----------
 
+// The server cuts the guide into pages: the screen asks for one page of "on air", the
+// next few starts and the favourites, not the whole guide or the whole catalog.
 async function viewHome() {
   render(html`<h1>Сейчас в эфире</h1>${skeleton()}`);
-  await Promise.all([loadChannels(), loadFavorites()]);
-  const data = await api("/now");
-  if (!state.channels.size) {
+  const size = prefs.nowSize();
+  const playable = prefs.playableOnly() ? "&playable_only=true" : "";
+  const [, data, soon] = await Promise.all([loadFavorites(),
+    api(`/now?on_air=true&limit=${size}${playable}`), api(`/now?soon=45&limit=12${playable}`)]);
+  if (!data.channels) {
     return html`<h1>Сейчас в эфире</h1>
       <div class="empty"><p>Каталог пока пуст.</p>
       <p class="small">Добавьте свой плейлист и программу передач (EPG): командой
       <code>mih import-file</code> или через API, см. <a href="/api/docs">документацию API</a>.</p></div>`;
   }
-  const favIds = new Set([...state.favorites].filter((k) => k.startsWith("channel:")).map((k) => k.slice(8)));
-  const onAir = data.items.filter((i) => i.now);
-  const favNow = onAir.filter((i) => favIds.has(i.channel_id));
-  const soonLimit = Date.now() + 45 * 60000;
-  const soon = data.items.filter((i) => i.next && Date.parse(i.next.start) <= soonLimit)
-    .sort((a, b) => Date.parse(a.next.start) - Date.parse(b.next.start)).slice(0, 12);
-  const noGuide = state.channels.size - new Set(data.items.map((i) => i.channel_id)).size;
-  const all = prefs.playableOnly() ? onAir.filter((i) => state.channels.get(i.channel_id)?.streams !== 0) : onAir;
+  const favIds = [...state.favorites].filter((k) => k.startsWith("channel:")).map((k) => k.slice(8));
+  const favNow = favIds.length
+    ? (await api(`/now?on_air=true&${favIds.map((id) => `channel_id=${enc(id)}`).join("&")}`)).items : [];
+  const noGuide = data.channels - data.guided;
+  const more = async (offset, limit) => (await api(`/now?on_air=true&limit=${limit}&offset=${offset}${playable}`)).items;
   return html`
     ${heading("Сейчас в эфире")}
-    <p class="muted small">${onAir.length} в эфире · ${state.channels.size} каналов в каталоге${noGuide > 0 ? ` · без программы: ${noGuide}` : ""}</p>
+    <p class="muted small">${nf.format(data.total)} в эфире · ${nf.format(data.channels)} каналов в каталоге${noGuide > 0 ? ` · без программы: ${nf.format(noGuide)}` : ""}</p>
     ${favNow.length ? html`<h2>Избранное</h2><div class="grid">${favNow.map(nowCard)}</div>` : ""}
-    ${soon.length ? html`<h2>Скоро начнётся</h2><div class="grid">${soon.map((i) => airingCard({
-      ...i.next, channel_name: i.channel_name }))}</div>` : ""}
-    <h2>Все каналы в эфире${all.length ? ` · ${nf.format(all.length)}` : ""}</h2>
-    ${all.length ? paged(all, nowCard)
+    ${soon.items.length ? html`<h2>Скоро начнётся</h2><div class="grid">${soon.items.map((i) => airingCard({
+      ...i.next, channel_name: i.channel_name, logo_url: i.logo_url }))}</div>` : ""}
+    <h2>Все каналы в эфире${data.total ? ` · ${nf.format(data.total)}` : ""}</h2>
+    ${data.total ? paged(data.items, nowCard, { total: data.total, fetchMore: more, size })
       : html`<div class="empty">Нет данных о текущем эфире. Загрузите программу передач (EPG).</div>`}`;
 }
 
@@ -595,7 +596,7 @@ function alertCard(m) {
   });
 }
 
-function topicsBlock(topics, upcoming) {
+function topicsBlock(topics, upcoming, total = upcoming.length) {
   return html`<h2>Темы</h2>
     <p class="small muted">Перед началом передачи по теме придёт пуш со ссылкой на запуск. Тема ищется в названии, подзаголовке и жанре передачи, с начала слова.</p>
     ${topics.length ? html`<div class="chips">${topics.map((t) => html`<button type="button" class="chip on" data-topic-del="${t.topic}"
@@ -605,27 +606,29 @@ function topicsBlock(topics, upcoming) {
         placeholder="Например: футбол, формула 1, роботы">
       <button class="btn tv" type="submit">Следить</button>
     </form>
-    ${upcoming.length ? html`<h2>Скоро по вашим темам</h2><div class="grid">${upcoming.map(alertCard)}</div>`
+    ${upcoming.length ? html`<h2>Скоро по вашим темам${total > upcoming.length ? ` · первые ${upcoming.length} из ${nf.format(total)}` : ""}</h2><div class="grid">${upcoming.map(alertCard)}</div>`
       : topics.length ? html`<p class="muted small">В ближайшие сутки по вашим темам на рабочих каналах ничего нет.</p>` : ""}`;
 }
 
+// Favourites need only their own rows: the topics block, which reads a day of the whole
+// guide, fills in after the list is already on screen.
 async function viewFavorites() {
   render(html`<h1>Избранное</h1>${skeleton(3)}`);
-  const [items, , topics, upcoming] = await Promise.all([loadFavorites(), loadChannels(),
-    api(`/profiles/${PROFILE}/topics`), api(`/profiles/${PROFILE}/alerts/upcoming?hours=24`)]);
-  const topicsHtml = topicsBlock(topics.items, upcoming.items);
+  const items = await loadFavorites();
   const channels = items.filter((f) => f.target_kind === "channel");
   const programmes = items.filter((f) => f.target_kind === "programme");
-  let nowBy = new Map();
+  const nowBy = new Map();
   const present = channels.filter((f) => f.name);
   if (present.length) {
     const qs = present.map((f) => `channel_id=${enc(f.target_id)}`).join("&");
     const data = await api(`/now?${qs}`);
     data.items.forEach((i) => { if (!nowBy.has(i.channel_id)) nowBy.set(i.channel_id, i); });
   }
+  queueMicrotask(fillTopics);
+  const topicsSlot = html`<div id="topics-slot"><h2>Темы</h2><p class="small muted">Загружаю темы…</p></div>`;
   if (!items.length) {
-    return html`<h1>Избранное</h1><div class="empty"><p>Здесь пока пусто.</p>
-      <p class="small">Нажмите ★ у канала или передачи, чтобы добавить.</p></div>${topicsHtml}`;
+    return html`${heading("Избранное")}<div class="empty"><p>Здесь пока пусто.</p>
+      <p class="small">Нажмите ★ у канала или передачи, чтобы добавить.</p></div>${topicsSlot}`;
   }
   return html`${heading("Избранное")}
     ${channels.length ? html`<h2>Каналы</h2><div class="grid">${channels.map((f) => {
@@ -635,12 +638,25 @@ async function viewFavorites() {
           <div class="small muted">Избранное сохранено: канал вернётся, когда появится в источнике.</div></div>
           <div class="actions">${star("channel", f.target_id)}</div></article>`;
       }
-      return nowCard(nowBy.get(f.target_id) || { channel_id: f.target_id, channel_name: f.name });
+      return nowCard({ logo_url: f.logo_url, ...(nowBy.get(f.target_id) || { channel_id: f.target_id, channel_name: f.name }) });
     })}</div>` : ""}
     ${programmes.length ? html`<h2>Передачи</h2><div class="grid">${programmes.map((f) => html`<article class="card">
       <div class="body"><a class="stretch title" href="#/programme/${enc(f.target_id)}">${f.name || "Передача удалена из программы"}</a></div>
       <div class="actions">${star("programme", f.target_id)}</div></article>`)}</div>` : ""}
-    ${topicsHtml}`;
+    ${topicsSlot}`;
+}
+
+async function fillTopics() {
+  const seq = renderSeq;
+  try {
+    const [topics, upcoming] = await Promise.all([api(`/profiles/${PROFILE}/topics`),
+      api(`/profiles/${PROFILE}/alerts/upcoming?hours=24&limit=${prefs.pageSize()}`)]);
+    const slot = document.getElementById("topics-slot");
+    if (slot && seq === renderSeq) slot.innerHTML = String(topicsBlock(topics.items, upcoming.items, upcoming.total));
+  } catch (e) {
+    const slot = document.getElementById("topics-slot");
+    if (slot && seq === renderSeq) slot.innerHTML = String(errorBox(e));
+  }
 }
 
 async function viewSettings() {
@@ -665,7 +681,12 @@ async function viewSettings() {
     <div class="field">
       <label for="pref-size">Сколько показывать сразу</label>
       <select id="pref-size">${PAGE_SIZES.map((n) => html`<option value="${n}" ${n === prefs.pageSize() ? raw("selected") : ""}>${n}</option>`)}</select>
-      <span class="small muted">На страницах «Эфир», «Каналы» и «Поиск»; остальное по кнопке «Показать ещё».</span>
+      <span class="small muted">На страницах «Каналы» и «Поиск»; остальное по кнопке «Показать ещё».</span>
+    </div>
+    <div class="field">
+      <label for="pref-now-size">Сколько каналов в эфире показывать сразу</label>
+      <select id="pref-now-size">${PAGE_SIZES.map((n) => html`<option value="${n}" ${n === prefs.nowSize() ? raw("selected") : ""}>${n}</option>`)}</select>
+      <span class="small muted">На странице «Эфир»; чем меньше, тем быстрее она открывается.</span>
     </div>
     <div class="field">
       <span>Поиск по умолчанию</span>
@@ -1094,7 +1115,7 @@ document.addEventListener("submit", (e) => {
 });
 
 // Settings save as they change; nothing on screen reloads by itself.
-const PREF_KEYS = { "pref-size": "mih.pageSize", "pref-relevance": "mih.relevance" };
+const PREF_KEYS = { "pref-size": "mih.pageSize", "pref-now-size": "mih.nowSize", "pref-relevance": "mih.relevance" };
 document.addEventListener("change", (e) => {
   const t = e.target;
   if (PREF_KEYS[t.id]) { store.set(PREF_KEYS[t.id], t.value); toast("Сохранено"); }

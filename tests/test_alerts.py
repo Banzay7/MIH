@@ -184,6 +184,12 @@ def test_upcoming_lists_what_alerts_will_announce(client):
     assert item["title"] == "Футбол" and item["channels"][0]["name"] == "Первый канал HD"
     assert item["reasons"] == [{"profile_id": "default", "kind": "topic", "value": "футбол"}]
     assert client.get("/api/v1/profiles/default/alerts/upcoming").status_code == 401
+    capped = client.get("/api/v1/profiles/default/alerts/upcoming?hours=2&limit=1", headers=h)
+    assert capped.json()["total"] == 1 and len(capped.json()["items"]) == 1
+    # A new topic clears the kept answer: the next read sees it at once.
+    client.post("/api/v1/profiles/default/topics", json={"topic": "кино"}, headers=h)
+    assert client.get("/api/v1/profiles/default/alerts/upcoming?hours=2",
+                      headers=h).json()["rules"] == 2  # fmt: skip
 
 
 def test_play_link_opens_one_channel_with_its_key(client):
