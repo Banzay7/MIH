@@ -39,8 +39,9 @@ from mih.epg.service import (
 from mih.health.policy import HealthPolicy
 from mih.identity.normalize import fold
 from mih.ids import utc_now
-from mih.report import read_report, report_path, write_report
+from mih.report import read_countries, read_report, report_path, write_report
 from mih.search.engine import SearchRequest, search
+from mih.search.genres import GENRES
 from mih.search.index import ensure_index
 from mih.sources.fetch import FetchError
 from mih.sources.importer import ImportReport, import_m3u
@@ -70,6 +71,7 @@ class SearchFilters(BaseModel):
     start: datetime | None = Field(default=None, alias="from")
     end: datetime | None = Field(default=None, alias="to")
     channel_ids: list[str] = Field(default_factory=list, max_length=500)
+    genres: list[str] = Field(default_factory=list, max_length=len(GENRES))
 
 
 class SearchIn(BaseModel):
@@ -302,7 +304,11 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             f"{where} ORDER BY c.canonical_name COLLATE NOCASE LIMIT ? OFFSET ?",
             (*params, limit, offset),
         ).fetchall()
-        items = [{**dict(r), "has_epg": bool(r["has_epg"])} for r in rows]
+        # Countries as «Покрытие» counts them (playlists, iptv-org ids, language).
+        known = read_countries(settings.data_dir)
+        items = [{**dict(r), "has_epg": bool(r["has_epg"]),
+                  "countries": known.get(r["id"]) or ([r["country"]] if r["country"] else [])}
+                 for r in rows]  # fmt: skip
         return {"items": items, "limit": limit, "offset": offset}
 
     @app.get("/api/v1/channels/{channel_id}", dependencies=auth)
@@ -600,6 +606,9 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         if unknown:
             raise ApiError("validation_error", f"unsupported target_types: {sorted(unknown)}")
         f = body.filters
+        bad = sorted(set(f.genres) - GENRES.keys())
+        if bad:
+            raise ApiError("validation_error", f"unknown genres: {bad}")
         req = SearchRequest(query=body.query, target_types=body.target_types,
                             languages=f.languages, time=f.time,
                             start=_aware(f.start) if f.start else None,
@@ -607,7 +616,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
                             channel_ids=f.channel_ids, tz=tz, limit=body.limit,
                             offset=body.offset, strict=body.strict,
                             min_relevance=body.min_relevance,
-                            playable_only=body.playable_only)  # fmt: skip
+                            playable_only=body.playable_only, genres=f.genres)  # fmt: skip
         return search(conn, req, datetime.now(UTC))
 
     @app.get("/api/v1/metrics/summary", dependencies=auth)

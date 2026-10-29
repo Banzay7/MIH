@@ -10,7 +10,7 @@ from mih import scheduler
 from mih.api.app import create_app
 from mih.epg.importer import import_xmltv
 from mih.epg.service import create_epg_source
-from mih.report import build_report, read_report, report_path, write_report
+from mih.report import build_report, read_countries, read_report, report_path, write_report
 from tests.test_epg_auto import NOW, _guide, working  # noqa: F401  (fixture)
 
 
@@ -33,6 +33,11 @@ def test_report_file_is_throttled_and_keeps_one_point_a_day(conn, settings, work
     path = report_path(settings.data_dir)
     first = write_report(conn, path, now=NOW)
     assert first and [p["day"] for p in first["history"]] == [NOW.strftime("%Y-%m-%d")]
+    # Each channel's countries go to their own file, for the «Каналы» filter.
+    assert "_countries" not in first and "_countries" not in path.read_text()
+    countries = read_countries(settings.data_dir)
+    assert countries and all(v and "?" not in v for v in countries.values())
+    assert sum("DE" in v for v in countries.values()) == 4
     # Fresh enough: not rebuilt.
     assert write_report(conn, path, now=NOW) is None
     # A later run on the same day replaces that day's point; a new day adds one.

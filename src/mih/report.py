@@ -18,7 +18,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from mih.discovery.scout import summary
-from mih.epg.coverage import countries_of, guide_sources
+from mih.epg.coverage import NO_COUNTRY, countries_of, guide_sources
 from mih.export import build_catalog
 from mih.lists import ListFilter, build_list, enrich
 
@@ -35,6 +35,20 @@ def report_path(data_dir: Path) -> Path:
     return data_dir / "report.json"
 
 
+def countries_path(data_dir: Path) -> Path:
+    """Each channel's countries as the report counts them, for the «Каналы» country filter.
+    Kept apart from the report, which holds counts only."""
+    return data_dir / "channel_countries.json"
+
+
+def read_countries(data_dir: Path) -> dict[str, list[str]]:
+    try:
+        v = json.loads(countries_path(data_dir).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return v if isinstance(v, dict) else {}
+
+
 def build_report(conn: sqlite3.Connection, *, now: datetime | None = None,
                  catalog: list[dict] | None = None) -> dict:  # fmt: skip
     """Counts only: no URLs, no channel lists."""
@@ -48,6 +62,7 @@ def build_report(conn: sqlite3.Connection, *, now: datetime | None = None,
 
     funnel: Counter = Counter()
     by_country: dict[str, Counter] = defaultdict(Counter)
+    per_channel: dict[str, list[str]] = {}
     for ch in catalog:
         steps = {"all": True, "streams": any(f["streams"] for f in ch["feeds"]),
                  "working": ch["id"] in working}  # fmt: skip
@@ -56,6 +71,9 @@ def build_report(conn: sqlite3.Connection, *, now: datetime | None = None,
             funnel[key] += steps[key]
             for cc in countries_of(ch):
                 by_country[cc][key] += steps[key]
+        known = [cc for cc in countries_of(ch) if cc != NO_COUNTRY]
+        if known:
+            per_channel[ch["id"]] = known
 
     countries = [{"country": cc, **{k: c[k] for k in _STAGES}} for cc, c in by_country.items()]
     countries.sort(key=lambda r: (-r["all"], r["country"]))
@@ -69,6 +87,7 @@ def build_report(conn: sqlite3.Connection, *, now: datetime | None = None,
         "new_streams": _new_streams(conn, now),
         "discovery": disc,
         "guides": _guides(conn),
+        "_countries": per_channel,  # written to its own file by write_report
     }
 
 
@@ -143,6 +162,7 @@ def write_report(
     if age is not None and -60 < age < every.total_seconds():
         return None
     report = build_report(conn, now=now, catalog=catalog)
+    per_channel = report.pop("_countries")
     # One point a day: the latest numbers of the day replace the earlier ones.
     old = (read_report(path) or {}).get("history", [])
     point = _point(report)
@@ -156,4 +176,8 @@ def write_report(
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(report, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     os.replace(tmp, path)
+    cpath = countries_path(path.parent)
+    tmp = cpath.with_suffix(".tmp")
+    tmp.write_text(json.dumps(per_channel, separators=(",", ":")), encoding="utf-8")
+    os.replace(tmp, cpath)
     return report

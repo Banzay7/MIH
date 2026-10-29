@@ -9,6 +9,7 @@ from mih.epg.importer import import_xmltv
 from mih.epg.mapping import set_manual
 from mih.epg.service import create_epg_source
 from mih.search.engine import SearchRequest, search
+from mih.search.genres import genre_match
 from mih.search.index import ensure_index
 from mih.search.query import parse_query, stem
 from mih.sources.importer import import_m3u
@@ -259,3 +260,30 @@ def test_language_with_a_channel_word_lists_that_countrys_channels(loaded):
         assert [i["channel_name"] for i in result["items"]] == ["VTV1 Thời sự FHD"], query
     # Without a language, "канал" is an ordinary word of a name.
     assert _find(loaded, "первый канал", target_types=["channel"])["items"]
+
+
+def test_a_genre_alone_filters_by_category_or_title(loaded):
+    # «Ёлки» is marked «Кино» in its category; the football match only in its title.
+    assert [t for t, _ in _titles(_find(loaded, "", genres=["movie"]))] == ["Ёлки"]
+    sport = [t for t, _ in _titles(_find(loaded, "", genres=["sport"]))]
+    assert sport == ["Bóng đá: Ngoại hạng Anh", "Football Weekly"]
+    # Several genres: any of them; words and a genre: both.
+    both = _find(loaded, "", genres=["movie", "news"])
+    assert {t for t, _ in _titles(both)} == {"Ёлки", "Thời sự 12h"}
+    assert _titles(_find(loaded, "football", genres=["movie"])) == []
+    assert not [i for i in both["items"] if i["type"] == "channel"]  # programmes only
+
+
+def test_an_empty_query_lists_what_is_on_now_and_next_and_every_channel(loaded):
+    result = _find(loaded, "", limit=50)
+    titles = [t for t, _ in _titles(result)]
+    # From now on, in start order, for the next hours; the past and tomorrow are left out.
+    starts = [s for _, s in _titles(result)]
+    assert titles[0] == "Жить здорово!" and starts == sorted(starts)
+    assert max(starts) < (NOW + 6 * H).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert result["total"]["channel"] == count(loaded, "channels")
+
+
+def test_an_unknown_genre_is_refused():
+    with pytest.raises(ValueError):
+        genre_match(["nope"])
