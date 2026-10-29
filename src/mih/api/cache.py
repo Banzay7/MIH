@@ -11,6 +11,7 @@ one meanwhile: nobody waits on a rebuild except the very first visitor.
 Everything is also dropped when the data version moves: a playlist or guide import, a
 stream check, or a favourite or topic changed. The browser gets that version with every
 answer and keeps its own copies until it moves, so opening a tab again costs nothing.
+A new release moves it too: the same data searched by new code can answer differently.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from fastapi import Request
 from fastapi.responses import Response
@@ -45,9 +47,25 @@ _VERSION_SQL = (
 )
 
 
+def _code_version() -> str:
+    """A fingerprint of this install's code, read once: the package version stays the
+    same between deploys of the main branch, the files do not."""
+    root = Path(__file__).resolve().parent.parent
+    h = hashlib.blake2b(digest_size=6)
+    for path in sorted(root.rglob("*")):
+        if path.suffix in (".py", ".js", ".html", ".css", ".sql") and path.is_file():
+            h.update(str(path.relative_to(root)).encode())
+            h.update(path.read_bytes())
+    return h.hexdigest()
+
+
+CODE_VERSION = _code_version()
+
+
 def data_version(conn: sqlite3.Connection) -> str:
     row = conn.execute(_VERSION_SQL).fetchone()
-    return hashlib.blake2b(repr(tuple(row)).encode(), digest_size=6).hexdigest()
+    key = repr((CODE_VERSION, *tuple(row)))
+    return hashlib.blake2b(key.encode(), digest_size=6).hexdigest()
 
 
 @dataclass(frozen=True)
