@@ -288,4 +288,8 @@ def test_the_data_version_moves_with_background_changes_and_drops_shared_answers
     assert v2 != v1 and not any(k.startswith("channels:") for k in shared._items)
     # Personal lists are part of it: another device sees the change.
     assert client.post("/api/v1/profiles/default/topics", json={"topic": "футбол"}).is_success
-    assert anon.get("/api/v1/data-version").json()["data"] != v2
+    v3 = anon.get("/api/v1/data-version").json()["data"]
+    assert v3 != v2
+    # A new release on the same data: answers kept by browsers may be out of date.
+    monkeypatch.setattr(cache_mod, "CODE_VERSION", "next-release")
+    assert anon.get("/api/v1/data-version").json()["data"] != v3
