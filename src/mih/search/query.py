@@ -58,6 +58,7 @@ _LANG_PREFIXES = {
     "en": ("англ", "english"),
     "vi": ("вьетнам", "vietnam", "tieng viet"),
 }
+_CHANNEL_WORD_RE = re.compile(r"^(канал\w*|channels?|kenh)$")
 _LANG_PHRASES = {"tieng nga": "ru", "tieng anh": "en"}
 _LANG_GLUE = {"на", "in", "по", "bang"}
 
@@ -89,6 +90,8 @@ class ParsedQuery:
     window_start: datetime | None = None
     window_end: datetime | None = None
     past: bool = False
+    # "вьетнамские каналы": a language with a word for channels asks for a channel list.
+    channels_only: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -97,6 +100,7 @@ class ParsedQuery:
             "time": self.time,
             "from": _iso(self.window_start),
             "to": _iso(self.window_end),
+            "channels_only": self.channels_only,
         }
 
 
@@ -127,6 +131,10 @@ def parse_query(text: str, now: datetime, tz: ZoneInfo) -> ParsedQuery:
         elif tok not in stopwords and (len(tok) > 1 or tok.isdigit()):
             q.terms.append(tok)
         i += 1
+
+    if q.languages and any(_CHANNEL_WORD_RE.match(t) for t in q.terms):
+        q.terms = [t for t in q.terms if not _CHANNEL_WORD_RE.match(t)]
+        q.channels_only = True
 
     if is_now:
         q.time, q.window_start, q.window_end = "now", now, now + timedelta(seconds=1)
