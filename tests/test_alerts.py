@@ -115,6 +115,23 @@ def test_category_word_prefix_and_favourite_programme(conn, pushing):
     assert found[0].reasons[0].kind == "programme"
 
 
+def test_the_text_index_narrows_but_the_rules_decide(conn, pushing, monkeypatch):
+    _load(conn, pushing, _guide(
+        _p("Perviy.ru", 5 * M, 30, "Гран-при", sub="Формула 1. Квалификация"),
+        _p("Perviy.ru", 6 * M, 30, "Формула любви"),  # "формула 1" needs both words
+        _p("Perviy.ru", 7 * M, 30, "Новости", category="Футбол"),
+        _p("Perviy.ru", 8 * M, 30, "Погода"),
+    ))  # fmt: skip
+    _follow(conn, "формула 1", "футбол")
+    rules = load_rules(conn)
+    found = find_matches(conn, NOW, NOW + 15 * M, NOW, rules)
+    assert [m.title for m in found] == ["Гран-при", "Новости"]
+    monkeypatch.setattr("mih.alerts._fts_match", lambda rules: None)  # read every airing
+    assert [m.title for m in find_matches(conn, NOW, NOW + 15 * M, NOW, rules)] == [
+        m.title for m in found
+    ]
+
+
 def test_series_back_to_back_and_dead_channels_are_skipped(conn, pushing):
     _load(conn, pushing, _guide(
         _p("Perviy.ru", 2 * M, 30, "Сериал «След»"),
