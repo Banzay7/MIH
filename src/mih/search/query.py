@@ -92,6 +92,9 @@ class ParsedQuery:
     past: bool = False
     # "вьетнамские каналы": a language with a word for channels asks for a channel list.
     channels_only: bool = False
+    # Vietnamese letters and no language named: Vietnamese programmes and channels are
+    # meant, so look there first (the search widens to all when nothing is there).
+    language_from_script: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -101,6 +104,7 @@ class ParsedQuery:
             "from": _iso(self.window_start),
             "to": _iso(self.window_end),
             "channels_only": self.channels_only,
+            "language_from_script": self.language_from_script,
         }
 
 
@@ -108,7 +112,8 @@ def parse_query(text: str, now: datetime, tz: ZoneInfo) -> ParsedQuery:
     q = ParsedQuery(text=text)
     tokens = _join_phrases(_WORD_RE.findall(fold(text).replace("-", " ")))
     stopwords = _STOPWORDS
-    if _VI_LETTERS_RE.search(text.casefold()):
+    vi_script = bool(_VI_LETTERS_RE.search(text.casefold()))
+    if vi_script:
         stopwords = (_STOPWORDS - _EN_STOPWORDS_ALSO_VI) | _VI_STOPWORDS
     day: int | None = None
     part: tuple[int, int] | None = None
@@ -132,6 +137,8 @@ def parse_query(text: str, now: datetime, tz: ZoneInfo) -> ParsedQuery:
             q.terms.append(tok)
         i += 1
 
+    if vi_script and not q.languages:
+        q.languages, q.language_from_script = ["vi"], True
     if q.languages and any(_CHANNEL_WORD_RE.match(t) for t in q.terms):
         q.terms = [t for t in q.terms if not _CHANNEL_WORD_RE.match(t)]
         q.channels_only = True
