@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from mih import db
 from mih.api.app import create_app
 from mih.config import ConfigError, Settings
 from tests.conftest import fixture_bytes
@@ -261,3 +262,29 @@ def test_a_stale_shared_answer_is_served_while_another_request_rebuilds_it():
     release.set()
     rebuild.join()
     assert builds == [1, 2]
+
+
+def test_the_data_version_moves_with_background_changes_and_drops_shared_answers(
+    client, monkeypatch
+):
+    from mih.api import cache as cache_mod
+
+    monkeypatch.setattr(cache_mod, "VERSION_EVERY", 0.0)
+    anon = TestClient(client.app)
+    v1 = anon.get("/api/v1/data-version").json()["data"]
+    assert v1 and anon.get("/api/v1/data-version").json()["data"] == v1  # stable while idle
+    first = client.get("/api/v1/channels?limit=10000")
+    assert first.headers["x-mih-data"] == v1
+    assert first.headers["cache-control"] == "private, no-cache"
+    shared = client.app.state.cache
+    assert shared._items
+    # A job finishing in the scheduler's own process: the API only sees the database.
+    other = db.connect(client.app.state.settings.db_path)
+    with other:
+        other.execute("INSERT OR REPLACE INTO jobs (name, last_finished_at) VALUES ('epg', 'x')")
+    other.close()
+    v2 = client.get("/api/v1/metrics/summary").headers["x-mih-data"]
+    assert v2 != v1 and not any(k.startswith("channels:") for k in shared._items)
+    # Personal lists are part of it: another device sees the change.
+    assert client.post("/api/v1/profiles/default/topics", json={"topic": "футбол"}).is_success
+    assert anon.get("/api/v1/data-version").json()["data"] != v2
