@@ -180,7 +180,8 @@ def test_search_endpoint(client):
             "to": "2026-10-27T00:00:00Z"}, "tz": "Europe/Moscow"}  # fmt: skip
     result = client.post("/api/v1/search", json=body).json()
     airings = [i for i in result["items"] if i["type"] == "airing"]
-    assert [(a["title"], a["more_airings"]) for a in airings] == [("Новости", 1)]
+    # "новости" also finds the Vietnamese news ("Thời sự"), in start order.
+    assert [(a["title"], a["more_airings"]) for a in airings] == [("Thời sự", 0), ("Новости", 1)]
     assert result["query"]["time"] == "custom"
 
     bad_tz = client.post("/api/v1/search", json={"query": "x", "tz": "Mars/Base"})

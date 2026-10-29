@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 from mih.epg import guide
 from mih.epg.importer import iso
 from mih.search.query import ParsedQuery, parse_query, stem
+from mih.search.topics import WHOLE_WORD_BELOW, variants
 
 # bm25() column weights: title, sub_title, description, categories.
 _WEIGHTS = (10.0, 4.0, 1.0, 3.0)
@@ -127,7 +128,7 @@ def _airings(
     names = _names(conn, {g.channel_id for g in guides.values()})
     seen: dict[tuple[str, str], dict] = {}
     for r in rows:
-        lang = r["lang"] or _guess_lang(r["title"])
+        lang = _lang_code(r["lang"]) or _guess_lang(r["title"])
         if parsed.languages and lang not in parsed.languages:
             continue
         g = guides[r["epg_channel_id"]]
@@ -162,7 +163,8 @@ def _text_matches(
     conn: sqlite3.Connection, terms: list[str], strict: bool = False
 ) -> dict[int, float]:
     """rowid -> bm25 (lower is better). All terms must match; trigram as a fallback,
-    except in strict mode, where every term is a whole word."""
+    except in strict mode, where every term is a whole word as typed. Otherwise a term
+    that names a common topic also matches it in the other languages (topics.py)."""
     expr = _quote if strict else _term_expr
     match = " AND ".join(expr(t) for t in terms)
     rows = conn.execute(
@@ -185,10 +187,19 @@ def _text_matches(
 
 
 def _term_expr(term: str) -> str:
+    parts = [_quote(f) + ("*" if prefix else "") for f, prefix in _forms(term)]
+    return parts[0] if len(parts) == 1 else "(" + " OR ".join(parts) + ")"
+
+
+def _forms(term: str) -> list[tuple[str, bool]]:
+    """(form, is word prefix): the term, its stem and its translations. A short
+    translation such as "car" is a whole word, or it would also match "card"."""
+    out = [(term, True)]
     s = stem(term)
-    if s == term:
-        return f"{_quote(term)}*"
-    return f"({_quote(term)}* OR {_quote(s)}*)"
+    if s != term:
+        out.append((s, True))
+    out += [(v, len(v) >= WHOLE_WORD_BELOW or " " in v) for v in variants(term)[1:]]
+    return out
 
 
 def _quote(text: str) -> str:
@@ -204,13 +215,9 @@ def _why(
     ).fetchone()
     why = []
     for term in parsed.terms:
-        s = stem(term)
+        forms = [(term, False)] if strict else _forms(term)
         for f in _FIELDS:
-            words = re.findall(r"[\w+]+", row[f] or "")
-            if strict:
-                hit = next((w for w in words if w.casefold() == term), None)
-            else:
-                hit = next((w for w in words if w.startswith(s)), None)
+            hit = _hit(row[f] or "", forms)
             if hit:
                 why.append({"field": f, "term": term, "matched": hit})
                 break
@@ -222,6 +229,19 @@ def _why(
     if parsed.languages:
         why.append({"field": "language", "term": lang})
     return why
+
+
+def _hit(text: str, forms: list[tuple[str, bool]]) -> str | None:
+    """The word (or phrase) of text that one of the forms matched."""
+    words = re.findall(r"[\w+]+", text)
+    for form, prefix in forms:
+        n = form.count(" ") + 1
+        for i in range(len(words) - n + 1):
+            *head, last = words[i : i + n]
+            *fhead, flast = form.split(" ")
+            if head == fhead and (last.startswith(flast) if prefix else last == flast):
+                return " ".join(words[i : i + n])
+    return None
 
 
 def _channels(
@@ -237,9 +257,13 @@ def _channels(
                            " OR a.value LIKE ? ESCAPE '\\'))")  # fmt: skip
             params += [term, t + " %", "% " + t + " %", "% " + t]
         else:
+            # "спорт" also finds "Eurosport"; names match inside words, so no short forms.
+            forms = [t] + [_like_escape(v) for v in variants(term)[1:]
+                           if len(v) >= WHOLE_WORD_BELOW]  # fmt: skip
+            likes = " OR ".join(["a.value LIKE ? ESCAPE '\\'"] * len(forms))
             clauses.append("EXISTS (SELECT 1 FROM channel_aliases a WHERE a.channel_id = c.id"
-                           " AND a.kind = 'name' AND a.value LIKE ? ESCAPE '\\')")  # fmt: skip
-            params.append("%" + t + "%")
+                           f" AND a.kind = 'name' AND ({likes}))")  # fmt: skip
+            params += ["%" + f + "%" for f in forms]
     if req.playable_only:
         clauses.append(f"EXISTS (SELECT 1 FROM streams s JOIN feeds f ON f.id = s.feed_id"
                        f" WHERE f.channel_id = c.id AND {_PLAYABLE})")  # fmt: skip
@@ -283,6 +307,17 @@ def _names(conn: sqlite3.Connection, ids: set[str]) -> dict[str, str]:
 
 
 _VI_LETTERS = set("ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ")
+
+
+_LANG_CODES = {"rus": "ru", "eng": "en", "vie": "vi"}
+
+
+def _lang_code(lang: str | None) -> str | None:
+    """Guides write "ru", "rus", "vi-VN" or "en_GB"; filters use the two-letter code."""
+    if not lang:
+        return None
+    base = lang.replace("_", "-").split("-", 1)[0].strip().casefold()
+    return _LANG_CODES.get(base, base) or None
 
 
 def _guess_lang(title: str) -> str | None:
