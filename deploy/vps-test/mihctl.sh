@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Manage the MIRTVONLINE test stand: preflight, deploy, backup, restore, rollback, uninstall.
+# Manage the MIRTVONLINE test stand: preflight, deploy, backup, restore, rollback, public, uninstall.
 # Touches only objects named mirtvonline-test*: one container, one volume, one network, and
-# images tagged mirtvonline/mih:test-*. Nothing else on the host is read for writing or changed.
+# images tagged mirtvonline/mih:test-*. Nothing else on the host is changed, except this node's
+# Tailscale Funnel entry with `public on|off`, which the owner runs on purpose.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,9 +79,11 @@ cmd_preflight() {
   say "publish address: $addr:$port"
 
   local mcp_port; mcp_port="$(env_value MIH_MCP_PUBLISH_PORT)"; mcp_port="${mcp_port:-18766}"
+  local proxy_port; proxy_port="$(env_value MIH_PROXY_PORT)"; proxy_port="${proxy_port:-18767}"
   local p var
-  for p in "$port" "$mcp_port"; do
+  for p in "$port" "$mcp_port" "$proxy_port"; do
     var=MIH_PUBLISH_PORT; [[ "$p" == "$mcp_port" ]] && var=MIH_MCP_PUBLISH_PORT
+    [[ "$p" == "$proxy_port" ]] && var=MIH_PROXY_PORT
     say "== port $p"
     if port_in_use "$addr" "$p"; then
       if container_exists && docker port "$CONTAINER" 2>/dev/null | grep -q ":$p\$"; then
@@ -165,6 +168,41 @@ cmd_status() {
     -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"status","arguments":{}}}' \
     "http://127.0.0.1:$mcp_port/mcp"; echo
   say "== stats"; docker exec "$CONTAINER" mih stats
+}
+
+cmd_public() {
+  # Open the web UI to the internet through Tailscale Funnel (docs/public.md): HTTPS with a
+  # certificate, no port opened on the server's public address, the VPS address stays hidden.
+  # Changes only this node's Funnel entry on MIH_FUNNEL_PORT; refuses a port that already
+  # serves anything else.
+  command -v tailscale >/dev/null || die "tailscale CLI not found"
+  local fport proxy_port target serve
+  fport="$(env_value MIH_FUNNEL_PORT)"; fport="${fport:-443}"
+  proxy_port="$(env_value MIH_PROXY_PORT)"; proxy_port="${proxy_port:-18767}"
+  target="http://127.0.0.1:$proxy_port"
+  serve="$(tailscale serve status --json 2>/dev/null || echo '{}')"
+  case "${1:-status}" in
+    on)
+      curl -fsS "$target/api/v1/health/live" >/dev/null \
+        || die "nothing answers on $target: run ./mihctl.sh deploy first"
+      if grep -Eq "\"$fport\"|:$fport\"" <<<"$serve" && ! grep -q "$target" <<<"$serve"; then
+        die "port $fport already serves something else on this node; set MIH_FUNNEL_PORT=8443 or 10000"
+      fi
+      tailscale funnel --bg --https="$fport" "$target" \
+        || die "tailscale refused; see docs/public.md (sudo tailscale set --operator=\$USER, Funnel in the tailnet policy)"
+      tailscale funnel status
+      say "next: put the https:// address above into MIH_PUBLIC_URL in .env and run ./mihctl.sh deploy"
+      ;;
+    off)
+      grep -q "$target" <<<"$serve" || { say "not public"; return 0; }
+      tailscale funnel --https="$fport" off
+      say "closed; clear MIH_PUBLIC_URL in .env and run ./mihctl.sh deploy"
+      ;;
+    status)
+      if grep -q "$target" <<<"$serve"; then tailscale funnel status; else say "not public"; fi
+      ;;
+    *) die "usage: ./mihctl.sh public on|off|status" ;;
+  esac
 }
 
 cmd_backup() {
@@ -261,6 +299,7 @@ case "${1:-}" in
   backup) cmd_backup ;;
   restore) shift; cmd_restore "${1:-}" ;;
   rollback) cmd_rollback ;;
+  public) shift; cmd_public "${1:-status}" ;;
   uninstall) shift; cmd_uninstall "${1:-}" ;;
-  *) say "usage: ./mihctl.sh preflight|deploy|status|logs [n]|backup|restore [file]|rollback|uninstall --yes"; exit 1 ;;
+  *) say "usage: ./mihctl.sh preflight|deploy|status|logs [n]|backup|restore [file]|rollback|public on|off|status|uninstall --yes"; exit 1 ;;
 esac
