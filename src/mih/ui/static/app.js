@@ -436,7 +436,7 @@ function channelCard(c) {
   const id = c.id || c.channel_id;
   const name = c.canonical_name || c.channel_name;
   const streams = c.streams ?? c.streams_available;
-  const facts = [c.country, c.has_epg === false ? t("без программы") : c.has_epg ? t("есть программа") : null,
+  const facts = [c.countries?.length ? c.countries.join(", ") : c.country, c.has_epg === false ? t("без программы") : c.has_epg ? t("есть программа") : null,
     streams === 0 ? t("нет рабочих потоков") : null].filter(Boolean);
   return html`<article class="card">
     ${logo(id, name)}
@@ -484,7 +484,16 @@ const SEARCH_TIMES = [["", t("Любое время")], ["now", t("Сейчас"
 const SEARCH_LANGS = [["", t("Любой язык")], ["ru", t("Русский")], ["en", t("Английский")], ["vi", t("Вьетнамский")]];
 const SEARCH_TYPES = [["", t("Всё")], ["airing", t("Передачи")], ["channel", t("Каналы")]];
 const SEARCH_MODES = [["0", t("Обычный поиск")], ["1", t("Строгий: целые слова")]];
-const SEARCH_KEYS = ["time", "lang", "type", "strict"];
+const SEARCH_KEYS = ["time", "lang", "type", "strict", "genre"];
+// The server's genres (mih/search/genres.py), in the order the list shows them.
+const GENRES = [["news", t("Новости")], ["sport", t("Спорт")], ["movie", t("Фильмы")], ["series", t("Сериалы")],
+  ["cartoon", t("Мультфильмы")], ["kids", t("Детям")], ["romance", t("Мелодрамы и романтика")], ["comedy", t("Комедии")],
+  ["drama", t("Драмы")], ["action", t("Боевики и приключения")], ["crime", t("Детективы и триллеры")], ["horror", t("Ужасы")],
+  ["scifi", t("Фантастика и фэнтези")], ["documentary", t("Документальные")], ["music", t("Музыка")],
+  ["entertainment", t("Развлекательные")], ["cooking", t("Кулинария")], ["travel", t("Путешествия")],
+  ["nature", t("Природа и животные")], ["science", t("Наука и техника")], ["history", t("История")],
+  ["health", t("Здоровье")], ["religion", t("Религия")], ["adult", t("Для взрослых")]];
+const genreName = (id) => GENRES.find(([g]) => g === id)?.[1] || id;
 
 function chipRow(name, options, current) {
   return html`<div class="row" role="group">${options.map(([v, label]) =>
@@ -499,16 +508,24 @@ async function viewSearch(params) {
   const lang = params.get("lang") || "";
   const type = params.get("type") || "";
   const strict = params.get("strict") || (prefs.strict() ? "1" : "0");
+  const genre = GENRES.some(([g]) => g === params.get("genre")) ? params.get("genre") : "";
   document.getElementById("search-input").value = q;
   const filters = html`<div class="filters">
     ${chipRow("time", SEARCH_TIMES, timeF)}${chipRow("lang", SEARCH_LANGS, lang)}${chipRow("type", SEARCH_TYPES, type)}
+    <div class="row"><select data-filter-select="genre" aria-label="${t("Тематика")}">
+      <option value="">${t("Любая тематика")}</option>
+      ${GENRES.map(([g, label]) => html`<option value="${g}" ${g === genre ? raw("selected") : ""}>${label}</option>`)}
+    </select></div>
     ${chipRow("strict", SEARCH_MODES, strict)}
     <div class="row"><button class="btn tv" type="button" id="search-run">${t("Найти")}</button>
       <span class="small muted">${t("или Enter в строке поиска")}</span></div>
   </div>`;
-  if (!q && !timeF) {
+  // Opening the tab does not search; «Найти» or Enter does, even with the field empty:
+  // then only the filters choose, and with none it lists what is on now and next.
+  if (!q && !timeF && !genre && params.get("run") !== "1") {
     return html`<h1>${t("Поиск")}</h1>${filters}
       <div class="empty"><p>${t("Ищите передачи и каналы обычными словами.")}</p>
+      <p class="small">${t("Можно не писать ничего, а выбрать тематику и нажать «Найти». Пустой поиск без фильтров покажет всё, что идёт сейчас и в ближайшие часы.")}</p>
       <p class="small">${t("Например: «новости вечером», «футбол завтра», «роботы на русском», «Первый канал».")}</p></div>`;
   }
   render(html`<h1>${t("Поиск")}</h1>${filters}${skeleton(3)}`);
@@ -518,6 +535,7 @@ async function viewSearch(params) {
   if (timeF) body.filters.time = timeF;
   if (lang) body.filters.languages = [lang];
   if (type) body.target_types = [type];
+  if (genre) body.filters.genres = [genre];
   const res = await api("/search", { method: "POST", body });
   const total = res.total || {};
   const more = (kind) => async (offset, limit) =>
@@ -528,6 +546,7 @@ async function viewSearch(params) {
     pq.terms.length ? t("слова: {0}", pq.terms.join(", ")) : null,
     pq.time ? t("время: {0}", TIMES[pq.time] || pq.time) : null,
     pq.languages.length ? t("язык: {0}", pq.languages.map((l) => LANGS[l] || l).join(", ")) : null,
+    genre ? t("тематика: {0}", genreName(genre)) : null,
   ].filter(Boolean);
   const channels = res.items.filter((i) => i.type === "channel");
   const airings = res.items.filter((i) => i.type === "airing");
@@ -541,6 +560,20 @@ async function viewSearch(params) {
     ${!res.items.length ? html`<div class="empty">${t("Ничего не нашлось. Попробуйте другие слова или уберите фильтры.")}</div>` : ""}`;
 }
 
+// Russia and Vietnam first (the beta's audiences), then «all», then every other country
+// present, by its name in the interface language.
+const COUNTRIES_FIRST = ["RU", "VN"];
+
+function countryOptions(codes) {
+  const counts = new Map();
+  codes.forEach((c) => counts.set(c, (counts.get(c) || 0) + 1));
+  const label = (c) => `${countryName(c)} (${nf.format(counts.get(c))})`;
+  const first = COUNTRIES_FIRST.filter((c) => counts.has(c)).map((c) => [c, label(c)]);
+  const rest = [...counts.keys()].filter((c) => !COUNTRIES_FIRST.includes(c))
+    .map((c) => [c, label(c)]).sort((a, b) => a[1].localeCompare(b[1], LOCALE));
+  return counts.size ? [...first, ["", t("Все страны")], ...rest] : [];
+}
+
 async function viewChannels(params) {
   const q = params.get("q") || "";
   const epg = params.get("epg") === "1";
@@ -549,17 +582,20 @@ async function viewChannels(params) {
   render(html`<h1>${t("Каналы")}</h1>${skeleton(6)}`);
   await Promise.all([loadChannels(), state.favoritesLoaded ? null : loadFavorites()]);
   const all = [...state.channels.values()];
-  const countries = [...new Set(all.map((c) => c.country).filter(Boolean))].sort();
+  const countriesOf = (c) => c.countries || (c.country ? [c.country] : []);
+  const countries = countryOptions(all.flatMap(countriesOf));
   const needle = q.trim().toLocaleLowerCase("ru").replaceAll("ё", "е");
-  const list = all.filter((c) => (!epg || c.has_epg) && (!country || c.country === country) &&
+  const list = all.filter((c) => (!epg || c.has_epg) && (!country || countriesOf(c).includes(country)) &&
     (!playable || c.streams !== 0) &&
     (!needle || c.canonical_name.toLocaleLowerCase("ru").replaceAll("ё", "е").includes(needle)));
   return html`<h1>${t("Каналы")}</h1>
     <form class="filters row" id="channel-filter">
-      <input name="q" type="search" value="${q}" placeholder="${t("Название канала")}" aria-label="${t("Фильтр по названию")}">
+      <div class="combo"><input id="channel-q" name="q" type="search" value="${q}" autocomplete="off"
+        placeholder="${t("Название канала")}" aria-label="${t("Фильтр по названию")}"
+        role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="channel-history">
+        <div id="channel-history" class="history" role="listbox" aria-label="${t("Прошлые фильтры каналов")}" hidden></div></div>
       ${countries.length ? html`<select name="country" aria-label="${t("Страна")}">
-        <option value="">${t("Все страны")}</option>
-        ${countries.map((c) => html`<option value="${c}" ${c === country ? raw("selected") : ""}>${c}</option>`)}
+        ${countries.map(([c, label]) => html`<option value="${c}" ${c === country ? raw("selected") : ""}>${label}</option>`)}
       </select>` : ""}
       <label class="row small"><input type="checkbox" name="epg" value="1" ${epg ? raw("checked") : ""}> ${t("только с программой")}</label>
       <div class="row"><button class="btn tv" type="submit">${t("Показать")}</button></div>
@@ -800,6 +836,8 @@ async function viewSettings() {
       ${t("Запоминать мои поиски и показывать их списком под строкой поиска")}</label>
     <div class="row field"><span class="small muted" id="history-count">${t("Сохранено запросов: {0}", searchHistory().length)}</span>
       <button class="btn" type="button" id="history-clear" ${searchHistory().length ? "" : raw("disabled")}>${t("Очистить историю поиска")}</button></div>
+    <div class="row field"><span class="small muted" id="channel-history-count">${t("Сохранено фильтров каналов: {0}", channelHistory().length)}</span>
+      <button class="btn" type="button" id="channel-history-clear" ${channelHistory().length ? "" : raw("disabled")}>${t("Очистить историю каналов")}</button></div>
     <h2>${t("Подсказки")}</h2>
     <div class="row field"><button class="btn" type="button" id="tips-reset">${t("Показать все подсказки снова")}</button></div>
     <h2>${t("Сервер")}</h2>
@@ -1051,68 +1089,86 @@ async function viewCoverage(params) {
     </div>`;
 }
 
-// ---------- Past searches: a list under the search field, kept in this browser ----------
+// ---------- Past searches and channel filters: a list under the field, kept in this browser ----------
 
 const HISTORY_MAX = 30;
 const historyOn = () => store.get("mih.historyOff") !== "1";
 
-function searchHistory() {
+// Each field with a history: where it is kept, its list and the form a pick submits.
+const HISTORIES = {
+  "search-input": { key: "mih.history", box: "search-history", label: "Прошлые поиски", form: "search-form" },
+  "channel-q": { key: "mih.channelHistory", box: "channel-history", label: "Прошлые фильтры каналов", form: "channel-filter" },
+};
+
+function pastEntries(key) {
   try {
-    const v = JSON.parse(store.get("mih.history") || "[]");
+    const v = JSON.parse(store.get(key) || "[]");
     return Array.isArray(v) ? v.filter((x) => typeof x === "string" && x) : [];
   } catch { return []; }
 }
 
 const sameQuery = (a, b) => a.toLocaleLowerCase("ru") === b.toLocaleLowerCase("ru");
 
-function rememberSearch(q) {
+function rememberEntry(key, q) {
   if (!q || !historyOn()) return;
-  const rest = searchHistory().filter((x) => !sameQuery(x, q));
-  store.set("mih.history", JSON.stringify([q, ...rest].slice(0, HISTORY_MAX)));
+  const rest = pastEntries(key).filter((x) => !sameQuery(x, q));
+  store.set(key, JSON.stringify([q, ...rest].slice(0, HISTORY_MAX)));
 }
 
-function forgetSearch(q) {
-  const rest = searchHistory().filter((x) => !sameQuery(x, q));
-  store.set("mih.history", rest.length ? JSON.stringify(rest) : null);
+function forgetEntry(key, q) {
+  const rest = pastEntries(key).filter((x) => !sameQuery(x, q));
+  store.set(key, rest.length ? JSON.stringify(rest) : null);
 }
 
+const searchHistory = () => pastEntries("mih.history");
+const channelHistory = () => pastEntries("mih.channelHistory");
 const searchInput = document.getElementById("search-input");
-const historyBox = document.getElementById("search-history");
 let historyPick = -1;
+let historyField = null; // the field whose list is open
 
-// The list shows what matches the typed text; it only fills the field and searches on a
-// click or Enter, never by itself.
-function showHistory() {
-  const typed = searchInput.value.trim().toLocaleLowerCase("ru");
-  const items = searchHistory().filter((q) => !typed || q.toLocaleLowerCase("ru").includes(typed)).slice(0, 10);
-  if (!items.length || (items.length === 1 && sameQuery(items[0], searchInput.value.trim()))) { hideHistory(); return; }
+// The list shows what matches the typed text; it only fills the field and runs the form on
+// a click or Enter, never by itself.
+function showHistory(input) {
+  const h = HISTORIES[input.id];
+  const box = document.getElementById(h.box);
+  if (!box) return;
+  if (historyField && historyField !== input) hideHistory();
+  const typed = input.value.trim().toLocaleLowerCase("ru");
+  const items = pastEntries(h.key).filter((q) => !typed || q.toLocaleLowerCase("ru").includes(typed)).slice(0, 10);
+  if (!items.length || (items.length === 1 && sameQuery(items[0], input.value.trim()))) { hideHistory(); return; }
   historyPick = Math.min(historyPick, items.length - 1);
-  historyBox.innerHTML = String(html`${items.map((q, i) => html`<div class="item ${i === historyPick ? "on" : ""}" role="option"
+  box.innerHTML = String(html`${items.map((q, i) => html`<div class="item ${i === historyPick ? "on" : ""}" role="option"
       aria-selected="${i === historyPick}"><button type="button" class="q" data-history="${q}">${q}</button>
       <button type="button" class="del" data-history-del="${q}" title="${t("Убрать из истории")}" aria-label="${t("Убрать «{0}» из истории", q)}">×</button></div>`)}
-    <div class="foot small"><span class="muted">${t("Прошлые поиски")}</span><button type="button" data-history-clear>${t("Очистить историю")}</button></div>`);
-  historyBox.hidden = false;
-  searchInput.setAttribute("aria-expanded", "true");
+    <div class="foot small"><span class="muted">${t(h.label)}</span><button type="button" data-history-clear>${t("Очистить историю")}</button></div>`);
+  box.hidden = false;
+  input.setAttribute("aria-expanded", "true");
+  historyField = input;
 }
 
 function hideHistory() {
-  historyBox.hidden = true;
   historyPick = -1;
-  searchInput.setAttribute("aria-expanded", "false");
+  if (!historyField) return;
+  const box = document.getElementById(HISTORIES[historyField.id].box);
+  if (box) box.hidden = true;
+  historyField.setAttribute("aria-expanded", "false");
+  historyField = null;
 }
 
-function clearHistory() {
-  store.set("mih.history", null);
+function clearHistory(key) {
+  store.set(key, null);
   hideHistory();
-  toast(t("История поиска очищена"));
+  toast(t("История очищена"));
 }
 
-searchInput.addEventListener("focus", showHistory);
-searchInput.addEventListener("input", () => { historyPick = -1; showHistory(); });
-searchInput.addEventListener("blur", () => setTimeout(hideHistory, 150));
-searchInput.addEventListener("keydown", (e) => {
-  if (historyBox.hidden) { if (e.key === "ArrowDown") showHistory(); return; }
-  const rows = historyBox.querySelectorAll(".item");
+document.addEventListener("focusin", (e) => { if (HISTORIES[e.target.id]) showHistory(e.target); });
+document.addEventListener("input", (e) => { if (HISTORIES[e.target.id]) { historyPick = -1; showHistory(e.target); } });
+document.addEventListener("focusout", (e) => { const f = e.target; if (f === historyField) setTimeout(() => { if (historyField === f) hideHistory(); }, 150); });
+document.addEventListener("keydown", (e) => {
+  const input = e.target;
+  if (!HISTORIES[input.id]) return;
+  if (historyField !== input) { if (e.key === "ArrowDown") showHistory(input); return; }
+  const rows = document.getElementById(HISTORIES[input.id].box).querySelectorAll(".item");
   if (e.key === "ArrowDown" || e.key === "ArrowUp") {
     e.preventDefault();
     // -1 is the typed text itself: the arrows cycle through it and the list.
@@ -1121,25 +1177,28 @@ searchInput.addEventListener("keydown", (e) => {
     else historyPick = historyPick <= -1 ? n - 1 : historyPick - 1;
     rows.forEach((r, i) => { r.classList.toggle("on", i === historyPick); r.setAttribute("aria-selected", String(i === historyPick)); });
   } else if (e.key === "Enter" && historyPick >= 0) {
-    searchInput.value = rows[historyPick].querySelector(".q").dataset.history;
+    input.value = rows[historyPick].querySelector(".q").dataset.history;
   } else if (e.key === "Escape") {
     hideHistory();
   }
 });
-// Clicks inside the list must not blur the field first.
-historyBox.addEventListener("mousedown", (e) => e.preventDefault());
-historyBox.addEventListener("click", (e) => {
+// Clicks inside a list must not blur the field first.
+document.addEventListener("mousedown", (e) => { if (e.target.closest(".history")) e.preventDefault(); });
+document.addEventListener("click", (e) => {
+  if (!historyField || !e.target.closest(".history")) return;
+  const input = historyField, h = HISTORIES[input.id];
   const pick = e.target.closest("[data-history]");
   const del = e.target.closest("[data-history-del]");
   if (pick) {
-    searchInput.value = pick.dataset.history;
-    document.getElementById("search-form").requestSubmit();
+    input.value = pick.dataset.history;
+    hideHistory();
+    document.getElementById(h.form).requestSubmit();
   } else if (del) {
-    forgetSearch(del.dataset.historyDel);
-    showHistory();
-    searchInput.focus();
+    forgetEntry(h.key, del.dataset.historyDel);
+    showHistory(input);
+    input.focus();
   } else if (e.target.closest("[data-history-clear]")) {
-    clearHistory();
+    clearHistory(h.key);
   }
 });
 
@@ -1216,11 +1275,11 @@ window.addEventListener("hashchange", () => { route(); view.focus({ preventScrol
 document.getElementById("search-form").addEventListener("submit", (e) => {
   e.preventDefault();
   const q = document.getElementById("search-input").value.trim();
-  rememberSearch(q);
+  rememberEntry("mih.history", q);
   hideHistory();
   const cur = new URLSearchParams(location.hash.split("?")[1] || "");
   const keep = location.hash.startsWith("#/search") ? Object.fromEntries(SEARCH_KEYS.map((k) => [k, cur.get(k)])) : {};
-  go("/search", { q, ...keep });
+  go("/search", { q, ...keep, run: "1" });
   document.getElementById("search-input").blur();
 });
 
@@ -1300,9 +1359,15 @@ document.addEventListener("click", (e) => {
   const tipOk = e.target.closest("[data-tip-ok]");
   if (tipOk) { store.set("mih.tips." + tipOk.dataset.tipOk, "1"); tipOk.closest(".tip").remove(); return; }
   if (e.target.id === "history-clear") {
-    clearHistory();
+    clearHistory("mih.history");
     e.target.disabled = true;
-    document.getElementById("history-count").textContent = t("Сохранено запросов: 0");
+    document.getElementById("history-count").textContent = t("Сохранено запросов: {0}", 0);
+    return;
+  }
+  if (e.target.id === "channel-history-clear") {
+    clearHistory("mih.channelHistory");
+    e.target.disabled = true;
+    document.getElementById("channel-history-count").textContent = t("Сохранено фильтров каналов: {0}", 0);
     return;
   }
   if (e.target.id === "token-clear") {
@@ -1334,7 +1399,10 @@ document.addEventListener("submit", (e) => {
   } else if (e.target.id === "channel-filter") {
     e.preventDefault();
     const f = new FormData(e.target);
-    go("/channels", { q: (f.get("q") || "").trim(), country: f.get("country"), epg: f.get("epg") });
+    const q = (f.get("q") || "").trim();
+    rememberEntry("mih.channelHistory", q);
+    hideHistory();
+    go("/channels", { q, country: f.get("country"), epg: f.get("epg") });
   } else if (e.target.id === "topic-form") {
     e.preventDefault();
     const topic = e.target.topic.value.trim();
@@ -1347,6 +1415,12 @@ const PREF_KEYS = { "pref-size": "mih.pageSize", "pref-now-size": "mih.nowSize",
 document.addEventListener("change", (e) => {
   const el = e.target;
   if (el.id === "pref-lang") { store.set("mih.lang", el.value); location.reload(); return; }
+  if (el.dataset.filterSelect) { // like a chip: only marks the choice
+    const cur = new URLSearchParams(location.hash.split("?")[1] || "");
+    if (el.value) cur.set(el.dataset.filterSelect, el.value); else cur.delete(el.dataset.filterSelect);
+    history.replaceState(null, "", "#/search?" + cur);
+    return;
+  }
   if (PREF_KEYS[el.id]) { store.set(PREF_KEYS[el.id], el.value); toast(t("Сохранено")); }
   else if (el.name === "pref-strict") { store.set("mih.strict", el.value); toast(t("Сохранено")); }
   else if (el.id === "pref-playable") { store.set("mih.playable", el.checked ? "1" : "0"); toast(t("Сохранено")); }

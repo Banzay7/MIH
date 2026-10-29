@@ -225,3 +225,5 @@ label.row input[type=checkbox], label.row input[type=radio] { flex: none; margin
   border-radius: 12px; background: var(--surface); }
 .tip p { margin: 4px 0 0; }
 .tip > div { flex: 1 1 260px; }
+.combo { position: relative; flex: 1 1 220px; }
+.combo input { width: 100%; }
