@@ -211,7 +211,7 @@ def test_vietnamese_words_with_or_without_diacritics(loaded):
 def test_a_topic_in_one_language_finds_it_in_the_others(loaded):
     titles = {t for t, _ in _titles(_find(loaded, "футбол"))}
     assert titles == {"Bóng đá: Ngoại hạng Anh", "Football Weekly"}
-    titles = {t for t, _ in _titles(_find(loaded, "bóng đá"))}
+    titles = {t for t, _ in _titles(_find(loaded, "bong da"))}
     assert titles == {"Bóng đá: Ngoại hạng Anh", "Football Weekly"}
     hit = next(i for i in _find(loaded, "новости")["items"] if i["type"] == "airing")
     assert hit["title"] == "Thời sự 12h"
@@ -287,3 +287,25 @@ def test_an_empty_query_lists_what_is_on_now_and_next_and_every_channel(loaded):
 def test_an_unknown_genre_is_refused():
     with pytest.raises(ValueError):
         genre_match(["nope"])
+
+
+def test_vietnamese_letters_look_among_vietnamese_programmes_and_channels(loaded):
+    # Written with Vietnamese letters: the Vietnamese showing only, not the English one.
+    result = _find(loaded, "bóng đá")
+    assert result["query"]["languages"] == ["vi"] and result["query"]["language_from_script"]
+    assert _titles(result) == [("Bóng đá: Ngoại hạng Anh", "2026-10-26T12:00:00Z")]
+    assert "airing" not in result["query"].get("widened", [])
+    # "bây giờ" is what is on now in Vietnamese: nothing at 07:00Z, so everything on now.
+    now = _find(loaded, "bây giờ")
+    assert now["query"]["time"] == "now" and now["query"]["widened"] == ["airing"]
+    assert _titles(now) == [("Жить здорово!", "2026-10-26T07:00:00Z")]
+    # Channels too: "thời sự" names a Vietnamese channel; a word no Vietnamese channel
+    # has is looked for everywhere.
+    found = _find(loaded, "thời sự", target_types=["channel"])["items"]
+    assert [i["channel_name"] for i in found] == ["VTV1 Thời sự FHD"]
+    found = _find(loaded, "Euronews Việt", target_types=["channel"])
+    assert not found["items"]  # "viet" is in no name: nothing, also when widened
+    # A language chosen in the filter wins over the letters.
+    assert _titles(_find(loaded, "bóng đá", languages=["en"])) == [
+        ("Football Weekly", "2026-10-26T15:00:00Z")
+    ]

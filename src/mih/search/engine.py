@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -60,6 +60,8 @@ def search(conn: sqlite3.Connection, req: SearchRequest, now: datetime) -> dict:
         parsed.window_start = req.start or now
         parsed.window_end = req.end or (parsed.window_start + _DEFAULT_HORIZON)
         parsed.past = parsed.window_end <= now
+    if req.languages and parsed.language_from_script:  # a chosen language wins
+        parsed.languages, parsed.language_from_script = [], False
     for lang in req.languages:
         if lang not in parsed.languages:
             parsed.languages.append(lang)
@@ -68,17 +70,30 @@ def search(conn: sqlite3.Connection, req: SearchRequest, now: datetime) -> dict:
     # each with its own "show more"; total says how many there are in all.
     out: dict = {"query": parsed.as_dict(), "items": [], "total": {},
                  "limit": req.limit, "offset": req.offset}  # fmt: skip
+    # Vietnamese letters look among Vietnamese programmes and channels first; when that
+    # finds nothing of a kind, that kind is searched in every language ("widened").
+    widened = parsed.language_from_script and _everywhere(parsed)
     if "airing" in req.target_types and not parsed.channels_only:
         airings = _airings(conn, parsed, req, now)
+        if not airings and widened:
+            airings = _airings(conn, widened, req, now)
+            out["query"].setdefault("widened", []).append("airing")
         out["total"]["airing"] = len(airings)
         out["items"] += airings[req.offset : req.offset + req.limit]
     # No words: channels only when nothing narrows to programmes (all of them, by name).
     browse = not parsed.terms and not req.genres and parsed.time is None
     if "channel" in req.target_types and (parsed.terms or parsed.channels_only or browse):
         channels, total = _channels(conn, parsed, req)
+        if not total and widened:
+            channels, total = _channels(conn, widened, req)
+            out["query"].setdefault("widened", []).append("channel")
         out["total"]["channel"] = total
         out["items"] += channels
     return out
+
+
+def _everywhere(parsed: ParsedQuery) -> ParsedQuery:
+    return replace(parsed, languages=[], language_from_script=False)
 
 
 def _override_time(parsed: ParsedQuery, name: str, now: datetime, tz: ZoneInfo) -> ParsedQuery:
@@ -281,7 +296,7 @@ def _channels(
                            f" AND a.kind = 'name' AND ({ors}))")  # fmt: skip
             params += likes
     countries = sorted({c for lang in parsed.languages for c in _LANG_COUNTRIES.get(lang, ())})
-    if parsed.channels_only and countries:
+    if (parsed.channels_only or parsed.language_from_script) and countries:
         clauses.append(f"UPPER(c.country) IN ({','.join('?' * len(countries))})")
         params += countries
     if req.playable_only:
