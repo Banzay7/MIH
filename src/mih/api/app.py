@@ -4,6 +4,7 @@ Favourites, playback and the web UI live in mih.api.personal."""
 
 from __future__ import annotations
 
+import contextlib
 import hmac
 import json
 import queue
@@ -39,7 +40,13 @@ from mih.epg.service import (
 from mih.health.policy import HealthPolicy
 from mih.identity.normalize import fold
 from mih.ids import utc_now
-from mih.report import read_countries, read_report, report_path, write_report
+from mih.report import (
+    countries_path,
+    read_countries,
+    read_report,
+    report_path,
+    write_report,
+)
 from mih.search.engine import SearchRequest, search
 from mih.search.genres import GENRES
 from mih.search.index import ensure_index
@@ -305,6 +312,10 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             (*params, limit, offset),
         ).fetchall()
         # Countries as «Покрытие» counts them (playlists, iptv-org ids, language).
+        if not countries_path(settings.data_dir).exists():
+            # First start, or a release before the file: build it once (with the report).
+            with contextlib.suppress(sqlite3.Error, OSError, ValueError, KeyError):
+                write_report(conn, report_path(settings.data_dir))
         known = read_countries(settings.data_dir)
         items = [{**dict(r), "has_epg": bool(r["has_epg"]),
                   "countries": known.get(r["id"]) or ([r["country"]] if r["country"] else [])}

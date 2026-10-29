@@ -11,7 +11,8 @@ TOKEN = "t" * 32
 
 @pytest.fixture
 def client(tmp_path):
-    app = create_app(Settings(data_dir=tmp_path, api_token=TOKEN))
+    # The fixture guides are dated 2026-10-26: keep them past the 3-day retention.
+    app = create_app(Settings(data_dir=tmp_path, api_token=TOKEN, epg_retention_days=36500))
     with TestClient(app) as c:
         c.headers["Authorization"] = f"Bearer {TOKEN}"
         yield c
@@ -293,3 +294,15 @@ def test_the_data_version_moves_with_background_changes_and_drops_shared_answers
     # A new release on the same data: answers kept by browsers may be out of date.
     monkeypatch.setattr(cache_mod, "CODE_VERSION", "next-release")
     assert anon.get("/api/v1/data-version").json()["data"] != v3
+
+
+def test_the_channel_list_carries_countries_even_before_the_first_report(client):
+    src = client.post("/api/v1/sources", json={"name": "a"}).json()
+    files = {"file": ("a.m3u", fixture_bytes("provider_a.m3u"), "audio/x-mpegurl")}
+    client.post(f"/api/v1/sources/{src['id']}/upload", files=files)
+    from mih.report import countries_path
+
+    path = countries_path(client.app.state.settings.data_dir)
+    path.unlink(missing_ok=True)
+    items = client.get("/api/v1/channels?limit=10000").json()["items"]
+    assert path.exists() and any(i["countries"] for i in items)
