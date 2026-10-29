@@ -22,7 +22,7 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from mih import __version__, db
 from mih.api import personal
-from mih.api.cache import SharedCache, respond
+from mih.api.cache import SharedCache, data_version, respond
 from mih.config import Settings
 from mih.epg import guide
 from mih.epg.coverage import working_coverage
@@ -182,8 +182,16 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     app = FastAPI(title="MIRTVONLINE API", version=__version__, docs_url="/api/docs",
                   openapi_url="/api/v1/openapi.json", lifespan=lifespan)  # fmt: skip
     app.state.settings = settings
-    app.state.pool = ConnPool(settings.db_path)
-    app.state.cache = cache = SharedCache()
+    app.state.pool = pool = ConnPool(settings.db_path)
+
+    def probe() -> str:
+        c = pool.take()
+        try:
+            return data_version(c)
+        finally:
+            pool.give(c)
+
+    app.state.cache = cache = SharedCache(probe)
     app.add_middleware(_ForgetOnChange, cache=cache)
     app.add_middleware(_Gzip)
 
@@ -199,6 +207,12 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     @app.get("/api/v1/health/live")
     def live() -> dict:
         return {"status": "ok", "version": __version__}
+
+    @app.get("/api/v1/data-version")
+    def data_version_now() -> JSONResponse:
+        """The web UI asks this on every screen: while it is the same, the copies it keeps
+        are still good. Says nothing about the data, so no token is needed."""
+        return JSONResponse({"data": cache.check()}, headers={"Cache-Control": "no-store"})
 
     @app.get("/api/v1/health/ready", dependencies=auth)
     def ready(conn: Conn) -> dict:
@@ -262,7 +276,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         # The whole catalog is what every visitor loads first: one copy for everyone.
         entry = cache.get(f"channels:{limit}:{offset}", CHANNELS_TTL,
                           lambda: _channels(conn, None, limit, offset))  # fmt: skip
-        return respond(request, entry, max_age=int(CHANNELS_TTL))
+        return respond(request, entry)
 
     def _channels(conn: sqlite3.Connection, q: str | None, limit: int, offset: int) -> dict:
         where, params = "", []
@@ -346,7 +360,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         and the public guides the autopilot tried (MIH_EPG_AUTO). It walks the whole
         catalog, so one copy is kept for COVERAGE_TTL."""
         entry = cache.get("epg-coverage", COVERAGE_TTL, lambda: _coverage(conn))
-        return respond(request, entry, max_age=int(CHANNELS_TTL))
+        return respond(request, entry)
 
     def _coverage(conn: sqlite3.Connection) -> dict:
         tried = conn.execute(
@@ -362,7 +376,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         what the playlist scout brought in (mih.report). The background jobs keep the
         file current; only a service that never wrote one builds it here."""
         entry = cache.get("report", CHANNELS_TTL, lambda: _report(conn))
-        return respond(request, entry, max_age=int(CHANNELS_TTL))
+        return respond(request, entry)
 
     def _report(conn: sqlite3.Connection) -> dict:
         path = report_path(settings.data_dir)
@@ -482,7 +496,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         if not paged:
             key = f"now:{timeshift}:{ids}"
             entry = cache.get(key, NOW_TTL, lambda: _on_now(conn, channel_id, timeshift))
-            return respond(request, entry, max_age=int(NOW_TTL))
+            return respond(request, entry)
         key = f"now:{timeshift}:{ids}:{on_air}:{soon}:{playable_only}:{limit}:{offset}"
         base = f"now-base:{timeshift}:{ids}"
 
@@ -502,7 +516,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
                     "channels": data["channels"], "guided": data["guided"]}  # fmt: skip
 
         entry = cache.get(key, NOW_TTL, build)
-        return respond(request, entry, max_age=int(NOW_TTL))
+        return respond(request, entry)
 
     def _on_now(conn: sqlite3.Connection, channel_id: list[str] | None,
                 timeshift: bool) -> dict:  # fmt: skip
@@ -595,7 +609,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     @app.get("/api/v1/metrics/summary", dependencies=auth)
     def metrics_summary(request: Request, conn: Conn):
         entry = cache.get("metrics", CHANNELS_TTL, lambda: _metrics(conn))
-        return respond(request, entry, max_age=int(CHANNELS_TTL))
+        return respond(request, entry)
 
     def _metrics(conn: sqlite3.Connection) -> dict:
         channels = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
@@ -651,10 +665,10 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     return app
 
 
-# How long a shared answer is reused (seconds). Imports and checks run every few minutes
-# at most, and "now" moves on programme boundaries, so this is not noticeable.
-CHANNELS_TTL = 60.0
-COVERAGE_TTL = 600.0
+# How long a shared answer is reused (seconds). Catalog answers only change with the data
+# version, which drops them anyway; "now" moves on programme boundaries.
+CHANNELS_TTL = 3600.0
+COVERAGE_TTL = 3600.0
 NOW_TTL = 30.0
 
 
@@ -665,16 +679,27 @@ def app_from_env() -> FastAPI:
 
 class _ForgetOnChange:
     """A change made through the API shows at once; the background jobs' changes show
-    within the shared cache's few seconds. Plain ASGI: Starlette's @middleware("http")
-    costs every request a task and a queue."""
+    once the data version moves. Every API answer carries that version (X-MIH-Data), so
+    the web UI knows when its own copies are out of date. Plain ASGI: Starlette's
+    @middleware("http") costs every request a task and a queue."""
 
     def __init__(self, app, cache: SharedCache):
         self.app, self.cache = app, cache
 
     async def __call__(self, scope, receive, send):
-        await self.app(scope, receive, send)
-        if scope["type"] == "http" and scope["method"] not in ("GET", "HEAD", "OPTIONS"):
+        if scope["type"] != "http" or not scope["path"].startswith("/api/"):
+            return await self.app(scope, receive, send)
+        version = self.cache.check().encode()
+
+        async def send_version(message):
+            if message["type"] == "http.response.start" and version:
+                message["headers"] = [*message.get("headers", []), (b"x-mih-data", version)]
+            await send(message)
+
+        await self.app(scope, receive, send_version)
+        if scope["method"] not in ("GET", "HEAD", "OPTIONS"):
             self.cache.clear()
+            self.cache.check(now=True)
 
 
 class _Gzip:
