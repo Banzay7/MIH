@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from mih.api.app import ApiError, Conn
 from mih.config import Settings
-from mih.health.policy import HealthPolicy, Observation
+from mih.health.policy import HealthPolicy, device_report
 from mih.health.runner import record, run_checks
 
 _STREAM_COLS = ("id, feed_id, source_id, status, availability_reason, status_changed_at,"
@@ -45,8 +45,8 @@ def build_router(settings: Settings, policy: HealthPolicy, auth: list) -> APIRou
     def report_playback(stream_id: str, body: PlaybackIn, conn: Conn) -> dict:
         """A real playback result from a TV or player: the strongest observation."""
         _require_stream(conn, stream_id)
-        obs = Observation(at=datetime.now(UTC), vantage=body.vantage,
-                          success=body.result == "started")  # fmt: skip
+        obs = device_report(datetime.now(UTC), body.result == "started", body.error,
+                            body.vantage)  # fmt: skip
         conn.execute("BEGIN")
         decision = record(conn, stream_id, obs, policy, kind="playback",
                           startup_ms=body.startup_ms, error_kind=body.error)  # fmt: skip

@@ -203,6 +203,7 @@ const PLAY_TEXT = {
   taken: t("Агент включает канал на ТВ"),
   all_failed: t("Ни один поток этого канала не заиграл на ТВ."),
   started: t("Запущено на ТВ"),
+  unconfirmed: t("Канал грузится дольше обычного: ТВ ещё не показал картинку. Обычно она появляется через несколько секунд."),
   no_adapter: t("Поток выбран, но запуск на ТВ выключен на сервере (MIH_PLAYBACK=off)."),
   no_agent: t("Агент не взял команду: он не подключён к MCP или не проверяет очередь."),
   no_stream: t("У этого канала сейчас нет рабочего потока."),
@@ -227,17 +228,18 @@ async function playOnTv(channelId, feedId, button) {
     const body = { target, idempotency_key: key };
     if (playAdapter()) body.adapter = playAdapter();
     let cmd = await api("/playback/commands", { method: "POST", body });
-    // The agent has 30 s to take the command; then silence for 60 s means it plays,
-    // so once it is taken the toast says so and only a failure changes it.
+    // The agent has 30 s to take the command; then silence for 100 s means it plays,
+    // so once it is taken the toast says so and only a failure or a slow start changes it.
     let told = false;
-    for (let i = 0; cmd.state === "accepted" && i < 50; i++) {
+    for (let i = 0; cmd.state === "accepted" && i < 65; i++) {
       if (!told) toast(cmd.taken ? PLAY_TEXT.taken : PLAY_TEXT.accepted, cmd.taken ? 6000 : 3000);
       if (cmd.taken) { told = true; if (button) button.disabled = false; }
       await new Promise((r) => setTimeout(r, 2000));
       cmd = await api(`/playback/commands/${enc(cmd.id)}`);
     }
-    if (told && cmd.state === "started") return;
-    if (cmd.state === "started") toast(cmd.adapter === "ha" ? PLAY_TEXT.ha_started : PLAY_TEXT.started);
+    if (cmd.state === "started" && cmd.detail === "unconfirmed") toast(PLAY_TEXT.unconfirmed, 8000);
+    else if (told && cmd.state === "started") return;
+    else if (cmd.state === "started") toast(cmd.adapter === "ha" ? PLAY_TEXT.ha_started : PLAY_TEXT.started);
     else if (cmd.state === "failed") {
       const text = PLAY_TEXT[cmd.error] || t("Не удалось запустить: {0}", cmd.error);
       toast(cmd.detail ? `${text}: ${cmd.detail}` : text, 8000);
