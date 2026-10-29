@@ -53,7 +53,7 @@ class PlaybackIn(BaseModel):
     adapter: str | None = Field(default=None, pattern="^(agent|ha)$")
 
 
-ALERTS_TTL = 60.0
+ALERTS_TTL = 300.0
 
 
 def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> None:
@@ -162,7 +162,7 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
     ):
         """What the profile's topics and favourite programmes match in the coming hours,
         on channels that play: what the alerts job will announce. It reads a day of the
-        whole guide, so the answer is kept for a minute; changing a topic clears it."""
+        whole guide, so the answer is kept for five minutes; changing a topic clears it."""
 
         def build() -> dict:
             now = datetime.now(UTC)
