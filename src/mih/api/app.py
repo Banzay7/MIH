@@ -48,6 +48,7 @@ from mih.report import (
     write_report,
 )
 from mih.search.engine import SearchRequest, search
+from mih.search.engine import languages as search_languages_of
 from mih.search.genres import GENRES
 from mih.search.index import ensure_index
 from mih.sources.fetch import FetchError
@@ -605,6 +606,13 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             "titles": [{"lang": lang, "text": t} for lang, t in localized["titles"]],
             "airings": airings,
         }  # fmt: skip
+
+    @app.get("/api/v1/search/languages", dependencies=auth)
+    def search_languages(request: Request, conn: Conn):
+        """Languages of the guide and the catalog, for the search page's language list."""
+        entry = cache.get("search-languages", CHANNELS_TTL,
+                          lambda: {"items": search_languages_of(conn)})  # fmt: skip
+        return respond(request, entry)
 
     @app.post("/api/v1/search", dependencies=auth)
     def run_search(body: SearchIn, conn: Conn) -> dict:
