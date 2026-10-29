@@ -228,3 +228,18 @@ def test_tv_button_is_carried_out_by_the_agent(conn, settings):
     # Off: nothing waits, as before.
     off, _ = playback.create_command(conn, target)
     assert off["error"] == "no_adapter"
+
+
+def test_the_tv_button_starts_with_the_quality_asked(conn, settings, monkeypatch):
+    from mih import playback
+    from mih.mcp import tools
+
+    asked = []
+    monkeypatch.setattr(tools, "resolve_many",
+                        lambda s, items, q: asked.append(q) or [u for u, _ in items])  # fmt: skip
+    box = Toolbox(settings)
+    first = _ch(box, conn, "первый")["id"]
+    playback.create_command(conn, playback.Target("channel", first, quality="best"), mode="agent")
+    box.call(conn, "queue", {}, None)
+    box.call(conn, "play", {"id": first}, None)
+    assert asked == ["best", settings.play_quality]

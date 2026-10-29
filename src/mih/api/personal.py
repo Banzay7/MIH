@@ -18,6 +18,7 @@ from mih.alerts import GRACE, best_streams, channel_names, find_matches, load_ru
 from mih.api.cache import respond
 from mih.epg.scope import topic_key
 from mih.ids import utc_now
+from mih.quality import resolve, resolve_many
 
 ProfileId = Annotated[str, Path(pattern="^[a-z0-9_-]{1,32}$")]
 _KINDS = {"channel": "channels", "programme": "programmes"}
@@ -51,6 +52,8 @@ class PlaybackIn(BaseModel):
     idempotency_key: str | None = Field(default=None, min_length=8, max_length=100)
     # Who starts it: agent or ha; none = the server's MIH_PLAYBACK.
     adapter: str | None = Field(default=None, pattern="^(agent|ha)$")
+    # The picture to start with (mih.quality); none = MIH_PLAY_QUALITY.
+    quality: str | None = Field(default=None, pattern="^(auto|720|1080|best)$")
 
 
 ALERTS_TTL = 300.0
@@ -184,13 +187,16 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
         picks = _play_picks(request, conn, channel_id, key, token)
         name = channel_names(conn, {channel_id}).get(channel_id, "")
         lines = ["#EXTM3U"]
-        for p in picks[:3]:  # spares for a player that moves on when one fails
+        settings = request.app.state.settings
+        urls = resolve_many(settings, [(p.url, p.headers) for p in picks[:3]],
+                            settings.play_quality)  # fmt: skip
+        for p, url in zip(picks[:3], urls, strict=True):  # spares for a player that moves on
             lines.append(f"#EXTINF:-1,{name.replace(',', ' ')}")
             for k, v in p.headers.items():
                 opt = {"user-agent": "http-user-agent", "referer": "http-referrer"}.get(k.lower())
                 if opt and v:
                     lines.append(f"#EXTVLCOPT:{opt}={v}")
-            lines.append(p.url)
+            lines.append(url)
         return PlainTextResponse("\n".join(lines) + "\n", media_type="audio/x-mpegurl",
                                  headers={"Cache-Control": "no-store"})  # fmt: skip
 
@@ -200,7 +206,9 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
         picks = _play_picks(request, conn, channel_id, key, token)
         # A phone's browser or player cannot send special headers: such streams go last.
         best = next((p for p in picks if not p.requires_headers), picks[0])
-        return RedirectResponse(best.url, status_code=302, headers={"Cache-Control": "no-store"})
+        settings = request.app.state.settings
+        url = resolve(settings, best.url, best.headers, settings.play_quality)
+        return RedirectResponse(url, status_code=302, headers={"Cache-Control": "no-store"})
 
     def _play_picks(request: Request, conn, channel_id: str, key: str | None,
                     token: str | None) -> list:  # fmt: skip
@@ -243,7 +251,8 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
             }
         try:
             cmd, created = playback.create_command(
-                conn, playback.Target(t.kind, t.channel_id, t.feed_id, **extra),
+                conn, playback.Target(t.kind, t.channel_id, t.feed_id, quality=body.quality,
+                                      **extra),
                 device_id=body.device_id, idempotency_key=body.idempotency_key, mode=mode,
             )  # fmt: skip
         except playback.PlaybackError as exc:

@@ -29,6 +29,7 @@ from mih.identity.search_keys import compact, search_keys
 from mih.ids import utc_now
 from mih.lists import LEVELS
 from mih.playback import PlaybackError, finish_command, set_offered, take_commands
+from mih.quality import resolve_many
 from mih.search.engine import SearchRequest, search
 
 MAX_ITEMS = 50
@@ -262,15 +263,17 @@ class Toolbox:
         res.update(id=id, tz=self.settings.timezone)
         return res
 
-    def _play(self, conn, now, id: str) -> dict:  # noqa: A002
+    def _play(self, conn, now, id: str, quality: str | None = None) -> dict:  # noqa: A002
         picks = [p for p in best_streams(conn, {id}, now).get(id, []) if p.url]
         if not picks:
             if not _names(conn, {id}):
                 raise ToolError("no such channel; find the id with 'channels'")
             return {"id": id, "streams": [], "hint": "no stream plays now; try another channel"}
         streams = []
-        for p in picks[:3]:
-            s = {"stream_id": p.stream_id, "url": p.url, "lvl": p.level}
+        urls = resolve_many(self.settings, [(p.url, p.headers) for p in picks[:3]],
+                            quality or self.settings.play_quality)  # fmt: skip
+        for p, url in zip(picks[:3], urls, strict=True):
+            s = {"stream_id": p.stream_id, "url": url, "lvl": p.level}
             for k, v in p.headers.items():
                 key = {"user-agent": "ua", "referer": "ref"}.get(k.lower())
                 if key and v:
@@ -318,7 +321,7 @@ class Toolbox:
         for c in cmds:
             cid = c["target"]["channel_id"]
             item = {"cmd": c["id"], "id": cid, "name": _names(conn, {cid}).get(cid)}
-            item["streams"] = self._play(conn, now, cid)["streams"]
+            item["streams"] = self._play(conn, now, cid, c["target"].get("quality"))["streams"]
             set_offered(conn, c["id"], [x["stream_id"] for x in item["streams"]])
             items.append(item)
         return {"items": items}
