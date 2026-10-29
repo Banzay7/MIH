@@ -64,11 +64,11 @@ def search(conn: sqlite3.Connection, req: SearchRequest, now: datetime) -> dict:
     # each with its own "show more"; total says how many there are in all.
     out: dict = {"query": parsed.as_dict(), "items": [], "total": {},
                  "limit": req.limit, "offset": req.offset}  # fmt: skip
-    if "airing" in req.target_types:
+    if "airing" in req.target_types and not parsed.channels_only:
         airings = _airings(conn, parsed, req, now)
         out["total"]["airing"] = len(airings)
         out["items"] += airings[req.offset : req.offset + req.limit]
-    if "channel" in req.target_types and parsed.terms:
+    if "channel" in req.target_types and (parsed.terms or parsed.channels_only):
         channels, total = _channels(conn, parsed, req)
         out["total"]["channel"] = total
         out["items"] += channels
@@ -257,17 +257,28 @@ def _channels(
                            " OR a.value LIKE ? ESCAPE '\\'))")  # fmt: skip
             params += [term, t + " %", "% " + t + " %", "% " + t]
         else:
-            # "спорт" also finds "Eurosport"; names match inside words, so no short forms.
+            # "спорт" also finds "Eurosport": longer words match inside a name. A short
+            # one ("bay", "gio") only starts a word, or "gio" would find "Regional".
             forms = [t] + [_like_escape(v) for v in variants(term)[1:]
                            if len(v) >= WHOLE_WORD_BELOW]  # fmt: skip
-            likes = " OR ".join(["a.value LIKE ? ESCAPE '\\'"] * len(forms))
+            likes = []
+            for f in forms:
+                if len(f) >= WHOLE_WORD_BELOW:
+                    likes.append("%" + f + "%")
+                else:
+                    likes += [f + "%", "% " + f + "%"]
+            ors = " OR ".join(["a.value LIKE ? ESCAPE '\\'"] * len(likes))
             clauses.append("EXISTS (SELECT 1 FROM channel_aliases a WHERE a.channel_id = c.id"
-                           f" AND a.kind = 'name' AND ({likes}))")  # fmt: skip
-            params += ["%" + f + "%" for f in forms]
+                           f" AND a.kind = 'name' AND ({ors}))")  # fmt: skip
+            params += likes
+    countries = sorted({c for lang in parsed.languages for c in _LANG_COUNTRIES.get(lang, ())})
+    if parsed.channels_only and countries:
+        clauses.append(f"UPPER(c.country) IN ({','.join('?' * len(countries))})")
+        params += countries
     if req.playable_only:
         clauses.append(f"EXISTS (SELECT 1 FROM streams s JOIN feeds f ON f.id = s.feed_id"
                        f" WHERE f.channel_id = c.id AND {_PLAYABLE})")  # fmt: skip
-    where = " AND ".join(clauses)
+    where = " AND ".join(clauses) or "1"
     total = conn.execute(f"SELECT COUNT(*) FROM channels c WHERE {where}", params).fetchone()[0]
     rows = conn.execute(
         f"SELECT c.id, c.canonical_name, c.country FROM channels c WHERE {where}"
@@ -278,7 +289,8 @@ def _channels(
     items = [
         {"type": "channel", "channel_id": r["id"], "channel_name": r["canonical_name"],
          "country": r["country"], "streams_available": counts.get(r["id"], 0),
-         "why_matched": [{"field": "channel_name", "term": t} for t in parsed.terms]}
+         "why_matched": [{"field": "channel_name", "term": t} for t in parsed.terms]
+         + ([{"field": "country", "term": r["country"]}] if parsed.channels_only else [])}
         for r in rows
     ]  # fmt: skip
     return items, total
@@ -308,6 +320,10 @@ def _names(conn: sqlite3.Connection, ids: set[str]) -> dict[str, str]:
 
 _VI_LETTERS = set("ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ")
 
+
+# Countries whose channels speak the language, for "вьетнамские каналы".
+_LANG_COUNTRIES = {"vi": ("VN",), "ru": ("RU", "BY", "KZ", "KG"),
+                   "en": ("US", "GB", "CA", "AU", "IE", "NZ")}  # fmt: skip
 
 _LANG_CODES = {"rus": "ru", "eng": "en", "vie": "vi"}
 

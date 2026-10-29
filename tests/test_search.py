@@ -238,3 +238,22 @@ def test_language_filter_reads_three_letter_and_regional_codes(loaded):
     assert _titles(_find(loaded, "football", languages=["en"])) == [
         ("Football Weekly", "2026-10-26T15:00:00Z")
     ]
+
+
+def test_short_syllables_start_a_word_of_a_channel_name(loaded):
+    loaded.execute("UPDATE channels SET canonical_name = 'NT Bayern Regional'"
+                   " WHERE canonical_name LIKE 'Euronews%'")  # fmt: skip
+    loaded.execute("INSERT INTO channel_aliases (channel_id, kind, value) SELECT id, 'name',"
+                   " 'nt bayern regional' FROM channels WHERE canonical_name = 'NT Bayern Regional'")
+    # "gio" is inside "regional" and "bay" starts "bayern": not a match for "bay gio".
+    assert not _find(loaded, "bay gio", target_types=["channel"])["items"]
+    assert _find(loaded, "vtv", target_types=["channel"])["items"]  # a word start still is
+
+
+def test_language_with_a_channel_word_lists_that_countrys_channels(loaded):
+    for query in ("вьетнамские каналы", "vietnamese channels", "kênh tiếng Việt"):
+        result = _find(loaded, query)
+        assert result["query"]["channels_only"], query
+        assert [i["channel_name"] for i in result["items"]] == ["VTV1 Thời sự FHD"], query
+    # Without a language, "канал" is an ordinary word of a name.
+    assert _find(loaded, "первый канал", target_types=["channel"])["items"]
