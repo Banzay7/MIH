@@ -63,7 +63,7 @@ p { margin: 6px 0; }
   border-bottom: 1px solid var(--line);
 }
 .brand { display: flex; gap: 8px; align-items: center; font-weight: 700; letter-spacing: .02em; }
-.search { flex: 1 1 260px; }
+.search { flex: 1 1 260px; position: relative; }
 .search input {
   width: 100%; padding: 10px 14px; border-radius: 999px;
   border: 1px solid var(--line); background: var(--surface);
@@ -203,3 +203,18 @@ button.chip, a.chip { cursor: pointer; padding: 6px 12px; font-size: .88rem; }
 /* A checkbox or radio stays beside its label text, also on a phone. */
 label.row, label.row.field { display: flex; flex-wrap: nowrap; align-items: flex-start; }
 label.row input[type=checkbox], label.row input[type=radio] { flex: none; margin: 3px 0 0; padding: 0; }
+
+/* Past searches under the search field */
+.history {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 7;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(0 0 0 / .18); overflow: hidden; max-height: 60vh; overflow-y: auto;
+}
+.history .item { display: flex; align-items: center; gap: 8px; padding: 0 4px 0 14px; }
+.history .item.on, .history .item:hover { background: var(--surface-2); }
+.history .q { flex: 1; min-width: 0; padding: 10px 0; text-align: left; border: 0; background: none; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history .q::before { content: "🕘"; margin-right: 8px; opacity: .6; }
+.history .del { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 8px 10px; font-size: 1.1rem; }
+.history .foot { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; border-top: 1px solid var(--line); }
+.history .foot button { border: 0; background: none; cursor: pointer; color: var(--accent); padding: 4px 0; }

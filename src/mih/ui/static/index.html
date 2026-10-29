@@ -18,7 +18,9 @@
     </a>
     <form class="search" id="search-form" role="search">
       <input id="search-input" type="search" name="q" autocomplete="off" enterkeyhint="search"
-             placeholder="Что посмотреть? Например: новости вечером" aria-label="Поиск">
+             placeholder="Что посмотреть? Например: новости вечером" aria-label="Поиск"
+             role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-history">
+      <div id="search-history" class="history" role="listbox" aria-label="Прошлые поиски" hidden></div>
     </form>
     <nav class="tabs" aria-label="Разделы">
       <a href="#/" data-tab="home">Эфир</a>

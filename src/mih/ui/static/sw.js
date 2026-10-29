@@ -1,5 +1,5 @@
 // Caches the app shell only. API answers are live data and always go to the network.
-const SHELL = "mih-shell-v11";
+const SHELL = "mih-shell-v12";
 const FILES = ["./", "index.html", "app.css", "app.js", "icon.svg", "manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
