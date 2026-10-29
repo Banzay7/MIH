@@ -15,6 +15,7 @@ from starlette.datastructures import Headers
 from mih import ha as mih_ha
 from mih import playback
 from mih.alerts import GRACE, best_streams, channel_names, find_matches, load_rules, play_key
+from mih.api.cache import respond
 from mih.epg.scope import topic_key
 from mih.ids import utc_now
 
@@ -50,6 +51,9 @@ class PlaybackIn(BaseModel):
     idempotency_key: str | None = Field(default=None, min_length=8, max_length=100)
     # Who starts it: agent or ha; none = the server's MIH_PLAYBACK.
     adapter: str | None = Field(default=None, pattern="^(agent|ha)$")
+
+
+ALERTS_TTL = 60.0
 
 
 def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> None:
@@ -150,15 +154,27 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
 
     @app.get("/api/v1/profiles/{profile_id}/alerts/upcoming", dependencies=auth)
     def upcoming_alerts(
-        profile_id: ProfileId, conn: Conn, hours: Annotated[int, Query(ge=1, le=72)] = 24
-    ) -> dict:
+        request: Request,
+        profile_id: ProfileId,
+        conn: Conn,
+        hours: Annotated[int, Query(ge=1, le=72)] = 24,
+        limit: Annotated[int | None, Query(ge=1, le=1000)] = None,
+    ):
         """What the profile's topics and favourite programmes match in the coming hours,
-        on channels that play: what the alerts job will announce."""
-        now = datetime.now(UTC)
-        rules = load_rules(conn, profile_id)
-        found = find_matches(conn, now - GRACE, now + timedelta(hours=hours), now, rules)
-        return {"profile_id": profile_id, "rules": len(rules),
-                "items": [m.as_dict() for m in found]}  # fmt: skip
+        on channels that play: what the alerts job will announce. It reads a day of the
+        whole guide, so the answer is kept for a minute; changing a topic clears it."""
+
+        def build() -> dict:
+            now = datetime.now(UTC)
+            rules = load_rules(conn, profile_id)
+            found = find_matches(conn, now - GRACE, now + timedelta(hours=hours), now, rules)
+            return {"profile_id": profile_id, "rules": len(rules), "total": len(found),
+                    "items": [m.as_dict() for m in found[:limit]]}  # fmt: skip
+
+        entry = request.app.state.cache.get(
+            f"alerts:{profile_id}:{hours}:{limit}", ALERTS_TTL, build
+        )
+        return respond(request, entry, max_age=0)
 
     # A link in a push: the channel's best stream when it is tapped. The key opens this
     # one channel only (mih.alerts.play_key); the API token works too.

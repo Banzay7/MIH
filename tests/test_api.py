@@ -161,6 +161,17 @@ def test_now_and_next(client):
     plus2 = next(i for i in shifted if i["now"] is None)
     assert plus2["next"]["title"] == "Сейчас"
 
+    # One page of what is on: on_air, soon, playable_only, limit/offset, total.
+    page = client.get("/api/v1/now", params={"timeshift": True, "on_air": True, "limit": 1}).json()
+    assert page["total"] == 1 and page["items"][0]["now"]["title"] == "Сейчас"
+    assert page["channels"] >= page["guided"] == 1
+    assert page["items"][0]["streams"] >= 1 and "logo_url" in page["items"][0]
+    soon = client.get("/api/v1/now", params={"timeshift": True, "soon": 45}).json()
+    assert [i["next"]["title"] for i in soon["items"]] == ["Потом"]
+    assert client.get("/api/v1/now", params={"soon": 10}).json()["total"] == 0
+    rest = client.get("/api/v1/now", params={"timeshift": True, "limit": 1, "offset": 1}).json()
+    assert rest["total"] == 2 and len(rest["items"]) == 1
+
 
 def test_search_endpoint(client):
     _upload_catalog_and_guide(client, fixture_bytes("guide_a.xml"))
