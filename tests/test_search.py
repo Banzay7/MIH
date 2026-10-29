@@ -40,6 +40,10 @@ GUIDE = (
     + _p("Perviy.ru", 34 * H, 60, "Наука", "Гуманоидный робот учится ходить")
     + _p("Euronews.fr", 2 * H, 30, "Futuris", "Humanoid robots in European labs", lang="en")
     + _p("Euronews.fr", 3 * H, 30, "Business Line", "Markets and the economy", lang="")
+    + _p("VTV1.vn", 2 * H, 30, "Thời sự 12h", "Tin tức trong nước và quốc tế", lang="vi")
+    # 19:00 at UTC+7 is 12:00Z
+    + _p("VTV1.vn", 5 * H, 120, "Bóng đá: Ngoại hạng Anh", "Trực tiếp", lang="vie")
+    + _p("VTV1.vn", 8 * H, 60, "Football Weekly", "Highlights", lang="en")
     + "</tv>"
 ).encode()
 
@@ -96,7 +100,8 @@ def test_without_time_words_upcoming_matches_rank_by_relevance(loaded):
     repeat = next(i for i in result["items"] if i["start"] == "2026-10-26T12:00:00Z")
     assert repeat["more_airings"] == 0  # the earlier showing is in the past
     assert ("Наука", "2026-10-26T06:00:00Z") not in titles
-    assert ("Futuris", "2026-10-26T09:00:00Z") not in titles  # "robots" ≠ "роботы"
+    # "роботы" is a known topic, so the English "robots" counts too.
+    assert ("Futuris", "2026-10-26T09:00:00Z") in titles
     assert ("Наука", "2026-10-27T17:00:00Z") in titles  # different description
 
 
@@ -189,3 +194,47 @@ def test_playable_only_leaves_out_channels_without_streams(loaded):
     assert _titles(_find(loaded, "наука", playable_only=True)) == []
     found = _find(loaded, "первый", target_types=["channel"], playable_only=True)
     assert found["items"] == [] and found["total"] == {"channel": 0}
+
+
+UTC7 = "Asia/Bangkok"
+
+
+def test_vietnamese_words_with_or_without_diacritics(loaded):
+    for query in ("thời sự", "Thời Sự", "thoi su", "tin tức"):
+        assert _titles(_find(loaded, query))[0][0] == "Thời sự 12h", query
+    # Vietnamese letters: "the" in "thể thao" is a word here, not an English stopword.
+    assert parse_query("thể thao", NOW, ZoneInfo(UTC7)).terms == ["the thao"]
+    assert parse_query("bóng đá có gì", NOW, ZoneInfo(UTC7)).terms == ["bong da"]
+
+
+def test_a_topic_in_one_language_finds_it_in_the_others(loaded):
+    titles = {t for t, _ in _titles(_find(loaded, "футбол"))}
+    assert titles == {"Bóng đá: Ngoại hạng Anh", "Football Weekly"}
+    titles = {t for t, _ in _titles(_find(loaded, "bóng đá"))}
+    assert titles == {"Bóng đá: Ngoại hạng Anh", "Football Weekly"}
+    hit = next(i for i in _find(loaded, "новости")["items"] if i["type"] == "airing")
+    assert hit["title"] == "Thời sự 12h"
+    assert hit["why_matched"][0] == {"field": "title", "term": "новости", "matched": "thoi su"}
+    # Channel names too: "новости" finds "VTV1 Thời sự".
+    assert any(i["channel_name"] == "VTV1 Thời sự FHD"
+               for i in _find(loaded, "новости", target_types=["channel"])["items"])  # fmt: skip
+    # Strict mode is the words as typed, with no translations.
+    assert _titles(_find(loaded, "футбол", strict=True)) == []
+
+
+def test_vietnamese_time_and_language_words():
+    q = parse_query("bóng đá tối nay tiếng Việt", NOW, ZoneInfo(UTC7))
+    assert q.terms == ["bong da"] and q.time == "today_evening" and q.languages == ["vi"]
+    assert q.as_dict()["from"] == "2026-10-26T11:00:00Z"  # 18:00 at UTC+7
+    q = parse_query("phim ngày mai bằng tiếng Anh", NOW, ZoneInfo(UTC7))
+    assert q.terms == ["phim"] and q.time == "tomorrow" and q.languages == ["en"]
+    assert parse_query("thời sự bây giờ", NOW, ZoneInfo(UTC7)).time == "now"
+
+
+def test_language_filter_reads_three_letter_and_regional_codes(loaded):
+    assert _titles(_find(loaded, "bóng đá", languages=["vi"])) == [
+        ("Bóng đá: Ngoại hạng Anh", "2026-10-26T12:00:00Z")
+    ]
+    assert _titles(_find(loaded, "football", languages=["en"])) == [
+        ("Football Weekly", "2026-10-26T15:00:00Z")
+    ]

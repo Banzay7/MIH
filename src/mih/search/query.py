@@ -1,7 +1,9 @@
 """Rule-based query parsing (spec 20): text terms, a time window and languages.
 
 "что завтра про гуманоидных роботов на русском" becomes terms ["гуманоидных",
-"роботов"], time "tomorrow" and languages ["ru"]. No AI, no network: it works offline.
+"роботов"], time "tomorrow" and languages ["ru"]. Russian, English and Vietnamese time
+and language words are understood ("bóng đá tối nay" is "bong da" this evening).
+No AI, no network: it works offline.
 """
 
 from __future__ import annotations
@@ -13,8 +15,11 @@ from zoneinfo import ZoneInfo
 
 from mih.epg.importer import iso
 from mih.identity.normalize import fold
+from mih.search.topics import PHRASES
 
 _WORD_RE = re.compile(r"[\w+]+", re.UNICODE)
+# Letters only Vietnamese uses among ru/en/vi: the query is written in Vietnamese.
+_VI_LETTERS_RE = re.compile("[ăâđêôơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ]")
 
 _STOPWORDS = {
     # ru
@@ -26,25 +31,40 @@ _STOPWORDS = {
     "the", "a", "an", "about", "on", "in", "what", "is", "are", "show", "shows", "find",
     "for", "with", "of", "to", "watch", "any", "programme", "program",
 }  # fmt: skip
+# In a query written in Vietnamese (it has Vietnamese letters) its function words are
+# dropped and English ones kept: "the", "an", "to" are Vietnamese words too (thể, ăn, tô).
+_VI_STOPWORDS = {
+    "ve", "gi", "co", "cua", "cac", "nhung", "xem", "tim", "chuong trinh", "nao", "khong",
+}  # fmt: skip
+_EN_STOPWORDS_ALSO_VI = {"the", "an", "to", "on", "in", "is", "a"}
 
 # Each time word maps to a named window. Pairs like "завтра вечером" combine.
 _DAY_WORDS = {
     "сегодня": 0, "today": 0, "завтра": 1, "tomorrow": 1, "послезавтра": 2,
     "вчера": -1, "yesterday": -1,
+    "hom nay": 0, "ngay mai": 1, "ngay kia": 2, "hom qua": -1,
 }  # fmt: skip
 _PART_WORDS = {
     "утром": (6, 12), "morning": (6, 12), "днем": (12, 18), "afternoon": (12, 18),
     "вечером": (18, 24), "evening": (18, 24), "tonight": (18, 24), "ночью": (0, 6),
     "night": (0, 6),
+    "buoi sang": (6, 12), "sang nay": (6, 12), "buoi chieu": (12, 18), "chieu nay": (12, 18),
+    "buoi toi": (18, 24), "toi nay": (18, 24), "ban dem": (0, 6), "dem nay": (0, 6),
 }  # fmt: skip
-_NOW_WORDS = {"сейчас", "now", "live"}
+_NOW_WORDS = {"сейчас", "now", "live", "bay gio", "luc nay", "hien tai"}
 
 _LANG_PREFIXES = {
     "ru": ("русск", "russian"),
     "en": ("англ", "english"),
-    "vi": ("вьетнам", "vietnam"),
+    "vi": ("вьетнам", "vietnam", "tieng viet"),
 }
-_LANG_GLUE = {"на", "in", "по"}
+_LANG_PHRASES = {"tieng nga": "ru", "tieng anh": "en"}
+_LANG_GLUE = {"на", "in", "по", "bang"}
+
+# Words that only mean something together: merged into one token before parsing.
+_PHRASES = (PHRASES | {p for p in (*_DAY_WORDS, *_PART_WORDS, *_NOW_WORDS, *_LANG_PHRASES,
+                                   *_VI_STOPWORDS) if " " in p} | {"tieng viet"})  # fmt: skip
+_LONGEST_PHRASE = max(p.count(" ") + 1 for p in _PHRASES)
 
 # Light suffix stripping for Russian: enough for "роботов" to find "роботы" without a
 # full stemmer, which the spec defers until it is measured. Longest suffixes first.
@@ -82,7 +102,10 @@ class ParsedQuery:
 
 def parse_query(text: str, now: datetime, tz: ZoneInfo) -> ParsedQuery:
     q = ParsedQuery(text=text)
-    tokens = _WORD_RE.findall(fold(text).replace("-", " "))
+    tokens = _join_phrases(_WORD_RE.findall(fold(text).replace("-", " ")))
+    stopwords = _STOPWORDS
+    if _VI_LETTERS_RE.search(text.casefold()):
+        stopwords = (_STOPWORDS - _EN_STOPWORDS_ALSO_VI) | _VI_STOPWORDS
     day: int | None = None
     part: tuple[int, int] | None = None
     is_now = False
@@ -101,7 +124,7 @@ def parse_query(text: str, now: datetime, tz: ZoneInfo) -> ParsedQuery:
                 q.languages.append(lang)
         elif tok in _LANG_GLUE and i + 1 < len(tokens) and _language(tokens[i + 1]):
             pass  # "на" in "на русском"
-        elif tok not in _STOPWORDS and (len(tok) > 1 or tok.isdigit()):
+        elif tok not in stopwords and (len(tok) > 1 or tok.isdigit()):
             q.terms.append(tok)
         i += 1
 
@@ -133,7 +156,25 @@ def stem(term: str) -> str:
     return term
 
 
+def _join_phrases(tokens: list[str]) -> list[str]:
+    """["bong", "da", "toi", "nay"] -> ["bong da", "toi nay"]: longest known phrase first."""
+    out, i = [], 0
+    while i < len(tokens):
+        for n in range(min(_LONGEST_PHRASE, len(tokens) - i), 1, -1):
+            phrase = " ".join(tokens[i : i + n])
+            if phrase in _PHRASES:
+                out.append(phrase)
+                i += n
+                break
+        else:
+            out.append(tokens[i])
+            i += 1
+    return out
+
+
 def _language(tok: str) -> str | None:
+    if tok in _LANG_PHRASES:
+        return _LANG_PHRASES[tok]
     for code, prefixes in _LANG_PREFIXES.items():
         if any(tok.startswith(p) for p in prefixes):
             return code
