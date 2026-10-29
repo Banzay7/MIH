@@ -50,7 +50,84 @@ class ApiFailure extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
 }
 
+// ---------- Answers kept in the browser ----------
+// A read (and a search) is answered from the browser's copy while the server's data
+// version is the same: it moves only when playlists, the guide or stream checks change.
+// Anything with programme times is also kept only until the next of them starts or ends.
+// «↻ Обновить» always asks the server.
+
+const KEEP_PREFIX = "mih.c:";
+const KEEP_CHARS = 400000; // bigger answers stay in memory only
+const KEEP_MIN = 30e3, KEEP_MAX = 6 * 3600e3;
+const LIVE_PATHS = /^\/(status|health|playback|data-version|jobs|notifications)/;
+const kept = new Map();
+let dataVersion = store.get("mih.dataVersion") || "";
+let fresh = false;
+
+function keepUntil(data) {
+  const now = Date.now();
+  let next = now + KEEP_MAX;
+  const walk = (o) => {
+    if (Array.isArray(o)) { o.forEach(walk); return; }
+    if (!o || typeof o !== "object") return;
+    for (const [k, v] of Object.entries(o)) {
+      if ((k === "start" || k === "stop") && typeof v === "string") {
+        const at = Date.parse(v);
+        if (at > now && at < next) next = at;
+      } else if (v && typeof v === "object") walk(v);
+    }
+  };
+  walk(data);
+  return Math.max(next, now + KEEP_MIN);
+}
+
+function keptGet(key) {
+  let e = kept.get(key);
+  if (!e) { try { e = JSON.parse(localStorage.getItem(KEEP_PREFIX + key)); } catch { e = null; } }
+  if (!e || e.v !== dataVersion || Date.now() >= e.until) return null;
+  kept.set(key, e);
+  return e.data;
+}
+
+function keptSet(key, data) {
+  const e = { v: dataVersion, until: keepUntil(data), data };
+  kept.set(key, e);
+  try {
+    const s = JSON.stringify(e);
+    if (s.length < KEEP_CHARS) localStorage.setItem(KEEP_PREFIX + key, s);
+  } catch { forgetKept(); } // storage full: start over rather than keep half
+}
+
+function forgetKept() {
+  kept.clear();
+  state.channelsLoaded = false;
+  try {
+    Object.keys(localStorage).filter((k) => k.startsWith(KEEP_PREFIX)).forEach((k) => localStorage.removeItem(k));
+  } catch { /* private mode */ }
+}
+
+function noteVersion(v) {
+  if (!v || v === dataVersion) return;
+  if (dataVersion) forgetKept();
+  dataVersion = v;
+  store.set("mih.dataVersion", v);
+}
+
+// One tiny request per screen: is what the browser keeps still current?
+async function checkVersion() {
+  try {
+    const r = await fetch(API + "/data-version", { cache: "no-store" });
+    if (r.ok) noteVersion((await r.json()).data);
+  } catch { /* offline: the request itself will say so */ }
+}
+
 async function api(path, { method = "GET", body } = {}) {
+  const keepable = (method === "GET" && !LIVE_PATHS.test(path)) || path === "/search";
+  const key = keepable ? method + " " + path + (body === undefined ? "" : " " + JSON.stringify(body)) : null;
+  if (key && !fresh) {
+    const hit = keptGet(key);
+    if (hit) return hit;
+  }
   const headers = { Accept: "application/json" };
   const token = store.get("mih.token");
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -58,6 +135,9 @@ async function api(path, { method = "GET", body } = {}) {
   const resp = await fetch(API + path, {
     method, headers, body: body === undefined ? undefined : JSON.stringify(body),
   });
+  noteVersion(resp.headers.get("X-MIH-Data"));
+  // Own change (favourites, topics, sources): what is kept may show the old state.
+  if (method !== "GET" && !key && !LIVE_PATHS.test(path)) forgetKept();
   if (resp.status === 204) return null;
   let data = null;
   try { data = await resp.json(); } catch { /* empty body */ }
@@ -66,6 +146,7 @@ async function api(path, { method = "GET", body } = {}) {
     throw new ApiFailure(resp.status, err?.code || (resp.status === 401 ? "unauthorized" : "http"),
       err?.message || data?.detail || resp.statusText);
   }
+  if (key) keptSet(key, data);
   return data;
 }
 
@@ -271,7 +352,7 @@ let pagerSeq = 0;
 function paged(items, card, { total = items.length, fetchMore = null, size = prefs.pageSize() } = {}) {
   const id = `list-${++pagerSeq}`;
   const first = items.slice(0, size);
-  pagers.set(id, { items, card, total, fetchMore, size, shown: first.length });
+  pagers.set(id, { items: [...items], card, total, fetchMore, size, shown: first.length });
   return html`<div class="grid" id="${id}">${first.map(card)}</div>${moreButton(id)}`;
 }
 
@@ -1099,6 +1180,7 @@ async function route() {
   else fn = async () => html`<div class="empty">${t("Страница не найдена.")} <a href="#/">${t("На главную")}</a></div>`;
   setTab(tab);
   try {
+    await checkVersion();
     const out = await fn();
     if (seq === renderSeq) {
       render(parts.length > 1 ? out : html`${tipCard(parts[0] || "home")}${out}`);
@@ -1148,7 +1230,8 @@ document.addEventListener("click", (e) => {
   if (more) { showMore(more); return; }
   if (e.target.closest("[data-refresh]")) {
     state.channelsLoaded = false;
-    route();
+    fresh = true;
+    route().finally(() => { fresh = false; });
     return;
   }
   const chip = e.target.closest("[data-filter]");

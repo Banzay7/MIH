@@ -7,6 +7,10 @@ already compressed, and answered with an ETag, so a browser that has it gets a 3
 
 When an entry is stale, one request rebuilds it and the others keep getting the old
 one meanwhile: nobody waits on a rebuild except the very first visitor.
+
+Everything is also dropped when the data version moves: a playlist or guide import, a
+stream check, or a favourite or topic changed. The browser gets that version with every
+answer and keeps its own copies until it moves, so opening a tab again costs nothing.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
+import sqlite3
 import threading
 import time
 from collections.abc import Callable
@@ -24,6 +29,25 @@ from fastapi.responses import Response
 
 # Distinct queries kept (``/now?channel_id=...`` varies with favourites).
 MAX_ENTRIES = 256
+# How often the data version is read from the database (seconds).
+VERSION_EVERY = 2.0
+
+# What the shown data depends on: the data jobs' last finish, the newest import and stream
+# check (also when run from the command line), and the personal lists.
+_VERSION_SQL = (
+    "SELECT (SELECT group_concat(name || ':' || COALESCE(last_finished_at, ''), ',') FROM"
+    "  (SELECT name, last_finished_at FROM jobs WHERE name IN ('sources', 'epg', 'health', 'pack')"
+    "   ORDER BY name)),"
+    " (SELECT max(rowid) FROM source_snapshots), (SELECT max(rowid) FROM epg_snapshots),"
+    " (SELECT max(rowid) FROM health_runs),"
+    " (SELECT count(*) || '/' || COALESCE(max(rowid), 0) FROM favorites),"
+    " (SELECT count(*) || '/' || COALESCE(max(rowid), 0) FROM tracked_topics)"
+)
+
+
+def data_version(conn: sqlite3.Connection) -> str:
+    row = conn.execute(_VERSION_SQL).fetchone()
+    return hashlib.blake2b(repr(tuple(row)).encode(), digest_size=6).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -36,7 +60,10 @@ class Entry:
 
 
 class SharedCache:
-    def __init__(self) -> None:
+    def __init__(self, probe: Callable[[], str] | None = None) -> None:
+        self._probe = probe  # reads the data version
+        self.version = ""
+        self._probed = float("-inf")
         self._items: dict[str, Entry] = {}
         self._locks: dict[str, threading.Lock] = {}
         self._guard = threading.Lock()
@@ -68,6 +95,20 @@ class SharedCache:
         finally:
             lock.release()
 
+    def check(self, *, now: bool = False) -> str:
+        """The data version, read at most every VERSION_EVERY; a new one drops everything."""
+        if self._probe and (now or time.monotonic() - self._probed >= VERSION_EVERY):
+            self._probed = time.monotonic()
+            try:
+                version = self._probe()
+            except sqlite3.Error:
+                return self.version
+            if version != self.version:
+                if self.version:
+                    self.clear()
+                self.version = version
+        return self.version
+
     def clear(self) -> None:
         with self._guard:
             self._items.clear()
@@ -89,9 +130,11 @@ class SharedCache:
             return self._locks.setdefault(key, threading.Lock())
 
 
-def respond(request: Request, entry: Entry, max_age: int) -> Response:
+def respond(request: Request, entry: Entry) -> Response:
     # private: the API needs a token, so only the browser keeps a copy, never a proxy.
-    headers = {"ETag": entry.etag, "Cache-Control": f"private, max-age={max_age}",
+    # no-cache: the web UI decides itself when a copy is still good (by the data version);
+    # anything else asks again and gets a 304 while the answer is the same.
+    headers = {"ETag": entry.etag, "Cache-Control": "private, no-cache",
                "Vary": "Accept-Encoding, Authorization"}  # fmt: skip
     if entry.etag in request.headers.get("if-none-match", ""):
         return Response(status_code=304, headers=headers)

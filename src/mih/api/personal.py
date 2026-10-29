@@ -174,7 +174,7 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
         entry = request.app.state.cache.get(
             f"alerts:{profile_id}:{hours}:{limit}", ALERTS_TTL, build
         )
-        return respond(request, entry, max_age=0)
+        return respond(request, entry)
 
     # A link in a push: the channel's best stream when it is tapped. The key opens this
     # one channel only (mih.alerts.play_key); the API token works too.
