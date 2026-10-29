@@ -158,8 +158,10 @@ def write_report(
         age = now.timestamp() - path.stat().st_mtime
     except OSError:
         age = None
-    # A clock a few seconds behind the file system still counts as fresh.
-    if age is not None and -60 < age < every.total_seconds():
+    # A clock a few seconds behind the file system still counts as fresh. The channels'
+    # countries are written with the report: a service that has none yet builds both.
+    fresh = age is not None and -60 < age < every.total_seconds()
+    if fresh and countries_path(path.parent).exists():
         return None
     report = build_report(conn, now=now, catalog=catalog)
     per_channel = report.pop("_countries")
