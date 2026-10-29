@@ -8,7 +8,15 @@ from fastapi.testclient import TestClient
 
 from mih.api.app import create_app
 from mih.config import Settings
-from mih.health.policy import HealthPolicy, Observation, StreamState, age, decide, format_ts
+from mih.health.policy import (
+    HealthPolicy,
+    Observation,
+    StreamState,
+    age,
+    decide,
+    device_report,
+    format_ts,
+)
 from mih.health.probe import probe_stream
 from mih.health.runner import record, run_checks
 from mih.sources.importer import import_m3u
@@ -109,6 +117,19 @@ def test_device_playback_outranks_server_probe():
     d = decide(s, obs(60, True), POLICY)
     assert not d.counted and d.note == "device_recent_fail"
     assert run(s, obs(90, True, vantage="device")).status == "active"
+
+
+def test_a_slow_start_on_the_tv_is_left_to_the_probe():
+    s = StreamState(status="active", last_ok_at=T0)
+    slow = decide(s, device_report(T0 + timedelta(minutes=1), False, "timeout"), POLICY)
+    assert not slow.counted and slow.note == "device_slow"
+    assert slow.state == s  # no failure, no device mark
+    # The probe that follows decides, either way.
+    assert decide(slow.state, obs(2, True), POLICY).counted
+    assert decide(slow.state, obs(2, False), POLICY).state.streak_failures == 1
+    # A player error is the TV's word, as before.
+    hard = decide(s, device_report(T0 + timedelta(minutes=1), False, "player_error"), POLICY)
+    assert hard.counted and hard.state.last_device_fail_at is not None
 
 
 def test_drm_is_a_reason_not_a_death():

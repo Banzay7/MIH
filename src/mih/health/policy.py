@@ -31,6 +31,11 @@ RECHECK_MINUTES = {
 # time. After that it falls back to the weekly check.
 TRIAL_MINUTES = 60
 
+# What a TV reports when no picture came in time. A slow start (a heavy HD stream, a far
+# server, a busy line) looks the same as a dead stream, so it is not held against the
+# stream: the server probes it at once and the probe decides.
+SLOW_START_ERRORS = ("timeout",)
+
 DEFAULT_CANARIES = ("https://www.gstatic.com/generate_204", "https://cp.cloudflare.com/")
 
 
@@ -102,6 +107,18 @@ class Observation:
     uncounted: str | None = None
 
 
+def is_slow_start(error: str | None) -> bool:
+    return (error or "").strip().lower() in SLOW_START_ERRORS
+
+
+def device_report(at: datetime, ok: bool, error: str | None = None,
+                  vantage: str = "device") -> Observation:  # fmt: skip
+    """A player's result. A slow start is kept on record but counts neither way."""
+    slow = not ok and is_slow_start(error)
+    return Observation(at=at, vantage=vantage, success=ok,
+                       uncounted="device_slow" if slow else None)  # fmt: skip
+
+
 @dataclass(frozen=True)
 class Decision:
     state: StreamState
@@ -113,7 +130,7 @@ class Decision:
 
 def decide(state: StreamState, obs: Observation, policy: HealthPolicy) -> Decision:
     s = state
-    if obs.vantage == "device":
+    if obs.vantage == "device" and not obs.uncounted:
         field = "last_device_ok_at" if obs.success else "last_device_fail_at"
         s = replace(s, **{field: obs.at})
 

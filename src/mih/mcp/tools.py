@@ -24,7 +24,7 @@ from mih.alerts import GRACE, best_streams, find_matches, load_rules, play_url
 from mih.config import Settings
 from mih.epg import guide
 from mih.epg.scope import topic_key
-from mih.health.policy import HealthPolicy, Observation
+from mih.health.policy import HealthPolicy, device_report
 from mih.identity.search_keys import compact, search_keys
 from mih.ids import utc_now
 from mih.lists import LEVELS
@@ -117,9 +117,11 @@ TOOLS = [
     ),
     Tool(
         "report",
-        "Tell the server that a stream did NOT play on the TV: error, black screen or "
-        "nothing within 15 s (error: timeout, http_403, player_error, no_video). Report "
-        "each stream that failed, then try the next one. Silence means it plays: no "
+        "Tell the server that a stream did NOT play on the TV: a player error or black "
+        "screen at once (error: http_403, player_error, no_video), still loading after "
+        "30 s as error 'timeout' (HD streams can take 20 s; a timeout is only a hint and "
+        "the server re-checks the stream). Report each stream that failed, then try the "
+        "next one; leave the last one playing. Silence means it plays: no "
         "report is needed for success (ok=true is accepted and closes a command at "
         "once). Pass cmd for a command from 'queue'.",
         _obj(
@@ -287,7 +289,7 @@ class Toolbox:
 
         if conn.execute("SELECT 1 FROM streams WHERE id = ?", (stream_id,)).fetchone() is None:
             raise ToolError("no such stream; use a stream_id from 'play'")
-        obs = Observation(at=now, vantage="device", success=bool(ok))
+        obs = device_report(now, bool(ok), error)
         conn.execute("BEGIN")
         try:
             d = record(conn, stream_id, obs, self.policy, kind="playback",

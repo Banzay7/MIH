@@ -5,7 +5,8 @@ The household's agent starts the TV (MIH_PLAYBACK=agent): a command waits as
 streams (``set_offered``) and starts the channel its own way. The agent reports only
 what did not play (``finish_command``); silence means it plays. So RUN after it took
 the command, the first offered stream with no failure counts as started, and as a
-playback seen on the TV. Every offered stream failed: the command failed. A command
+playback seen on the TV. Every offered stream failed: the command failed, unless the
+last one only timed out (a slow HD start): then it is started, ``unconfirmed``. A command
 nobody takes within PICKUP fails with ``no_agent``. MIH_PLAYBACK=off only picks the
 stream and fails with ``no_adapter``.
 
@@ -24,11 +25,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from mih.config import Settings
+from mih.health.policy import is_slow_start
 from mih.ids import new_id, utc_now
 
 PICKUP = timedelta(seconds=30)
-# Time the agent has to try the streams (about 15 s each) and report the ones that failed.
-RUN = timedelta(seconds=60)
+# Time the agent has to try the streams (up to 30 s each) and report the ones that failed.
+RUN = timedelta(seconds=100)
 
 # Lower is better. quarantine and archived streams are never played.
 _STATUS_RANK = {"active": 0, "new": 1, "unverified": 2, "suspect": 3}
@@ -189,7 +191,8 @@ def finish_command(
 ) -> dict:  # fmt: skip
     """A report from the agent. ok=True closes the command as started at once. A failure
     is noted; the command fails when every offered stream has failed, otherwise the
-    agent is trying a spare and silence until RUN means that one plays."""
+    agent is trying a spare and silence until RUN means that one plays. When the last
+    one only timed out, the TV is still loading it: the command is started, unconfirmed."""
     row = conn.execute("SELECT * FROM playback_commands WHERE id = ?", (cmd_id,)).fetchone()
     if row is None:
         raise PlaybackError("not_found", "playback command not found")
@@ -209,6 +212,14 @@ def finish_command(
         failed.append(stream_id)
     offered = json.loads(row["offered"] or "[]") or [row["stream_id"]]
     done = all(s in failed for s in offered)
+    if done and is_slow_start(error):
+        conn.execute(
+            "UPDATE playback_commands SET state = 'started', stream_id = COALESCE(?, stream_id),"
+            " failed = ?, finished_at = ?, error = NULL, detail = 'unconfirmed', taken_at = ?"
+            " WHERE id = ?",
+            (stream_id, json.dumps(failed), _iso(now), taken, cmd_id),
+        )  # fmt: skip
+        return get_command(conn, cmd_id)
     conn.execute(
         "UPDATE playback_commands SET failed = ?, error = ?, taken_at = ?, state = ?,"
         " finished_at = ? WHERE id = ?",

@@ -210,6 +210,17 @@ def test_tv_button_is_carried_out_by_the_agent(conn, settings):
                                   "cmd": cmd["id"]}, now)  # fmt: skip
     assert playback.get_command(conn, cmd["id"])["state"] == "failed"
 
+    # The last one only timed out: the TV is still loading it, started but unconfirmed.
+    cmd, _ = playback.create_command(conn, target, mode="agent")
+    (job,) = box.call(conn, "queue", {}, now)["items"]
+    errors = ["player_error"] * (len(job["streams"]) - 1) + ["timeout"]
+    for x, err in zip(job["streams"], errors, strict=True):
+        box.call(conn, "report", {"stream_id": x["stream_id"], "ok": False, "error": err,
+                                  "cmd": cmd["id"]}, now)  # fmt: skip
+    slow = playback.get_command(conn, cmd["id"])
+    assert slow["state"] == "started" and slow["detail"] == "unconfirmed"
+    assert slow["stream_id"] == job["streams"][-1]["stream_id"]
+
     # Nobody takes it: the UI hears "no agent" after PICKUP.
     lost, _ = playback.create_command(conn, target, mode="agent")
     playback.expire(conn, datetime.now(UTC) + playback.PICKUP * 2)
