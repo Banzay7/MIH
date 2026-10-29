@@ -138,13 +138,20 @@ def find_matches(
               if g.shift_minutes == 0}  # fmt: skip
     if not guides:
         return []
-    rows = conn.execute(
+    # The full-text index narrows a day of the whole guide to the few programmes that
+    # can match; the rules below still decide. Folding every title in Python took
+    # seconds on a catalog of thousands of channels.
+    sql = (
         f"SELECT {guide.AIRING_COLS}, p.localized FROM airings a"
         " JOIN programmes p ON p.id = a.programme_id"
         " WHERE a.status = 'scheduled' AND a.start_utc > ? AND a.start_utc <= ?"
-        " ORDER BY a.start_utc",
-        (guide.iso(start), guide.iso(end)),
-    ).fetchall()
+    )
+    params: list = [guide.iso(start), guide.iso(end)]
+    match = _fts_match(rules)
+    if match:
+        sql += " AND p.rowid IN (SELECT rowid FROM programme_fts WHERE programme_fts MATCH ?)"
+        params.append(match)
+    rows = conn.execute(sql + " ORDER BY a.start_utc", params).fetchall()
     found: dict[str, Match] = {}
     for r in rows:
         g = guides.get(r["epg_channel_id"])
@@ -179,6 +186,22 @@ def find_matches(
             m.names = {p.channel_id: names.get(p.channel_id, "") for p in m.picks}
             out.append(m)
     return out
+
+
+def _fts_match(rules: list[Rule]) -> str | None:
+    """An FTS5 query that every programme a rule can match also matches, or None
+    when a rule has no words to look up (then every airing is read)."""
+    parts = []
+    for rule in rules:
+        words = re.findall(r"\w+", rule.value)
+        if not words:
+            return None
+        phrase = '"' + " ".join(words) + '"'
+        if rule.kind == "topic":  # the start of a word, as the rule's pattern
+            parts.append("{title sub_title categories} : " + phrase + "*")
+        else:
+            parts.append("{title} : " + phrase)
+    return " OR ".join(parts) or None
 
 
 def best_streams(
