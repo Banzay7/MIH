@@ -13,28 +13,30 @@
 </head>
 <body>
   <header class="top">
-    <a class="brand" href="#/" aria-label="На главную">
+    <a class="brand" href="#/" aria-label="На главную" data-i18n-aria-label="На главную">
       <img src="icon.svg" alt="" width="28" height="28"><span>MIRTVONLINE</span>
     </a>
     <form class="search" id="search-form" role="search">
       <input id="search-input" type="search" name="q" autocomplete="off" enterkeyhint="search"
              placeholder="Что посмотреть? Например: новости вечером" aria-label="Поиск"
+             data-i18n-placeholder="Что посмотреть? Например: новости вечером" data-i18n-aria-label="Поиск"
              role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-history">
-      <div id="search-history" class="history" role="listbox" aria-label="Прошлые поиски" hidden></div>
+      <div id="search-history" class="history" role="listbox" aria-label="Прошлые поиски" data-i18n-aria-label="Прошлые поиски" hidden></div>
     </form>
-    <nav class="tabs" aria-label="Разделы">
-      <a href="#/" data-tab="home">Эфир</a>
-      <a href="#/search" data-tab="search">Поиск</a>
-      <a href="#/channels" data-tab="channels">Каналы</a>
-      <a href="#/favorites" data-tab="favorites">Избранное</a>
-      <a href="#/coverage" data-tab="coverage">Покрытие</a>
-      <a href="#/status" data-tab="status">Статус</a>
-      <a href="#/settings" data-tab="settings">Настройки</a>
+    <nav class="tabs" aria-label="Разделы" data-i18n-aria-label="Разделы">
+      <a href="#/" data-tab="home" data-i18n="Эфир">Эфир</a>
+      <a href="#/search" data-tab="search" data-i18n="Поиск">Поиск</a>
+      <a href="#/channels" data-tab="channels" data-i18n="Каналы">Каналы</a>
+      <a href="#/favorites" data-tab="favorites" data-i18n="Избранное">Избранное</a>
+      <a href="#/coverage" data-tab="coverage" data-i18n="Покрытие">Покрытие</a>
+      <a href="#/status" data-tab="status" data-i18n="Статус">Статус</a>
+      <a href="#/settings" data-tab="settings" data-i18n="Настройки">Настройки</a>
     </nav>
   </header>
   <main id="view" tabindex="-1" aria-live="polite"></main>
   <div id="toast" class="toast" role="status" hidden></div>
   <noscript>Для работы каталога нужен JavaScript.</noscript>
+  <script src="i18n.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

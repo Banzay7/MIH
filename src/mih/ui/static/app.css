@@ -218,3 +218,10 @@ label.row input[type=checkbox], label.row input[type=radio] { flex: none; margin
 .history .del { border: 0; background: none; cursor: pointer; color: var(--muted); padding: 8px 10px; font-size: 1.1rem; }
 .history .foot { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; border-top: 1px solid var(--line); }
 .history .foot button { border: 0; background: none; cursor: pointer; color: var(--accent); padding: 4px 0; }
+
+/* First-visit tip on a page */
+.tip { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap;
+  margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--line); border-left: 4px solid var(--accent);
+  border-radius: 12px; background: var(--surface); }
+.tip p { margin: 4px 0 0; }
+.tip > div { flex: 1 1 260px; }
