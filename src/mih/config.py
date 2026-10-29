@@ -66,6 +66,13 @@ class Settings:
     notify_level: str = "info"
     # Where the web UI is reachable, for the "open" link in a push. Optional.
     public_url: str | None = None
+    # Open to the internet behind a reverse proxy (docs/public.md): requests a minute per
+    # address (0 = no cap), wrong tokens in 15 minutes before the address waits 15 minutes
+    # (0 = never), and the proxies whose X-Forwarded-For is believed ("private" = loopback,
+    # Docker, Tailscale and LAN ranges; empty = none).
+    rate_limit: int = 600
+    auth_fails: int = 10
+    trusted_proxies: str = "private"
     # Built-in scheduler of ``mih serve``. Off in this dataclass so tests and one-off CLI
     # commands never start background work; from_env turns it on unless MIH_SCHEDULER=0.
     scheduler_enabled: bool = False
@@ -190,6 +197,9 @@ class Settings:
                 env.get("MIH_NOTIFY_LEVEL", "info"), "MIH_NOTIFY_LEVEL", LEVELS[1:]
             ),  # fmt: skip
             public_url=(env.get("MIH_PUBLIC_URL") or "").rstrip("/") or None,
+            rate_limit=max(0, int(env.get("MIH_RATE_LIMIT", "600"))),
+            auth_fails=max(0, int(env.get("MIH_AUTH_FAILS", "10"))),
+            trusted_proxies=env.get("MIH_TRUSTED_PROXIES", "private"),
             scheduler_enabled=env.get("MIH_SCHEDULER", "1") != "0",
             scheduler_mode=_choice(
                 env.get("MIH_SCHEDULER_MODE", "process"), "MIH_SCHEDULER_MODE", SCHEDULER_MODES
@@ -239,6 +249,10 @@ class Settings:
             raise ConfigError("MIH_PLAYBACK=ha needs MIH_HA_URL and MIH_HA_TOKEN")
         if self.workers > 1 and self.scheduler_enabled and self.scheduler_mode == "thread":
             raise ConfigError("MIH_WORKERS > 1 needs MIH_SCHEDULER_MODE=process")
+        try:
+            parse_networks(self.trusted_proxies)
+        except ValueError as exc:
+            raise ConfigError(f"MIH_TRUSTED_PROXIES: {exc}") from exc
         if self.mcp_token and len(self.mcp_token) < 24:
             raise ConfigError("MIH_MCP_TOKEN must be at least 24 characters")
         no_token = not (self.mcp_token or self.api_token)
@@ -307,6 +321,26 @@ def _choice(value: str, name: str, allowed: tuple[str, ...]) -> str:
     if value not in allowed:
         raise ConfigError(f"{name} must be one of: {', '.join(allowed)}")
     return value
+
+
+# Docker's bridge, Tailscale's 100.64/10, the LAN and the host itself: a reverse proxy on
+# the same server reaches the container from one of these. Safe to believe as long as the
+# port is never published on a public address (the stand publishes it on loopback or the
+# tailnet only).
+PRIVATE_NETWORKS = ("127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12",
+                    "192.168.0.0/16", "100.64.0.0/10", "fc00::/7")  # fmt: skip
+
+
+def parse_networks(value: str) -> tuple:
+    """ "10.0.0.0/8, 127.0.0.1" -> networks; "private" = PRIVATE_NETWORKS."""
+    out = []
+    for part in value.replace(";", ",").split(","):
+        part = part.strip()
+        if part == "private":
+            out += [ipaddress.ip_network(n) for n in PRIVATE_NETWORKS]
+        elif part:
+            out.append(ipaddress.ip_network(part, strict=False))
+    return tuple(out)
 
 
 def _is_loopback(host: str) -> bool:

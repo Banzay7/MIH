@@ -23,6 +23,9 @@ services:
       - "${MIH_PUBLISH_ADDR:-127.0.0.1}:${MIH_PUBLISH_PORT:-18765}:8765"
       # Always loopback, on purpose not configurable: the MCP port never leaves this host.
       - "127.0.0.1:${MIH_MCP_PUBLISH_PORT:-18766}:8766"
+      # Always loopback too: where a reverse proxy on this host (Tailscale Funnel, see
+      # ./mihctl.sh public) or an SSH tunnel reaches the web UI, whatever MIH_PUBLISH_ADDR is.
+      - "127.0.0.1:${MIH_PROXY_PORT:-18767}:8765"
     volumes:
       - data:/data
     networks:

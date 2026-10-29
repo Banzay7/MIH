@@ -23,6 +23,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from mih import __version__, db
 from mih.api import personal
 from mih.api.cache import SharedCache, data_version, respond
+from mih.api.guard import Guard
 from mih.config import Settings
 from mih.epg import guide
 from mih.epg.coverage import working_coverage
@@ -194,6 +195,9 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
     app.state.cache = cache = SharedCache(probe)
     app.add_middleware(_ForgetOnChange, cache=cache)
     app.add_middleware(_Gzip)
+    # Outermost: a refused request costs nothing else.
+    app.add_middleware(Guard, rate_limit=settings.rate_limit, auth_fails=settings.auth_fails,
+                       trusted_proxies=settings.trusted_proxies)  # fmt: skip
 
     auth = [Depends(require_token)]
 
