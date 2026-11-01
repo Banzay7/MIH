@@ -535,7 +535,7 @@ const genreName = (id) => GENRES.find(([g]) => g === id)?.[1] || id;
 const CATEGORIES = [["general", t("Общие")], ["news", t("Новости")], ["sport", t("Спорт")], ["kids", t("Детям")],
   ["movies", t("Фильмы")], ["series", t("Сериалы")], ["music", t("Музыка")], ["documentary", t("Документальные")],
   ["education", t("Образование")], ["entertainment", t("Развлекательные")], ["lifestyle", t("Стиль жизни")],
-  ["religion", t("Религия")], ["business", t("Бизнес")], ["regional", t("Региональные")], ["shop", t("Магазины")],
+  ["religion", t("Религия")], ["business", t("Бизнес")], ["regional", t("Региональные")], ["shop", t("Магазины")], ["radio", t("Радио")],
   ["adult", t("Для взрослых")], ["other", t("Без категории")]];
 const categoryName = (id) => CATEGORIES.find(([c]) => c === id)?.[1] || id;
 const CATEGORY_SOURCES = { directory: t("справочник iptv-org"), "directory-name": t("название из справочника 18+"),

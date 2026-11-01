@@ -30,24 +30,44 @@ from mih.search.topics import WHOLE_WORD_BELOW
 # Canonical category -> folded keywords (ru, en, vi). A keyword matches a whole word
 # or the start of one, so "спорт" matches "Спорт HD" and "спортивные".
 CATEGORIES: dict[str, tuple[str, ...]] = {
-    "news": ("news", "новост", "информац", "tin tuc", "thoi su", "24"),
-    "sport": ("sport", "спорт", "футбол", "football", "soccer", "the thao", "матч", "match"),
-    "kids": ("kids", "children", "cartoon", "детск", "дети", "мульт", "thieu nhi", "hoat hinh"),
-    "movies": ("movie", "film", "cinema", "кино", "фильм", "phim"),
-    "series": ("series", "сериал"),
-    "music": ("music", "музык", "am nhac", "mtv"),
+    "news": ("news", "новост", "новин", "информац", "tin tuc", "thoi su", "24", "nachrichten",
+             "noticias", "noticiero", "notizie", "nieuws", "nyheder", "nyheter", "haber",
+             "tagesschau", "telegiornale", "wiadomosci", "stiri"),
+    "sport": ("sport", "спорт", "футбол", "football", "soccer", "the thao", "матч", "match",
+              "futbol", "fussball", "deport", "esporte", "calcio", "eurosport", "хоккей",
+              "hockey", "nhl", "nba", "nfl", "mlb", "fifa", "ufc", "wwe", "tennis", "golf",
+              "barca", "laliga", "racing", "bong da"),
+    "kids": ("kids", "children", "cartoon", "детск", "дети", "мульт", "thieu nhi", "hoat hinh",
+             "infantil", "kinder", "jeunesse", "dzieci", "disney", "nick", "nickelodeon",
+             "toon", "baby", "junior", "anime", "детям"),
+    "movies": ("movie", "film", "cinema", "кино", "кіно", "фильм", "phim", "cine", "kino",
+               "pelicul", "axn", "hbo", "cinemax"),
+    "series": ("series", "сериал", "серіал", "drama", "novela", "telenovel", "dizi"),
+    "music": ("music", "музык", "музик", "am nhac", "mtv", "musik", "musica", "musique",
+              "muziek", "muzyk", "rock", "jazz", "hits", "stingray", "vh1", "deejay", "ca nhac"),
     "documentary": ("documentary", "докум", "познават", "science", "наук", "discovery",
-                    "history", "истори", "nature", "природ", "tai lieu", "kham pha"),
-    "education": ("education", "образоват", "обучени", "giao duc"),
-    "entertainment": ("entertainment", "развлекат", "юмор", "comedy", "giai tri", "show"),
+                    "histor", "истори", "nature", "природ", "tai lieu", "kham pha", "dokument",
+                    "documental", "documentaire", "belgesel", "geographic", "nat geo",
+                    "wildlife", "wissen"),
+    "education": ("education", "образоват", "обучени", "giao duc", "educa", "bildung"),
+    "entertainment": ("entertainment", "развлекат", "юмор", "comedy", "giai tri", "show",
+                      "unterhaltung", "divertissement", "intratteniment", "entretenim",
+                      "reality"),
     "lifestyle": ("lifestyle", "cooking", "food", "кулинар", "еда", "travel", "путешеств",
-                  "мода", "fashion", "doi song", "du lich"),
-    "religion": ("religio", "религи", "православ", "church", "ton giao"),
-    "business": ("business", "бизнес", "эконом", "финанс", "finance", "kinh te"),
+                  "мода", "fashion", "doi song", "du lich", "kochen", "cuisine", "reisen",
+                  "viaggi", "viajes", "voyage", "pets", "garden", "fishing", "hunting",
+                  "outdoor", "horse"),
+    "religion": ("religio", "религи", "православ", "church", "ton giao", "gospel", "christian",
+                 "jesus", "evangel", "катол", "islam", "quran", "коран", "bible", "biblia",
+                 "igreja", "iglesia", "boas novas", "voz de maria", "scientolog", "ewtn",
+                 "daystar", "tbn"),
+    "business": ("business", "бизнес", "эконом", "финанс", "finance", "kinh te", "bloomberg",
+                 "cnbc"),
     "general": ("general", "общие", "общероссийск", "эфирн", "federal", "федеральн",
                 "tong hop"),
     "regional": ("regional", "регион", "local", "dia phuong"),
-    "shop": ("shop", "магазин", "mua sam"),
+    "shop": ("shop", "магазин", "mua sam", "teleshop"),
+    "radio": ("radio", "радио", "fm", "dab"),
     "adult": ("adult", "xxx", "18+", "+18", "18 плюс", "взросл", "для взрослых", "эрот",
               "erotic", "erotik", "porn", "порн", "sex", "секс", "nsfw", "playboy",
               "hustler", "brazzers", "dorcel", "penthouse", "redlight", "red light",
@@ -55,6 +75,26 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
               "barely legal", "private tv", "vivid red", "vivid tv", "xy max", "exxxotica",
               "o la la", "o-la-la", "beate uhse", "evil angel", "fap tv"),
 }  # fmt: skip
+
+# Short keywords that are a word of their own ("nick", not "nickname"; "fm", not "fmovies").
+WHOLE_KEYS: frozenset[str] = frozenset({
+    "24", "nick", "toon", "baby", "nhl", "nba", "nfl", "mlb", "fifa", "ufc", "wwe", "axn",
+    "hbo", "cine", "kino", "dizi", "rock", "hits", "jazz", "vh1", "fm", "dab",
+    "pets", "tbn", "ewtn", "golf", "radio", "радио", "drama",
+})  # fmt: skip
+
+# Big national broadcasters: a word of their name says «general» when nothing more specific
+# does («Rai 3 Trento», «NBC WPTV-TV»). Whole words only; «BBC News» still goes to news.
+GENERAL_BRANDS: tuple[str, ...] = (
+    "rai", "zdf", "ard", "das erste", "ndr", "swr", "wdr", "mdr", "rbb", "orf", "srf", "rtl",
+    "sat 1", "prosieben", "tf1", "france 2", "france 3", "tve", "antena 3", "telecinco",
+    "rtp", "globo", "sbt", "televisa", "las estrellas", "azteca", "telemundo", "univision",
+    "nbc", "abc", "cbs", "fox", "pbs", "itv", "bbc", "rte", "npo", "vrt", "rtbf", "tvp",
+    "polsat", "tvn", "markiza", "hrt", "rts", "tvr", "pro tv", "antena 1", "ert", "trt",
+    "atv", "kanal d", "star tv", "tvri", "sctv", "rcti", "indosiar", "nhk", "kbs", "mbc",
+    "sbs", "cctv", "doordarshan", "ptv", "vtv", "htv", "vtc", "первый канал", "россия 1",
+    "нтв", "рен тв", "пятый канал", "твц", "1+1", "інтер", "ictv", "стб",
+)  # fmt: skip
 
 # Keywords that also turn up in names of channels of other kinds ("Кино 24", "Talk Show",
 # "Match Point"): alone they are not enough for a category.
@@ -99,7 +139,11 @@ _NON_WORD = re.compile(r"[^\w+]+")
 
 
 def _pattern(key: str) -> str:
-    return r"(?<![\w])" + re.escape(fold(key))
+    return r"(?<![\w])" + re.escape(fold(key)) + (r"(?![\w])" if key in WHOLE_KEYS else "")
+
+
+_BRANDS_RE = re.compile("|".join(r"(?<![\w+])" + re.escape(fold(b)) + r"(?![\w+])"
+                                 for b in GENERAL_BRANDS))  # fmt: skip
 
 
 _KEY_RE = {cat: (re.compile("|".join(_pattern(k) for k in keys if k not in WEAK_KEYS)),
@@ -268,10 +312,33 @@ def decide(*, directory: list[str] = (), groups: list[str] = (), names: list[str
     if "adult" in scores and "adult" not in kept:
         kept.append("adult")
     if not kept:
+        fallback = _general_fallback(names, guide or {})
+        if fallback:
+            return Decision(["general"], fallback[0], {"general": THRESHOLD},
+                            {"general": [fallback[1]]})  # fmt: skip
         return Decision(["other"], "none", scores, dict(reasons))
     primary = votes[kept[0]]
     source = min(primary, key=lambda s: (-primary[s], _SOURCE_RANK[s]))
     return Decision(kept, source, {c: scores[c] for c in kept}, {c: reasons[c] for c in kept})
+
+
+# A guide that spreads its airtime over many kinds of programmes, none of them big enough
+# for a category of its own, is a general channel: news, series, shows and films.
+MIXED_MIN_KINDS = 3
+MIXED_KIND_SHARE = 0.1
+
+
+def _general_fallback(names, guide: dict[str, float]) -> tuple[str, str] | None:
+    """(source, reason) for «general» when nothing else reached the threshold."""
+    if (
+        sum(share >= MIXED_KIND_SHARE for c, share in guide.items() if c != "adult")
+        >= MIXED_MIN_KINDS
+    ):
+        return "epg", "guide: mixed"
+    hit = _BRANDS_RE.search(" " + " ".join(fold(n) for n in names if n) + " ")
+    if hit:
+        return "name", "broadcaster: " + hit.group(0).strip()
+    return None
 
 
 # ---------- Adult channels behind harmless names ----------
