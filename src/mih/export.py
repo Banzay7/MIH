@@ -27,8 +27,20 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
-from mih.categories import decide, directory_categories, guide_mix
-from mih.identity.normalize import fold
+from mih.categories import (
+    NEIGHBOUR_MIN,
+    NEIGHBOUR_SHARE,
+    SOURCE_MIN,
+    SOURCE_SHARE,
+    adult_name_keys,
+    decide,
+    directory_categories,
+    guide_mix,
+    load_overrides,
+    neighbour_votes,
+    url_is_adult,
+)
+from mih.identity.normalize import fold, split_name
 from mih.ids import utc_now
 from mih.playback import Target, pick_streams
 
@@ -51,13 +63,21 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
     """Every channel with categories and details, sorted by name. No stream URLs."""
     attrs = _current_attrs(conn)
     mixes = guide_mix(conn)
+    manual = load_overrides(conn)
+    adult_keys = adult_name_keys(conn)
+    adult_urls = {r[0] for r in conn.execute(
+        "SELECT s.id, l.url FROM streams s JOIN stream_locators l ON l.stream_id = s.id"
+    ) if url_is_adult(r[1])}  # fmt: skip
+    in_group: dict[str, set[str]] = defaultdict(set)  # "source / group" -> channels
+    in_source: dict[str, set[str]] = defaultdict(set)
+    inputs: dict[str, dict] = {}
     has_epg = {r[0] for r in conn.execute(
         "SELECT DISTINCT f.channel_id FROM epg_mappings m JOIN feeds f ON f.id = m.feed_id"
         " WHERE m.decision IN ('auto', 'approved')"
     )}  # fmt: skip
     sources = {r["id"]: r["name"] for r in conn.execute("SELECT id, name FROM sources")}
     directory = {r["id"]: r for r in conn.execute(
-        "SELECT id, country, categories, languages, is_nsfw, closed, logo_url"
+        "SELECT id, country, categories, languages, is_nsfw, blocked, closed, logo_url"
         " FROM directory_channels WHERE id IN (SELECT directory_id FROM channels)"
     )}  # fmt: skip
 
@@ -90,6 +110,7 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
         langs: set[str] = set()
         countries: set[str] = {ch["country"]} if ch["country"] else set()
         feeds_out, status_counts = [], Counter()
+        url_adult = False
         src_names: set[str] = set()
         for f in feeds_by_channel[ch["id"]]:
             if f["audio_lang"]:
@@ -97,9 +118,15 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
             f_streams = []
             for s in streams_by_feed[f["id"]]:
                 a = attrs.get(s["id"], {})
+                src_label = sources.get(s["source_id"], s["source_id"])
+                in_source[src_label].add(ch["id"])
                 for g in _SPLIT_RE.split(a.get("group-title", "")):
+                    if g:
+                        in_group[f"{src_label} / {g}"].add(ch["id"])
                     if g and g not in groups:
                         groups.append(g)
+                if s["id"] in adult_urls:
+                    url_adult = True
                 for key, bucket in (("tvg-language", langs), ("tvg-country", countries)):
                     bucket.update(v.strip() for v in _SPLIT_RE.split(a.get(key, "")) if v.strip())
                 live = s["availability_reason"] is None
@@ -118,29 +145,32 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
         d = directory.get(ch["directory_id"])
         from_dir = []
         if d is not None:
-            from_dir = directory_categories(json.loads(d["categories"] or "[]"), d["is_nsfw"])
+            nsfw = bool(d["is_nsfw"]) or d["blocked"] == "nsfw"
+            from_dir = directory_categories(json.loads(d["categories"] or "[]"), nsfw)
             langs.update(json.loads(d["languages"] or "[]"))
             if d["country"]:
                 countries.add(d["country"])
+        all_names = [ch["canonical_name"], *names[ch["id"]]]
+        extra = []
+        if any(split_name(n).key in adult_keys for n in all_names if n):
+            extra.append(("adult", "directory-name", 3.0, "directory: adult channel name"))
+        logo = ch["logo_url"] or (d["logo_url"] if d is not None else None)
+        if url_adult or url_is_adult(logo):
+            extra.append(("adult", "url", 3.0, "stream or logo address"))
         mix = mixes.get(ch["id"])
+        inputs[ch["id"]] = {"directory": from_dir, "groups": groups, "names": all_names,
+                            "guide": mix.shares() if mix else None, "extra": extra}  # fmt: skip
         top_epg = [c for c, _ in mix.raw.most_common(5)] if mix else []
-        decision = decide(directory=from_dir, groups=groups,
-                          names=[ch["canonical_name"], *names[ch["id"]]],
-                          guide=mix.shares() if mix else None)  # fmt: skip
         playable = sum(n for st, n in status_counts.items()
                        if st not in ("quarantine", "archived", "absent"))  # fmt: skip
         out.append({
             "id": ch["id"],
             "name": ch["canonical_name"],
-            "categories": decision.categories,
-            "category_source": decision.source,
-            "category_scores": decision.scores,
-            "category_reasons": decision.reasons,
             "groups": groups,
             "epg_categories": top_epg,
             "countries": sorted(countries),
             "languages": sorted(langs),
-            "logo_url": ch["logo_url"] or (d["logo_url"] if d is not None else None),
+            "logo_url": logo,
             "directory_id": ch["directory_id"],
             "closed": d["closed"] if d is not None else None,
             "also_known_as": sorted(set(names[ch["id"]]) - {ch["canonical_name"]}),
@@ -152,7 +182,32 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
             "streams_by_status": dict(sorted(status_counts.items())),
             "feeds": feeds_out,
         })  # fmt: skip
+    _categorize(out, inputs, manual, in_group, in_source)
     return out
+
+
+def _categorize(catalog: list[dict], inputs: dict[str, dict], manual: dict[str, list[str]],
+                in_group: dict[str, set[str]], in_source: dict[str, set[str]]) -> None:  # fmt: skip
+    """Decide every channel's categories; then once more for the channels whose playlist
+    group or playlist is mostly adult."""
+    first = {cid: decide(**kw) for cid, kw in inputs.items()}
+    adult = {cid for cid, d in first.items() if "adult" in d.categories}
+    adult |= {cid for cid, cats in manual.items() if "adult" in cats}
+    by_group = neighbour_votes(in_group, adult, share=NEIGHBOUR_SHARE, least=NEIGHBOUR_MIN)
+    by_source = neighbour_votes(in_source, adult, share=SOURCE_SHARE, least=SOURCE_MIN)
+    for ch in catalog:
+        cid = ch["id"]
+        decision = first[cid]
+        group = by_group.get(cid) or by_source.get(cid)
+        if group and cid not in manual:
+            kw = inputs[cid]
+            kw["extra"] = [*kw["extra"], ("adult", "neighbours", 2.0, f"mostly adult: {group}")]
+            decision = decide(**kw)
+        ch["categories"] = manual.get(cid) or decision.categories
+        ch["category_source"] = "manual" if cid in manual else decision.source
+        ch["category_auto"] = decision.categories
+        ch["category_scores"] = decision.scores
+        ch["category_reasons"] = decision.reasons
 
 
 def export_catalog(

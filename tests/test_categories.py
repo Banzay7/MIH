@@ -94,3 +94,41 @@ def test_catalog_uses_the_guide_airtime(conn, settings, make_source):
     euronews = next(c for c in build_catalog(conn) if c["name"].startswith("Euronews"))
     assert euronews["categories"] == ["news"]
     assert euronews["category_source"] == "playlist"
+
+
+def test_adult_words_in_addresses_are_whole_words():
+    from mih.categories import url_is_adult
+
+    assert url_is_adult("http://cdn.example/xxx/relax/index.m3u8")
+    assert url_is_adult("https://hot-porn.example/live.m3u8")
+    assert not url_is_adult("http://tv.example/sussex/news.m3u8")
+    assert not url_is_adult("http://adultswim.example/live")  # a cartoon channel
+    assert not url_is_adult(None)
+
+
+NIGHT = """#EXTM3U
+#EXTINF:-1 group-title="Ночь",Brazzers TV Europe
+http://a.example/1.m3u8
+#EXTINF:-1 group-title="Ночь",Playboy TV
+http://a.example/2.m3u8
+#EXTINF:-1 group-title="Ночь",Dorcel TV
+http://a.example/3.m3u8
+#EXTINF:-1 group-title="Ночь",Blue Moon
+http://a.example/4.m3u8
+#EXTINF:-1 group-title="Разное",Relax Lounge
+http://cdn.example/xxx/relax.m3u8
+#EXTINF:-1 group-title="Разное",Garden Life
+http://cdn.example/garden.m3u8
+"""
+
+
+def test_harmless_names_are_caught_by_neighbours_and_addresses(conn, settings, make_source):
+    import_m3u(conn, settings, make_source("night"), NIGHT.encode())
+    by_name = {c["name"]: c for c in build_catalog(conn)}
+    moon = by_name["Blue Moon"]
+    assert "adult" in moon["categories"]
+    assert moon["category_reasons"]["adult"] == ["mostly adult: night / Ночь"]
+    relax = by_name["Relax Lounge"]
+    assert relax["categories"] == ["adult"] and relax["category_source"] == "url"
+    assert by_name["Garden Life"]["categories"] == ["other"]
+    assert "http" not in str(relax["category_reasons"])  # addresses never leave the server

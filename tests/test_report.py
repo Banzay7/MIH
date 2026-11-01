@@ -27,6 +27,8 @@ def test_report_counts_the_catalog_funnel_by_country(conn, settings, working):  
                              "channels": 5}]  # fmt: skip
     assert r["new_streams"][0]["streams"] == 5 and r["guides"]["sources"] == 1
     assert "url" not in json.dumps(r["sources"])
+    cats = r["categories"]
+    assert sum(cats["by_source"].values()) == sum(cats["primary"].values()) == 4
 
 
 def test_report_file_is_throttled_and_keeps_one_point_a_day(conn, settings, working):  # noqa: F811

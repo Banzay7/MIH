@@ -208,16 +208,26 @@ def guide_mix(conn: sqlite3.Connection) -> dict[str, GuideMix]:
 @dataclass
 class Decision:
     categories: list[str]  # primary first; ["other"] when nothing reached the threshold
-    source: str  # where the primary came from: directory, playlist, name, epg or none
+    source: str  # where the primary came from (a _SOURCE_RANK key) or none
     scores: dict[str, float]
     reasons: dict[str, list[str]]
 
 
-_SOURCE_RANK = {"directory": 0, "playlist": 1, "epg": 2, "name": 3}
+_SOURCE_RANK = {
+    "directory": 0,
+    "directory-name": 1,
+    "playlist": 2,
+    "url": 3,
+    "epg": 4,
+    "neighbours": 5,
+    "name": 6,
+}
 
 
 def decide(*, directory: list[str] = (), groups: list[str] = (), names: list[str] = (),
-           guide: dict[str, float] | None = None) -> Decision:  # fmt: skip
+           guide: dict[str, float] | None = None,
+           extra: list[tuple[str, str, float, str]] = ()) -> Decision:  # fmt: skip
+    """``extra``: more votes as (category, source, weight, reason), e.g. adult evidence."""
     votes: dict[str, dict[str, float]] = defaultdict(dict)  # category -> source -> weight
     reasons: dict[str, list[str]] = defaultdict(list)
 
@@ -243,6 +253,10 @@ def decide(*, directory: list[str] = (), groups: list[str] = (), names: list[str
             votes[c]["epg"] = w
             reasons[c].append(f"guide {round(share * 100)}%")
 
+    for c, src, w, why in extra:
+        votes[c][src] = max(w, votes[c].get(src, 0.0))
+        reasons[c].append(why)
+
     scores = {c: sum(v.values()) for c, v in votes.items()}
     ranked = sorted((c for c in scores if c != "adult" or scores[c] >= THRESHOLD),
                     key=lambda c: (-scores[c], ORDER.index(c)))  # fmt: skip
@@ -258,3 +272,125 @@ def decide(*, directory: list[str] = (), groups: list[str] = (), names: list[str
     primary = votes[kept[0]]
     source = min(primary, key=lambda s: (-primary[s], _SOURCE_RANK[s]))
     return Decision(kept, source, {c: scores[c] for c in kept}, {c: reasons[c] for c in kept})
+
+
+# ---------- Adult channels behind harmless names ----------
+
+# Words in a stream or logo address that mean an adult channel. Addresses are split into
+# words, so "sussex" does not match "sex".
+ADULT_URL_WORDS = (
+    "xxx",
+    "porn",
+    "adult",
+    "erotic",
+    "erotik",
+    "eroti",
+    "sex",
+    "sexy",
+    "nsfw",
+    "18plus",
+    "playboy",
+    "hustler",
+    "brazzers",
+    "dorcel",
+    "penthouse",
+    "redlight",
+    "vivid",
+    "xxl18",
+    "fap",
+    "nude",
+    "naked",
+    "milf",
+    "hentai",
+)
+_URL_RE = re.compile(r"(?<![a-z0-9])(" + "|".join(ADULT_URL_WORDS) + r")(?![a-z])")
+# A playlist group, or a whole playlist, where most known channels are adult makes its
+# other channels adult too: playlists put such channels together under a harmless title.
+NEIGHBOUR_SHARE = 0.5
+NEIGHBOUR_MIN = 3
+SOURCE_SHARE = 0.7
+SOURCE_MIN = 5
+
+
+def url_is_adult(url: str | None) -> bool:
+    return bool(url) and bool(_URL_RE.search(url.casefold()))
+
+
+def adult_name_keys(conn: sqlite3.Connection) -> set[str]:
+    """Name keys of the directory's adult channels, blocked ones included: a playlist
+    channel with such a name is adult even when it is not linked to the directory."""
+    from mih.identity.normalize import split_name
+
+    keys = set()
+    for r in conn.execute(
+        "SELECT name, alt_names FROM directory_channels WHERE is_nsfw = 1 OR blocked = 'nsfw'"
+    ):
+        for n in (r["name"], *json.loads(r["alt_names"] or "[]")):
+            k = split_name(n).key if n else ""
+            if k and len(k) >= 4:  # too short a key would catch ordinary channels
+                keys.add(k)
+    return keys
+
+
+def neighbour_votes(members: dict[str, set[str]], adult: set[str], *, share: float,
+                    least: int) -> dict[str, str]:  # fmt: skip
+    """Channel -> the group that makes it adult. ``members``: group -> channels."""
+    out = {}
+    for group, chans in members.items():
+        n = len(chans & adult)
+        if n >= least and n / len(chans) >= share:
+            for c in chans - adult:
+                out.setdefault(c, group)
+    return out
+
+
+# ---------- Categories set by hand (web UI) ----------
+
+MAX_MANUAL = 4
+
+
+def load_overrides(conn: sqlite3.Connection) -> dict[str, list[str]]:
+    rows = conn.execute("SELECT channel_id, categories FROM channel_category_overrides")
+    return {r["channel_id"]: json.loads(r["categories"]) for r in rows}
+
+
+def check_manual(categories: list[str]) -> list[str]:
+    """The list without repeats; ValueError for an unknown category or a wrong count."""
+    out = list(dict.fromkeys(categories))
+    unknown = [c for c in out if c not in CATEGORIES]
+    if unknown:
+        raise ValueError(f"unknown category {unknown[0]!r}")
+    if not 1 <= len(out) <= MAX_MANUAL:
+        raise ValueError(f"from 1 to {MAX_MANUAL} categories")
+    return out
+
+
+def set_override(conn: sqlite3.Connection, channel_id: str, categories: list[str],
+                 now: str) -> list[str]:  # fmt: skip
+    """Store the owner's categories and put them into the search tags at once."""
+    cats = check_manual(categories)
+    conn.execute("BEGIN")
+    try:
+        conn.execute(
+            "INSERT INTO channel_category_overrides (channel_id, categories, updated_at)"
+            " VALUES (?, ?, ?) ON CONFLICT (channel_id) DO UPDATE SET"
+            " categories = excluded.categories, updated_at = excluded.updated_at",
+            (channel_id, json.dumps(cats), now),
+        )
+        conn.execute("DELETE FROM channel_tags WHERE channel_id = ?"
+                     " AND kind IN ('category', 'primary')", (channel_id,))  # fmt: skip
+        conn.executemany("INSERT INTO channel_tags (channel_id, kind, value) VALUES (?, ?, ?)",
+                         [(channel_id, "primary", cats[0]),
+                          *((channel_id, "category", c) for c in cats)])  # fmt: skip
+        conn.execute("COMMIT")
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+    return cats
+
+
+def clear_override(conn: sqlite3.Connection, channel_id: str) -> bool:
+    """Back to the automatic categories; the tags follow at the next catalog build."""
+    n = conn.execute("DELETE FROM channel_category_overrides WHERE channel_id = ?",
+                     (channel_id,)).rowcount  # fmt: skip
+    return bool(n)

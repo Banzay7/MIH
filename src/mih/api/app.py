@@ -25,6 +25,7 @@ from mih import __version__, db
 from mih.api import personal
 from mih.api.cache import SharedCache, data_version, respond
 from mih.api.guard import Guard
+from mih.categories import MAX_MANUAL, check_manual, clear_override, set_override
 from mih.config import Settings
 from mih.epg import guide
 from mih.epg.coverage import working_coverage
@@ -62,6 +63,10 @@ _STATUS = {"unauthorized": 401, "not_found": 404, "conflict": 409, "validation_e
 class ApiError(Exception):
     def __init__(self, code: str, message: str):
         self.code, self.message = code, message
+
+
+class CategoriesIn(BaseModel):
+    categories: list[str] = Field(min_length=1, max_length=MAX_MANUAL)
 
 
 class EPGSourceIn(BaseModel):
@@ -349,7 +354,27 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             "SELECT kind, display FROM channel_aliases WHERE channel_id = ? ORDER BY kind",
             (channel_id,),
         ).fetchall()
-        return {**dict(ch), "aliases": [dict(a) for a in aliases], "feeds": out_feeds}
+        return {**dict(ch), "aliases": [dict(a) for a in aliases], "feeds": out_feeds,
+                **_channel_categories(conn, channel_id)}  # fmt: skip
+
+    @app.put("/api/v1/channels/{channel_id}/categories", dependencies=auth)
+    def channel_categories_set(channel_id: str, body: CategoriesIn, conn: Conn) -> dict:
+        """The owner's categories for a channel: the first is the primary. They win over
+        the automatic ones in the catalog, the lists and the search."""
+        if conn.execute("SELECT 1 FROM channels WHERE id = ?", (channel_id,)).fetchone() is None:
+            raise ApiError("not_found", "channel not found")
+        try:
+            check_manual(body.categories)
+        except ValueError as e:
+            raise ApiError("invalid", str(e)) from None
+        set_override(conn, channel_id, body.categories, utc_now())
+        return _channel_categories(conn, channel_id)
+
+    @app.delete("/api/v1/channels/{channel_id}/categories", dependencies=auth)
+    def channel_categories_clear(channel_id: str, conn: Conn) -> dict:
+        """Back to the automatic categories (after the next catalog build, ~10 minutes)."""
+        clear_override(conn, channel_id)
+        return _channel_categories(conn, channel_id)
 
     @app.post("/api/v1/epg/sources", status_code=201, dependencies=auth)
     def add_epg_source(body: EPGSourceIn, conn: Conn) -> dict:
@@ -786,6 +811,26 @@ def _aware(dt: datetime) -> datetime:
 
 def _now_s() -> str:
     return iso(datetime.now(UTC))
+
+
+def _channel_categories(conn: sqlite3.Connection, channel_id: str) -> dict:
+    """The channel's categories as the search sees them, primary first, and whether the
+    owner set them by hand."""
+    tags = conn.execute(
+        "SELECT kind, value FROM channel_tags WHERE channel_id = ?"
+        " AND kind IN ('category', 'primary')",
+        (channel_id,),
+    ).fetchall()
+    manual = conn.execute(
+        "SELECT categories FROM channel_category_overrides WHERE channel_id = ?", (channel_id,)
+    ).fetchone()
+    if manual is not None:
+        cats = json.loads(manual["categories"])
+    else:
+        primary = [t["value"] for t in tags if t["kind"] == "primary"]
+        rest = [t["value"] for t in tags if t["kind"] == "category" and t["value"] not in primary]
+        cats = primary + sorted(rest)
+    return {"categories": cats, "categories_manual": manual is not None}
 
 
 def _require_epg_source(conn: sqlite3.Connection, source_id: str) -> None:
