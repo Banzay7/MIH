@@ -12,11 +12,12 @@ from fastapi import APIRouter, Path, Query
 
 from mih import db, notify
 from mih.api.app import ApiError, Conn
-from mih.config import LEVELS, Settings
+from mih.config import LANGS, LEVELS, Settings
 from mih.events import list_events, record_event, t
 from mih.health.policy import HealthPolicy
 from mih.scheduler import JOBS, JobBusy, job_process, run_job, status_snapshot
 
+UiLang = Annotated[str | None, Query(pattern=f"^({'|'.join(LANGS)})$")]
 JobName = Annotated[str, Path(pattern=f"^({'|'.join(JOBS)})$")]
 
 
@@ -25,9 +26,10 @@ def build_router(settings: Settings, policy: HealthPolicy, auth: list,
     r = APIRouter(prefix="/api/v1", dependencies=auth)
 
     @r.get("/status")
-    def status(conn: Conn) -> dict:
-        """What the service is doing now, the latest events and the plan for 24 hours."""
-        return status_snapshot(conn, settings, started_at=started_at)
+    def status(conn: Conn, lang: UiLang = None) -> dict:
+        """What the service is doing now, the latest events and the plan for 24 hours.
+        ``lang``: summaries and events in the web UI's language."""
+        return status_snapshot(conn, settings, started_at=started_at, lang=lang)
 
     @r.get("/events")
     def events(
@@ -35,8 +37,10 @@ def build_router(settings: Settings, policy: HealthPolicy, auth: list,
         limit: Annotated[int, Query(ge=1, le=200)] = 50,
         before: Annotated[str | None, Query(max_length=32)] = None,
         min_level: Annotated[str, Query(pattern=f"^({'|'.join(LEVELS)})$")] = "routine",
+        lang: UiLang = None,
     ) -> dict:
-        return {"items": list_events(conn, limit=limit, before=before, min_level=min_level)}
+        return {"items": list_events(conn, limit=limit, before=before, min_level=min_level,
+                                     lang=lang)}  # fmt: skip
 
     @r.post("/jobs/{name}/run", status_code=202)
     def run_now(name: JobName, conn: Conn) -> dict:

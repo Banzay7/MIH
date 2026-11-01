@@ -32,7 +32,7 @@ from mih.drive import DriveError, sync_drive
 from mih.epg.auto import run_autopilot
 from mih.epg.coverage import working_coverage
 from mih.epg.service import import_epg_from_url
-from mih.events import list_events, record_event, t
+from mih.events import list_events, record_event, t, translations
 from mih.health.policy import HealthPolicy
 from mih.health.runner import run_checks
 from mih.ids import utc_now
@@ -189,9 +189,12 @@ def run_job(
         planned = finished + outcome.again_in
     conn.execute(
         "UPDATE jobs SET running_since = NULL, last_finished_at = ?, last_status = ?,"
-        " last_summary = ?, next_run_at = ? WHERE name = ?",
-        (_fmt(finished), outcome.status, outcome.title, _fmt(planned) if planned else None, name),
-    )
+        " last_summary = ?, last_summary_i18n = ?, next_run_at = ? WHERE name = ?",
+        (_fmt(finished), outcome.status, outcome.title,
+         json.dumps({lang: v["title"] for lang, v in translations(settings, title=outcome.title)
+                     .items()}, ensure_ascii=False),
+         _fmt(planned) if planned else None, name),
+    )  # fmt: skip
     data = {"job": name, "status": outcome.status, "manual": manual, **outcome.data}
     body = "\n".join(outcome.lines)
     if outcome.quiet and not manual:
@@ -502,8 +505,9 @@ def plan_by_job(conn: sqlite3.Connection, settings: Settings, now: datetime) -> 
 
 
 def status_snapshot(conn: sqlite3.Connection, settings: Settings, *,
-                    started_at: str | None = None) -> dict:  # fmt: skip
-    """What the service is doing, what it did and what it will do: the status screen."""
+                    started_at: str | None = None, lang: str | None = None) -> dict:  # fmt: skip
+    """What the service is doing, what it did and what it will do: the status screen.
+    ``lang``: job summaries and events in that language (the web UI's), where kept."""
     now = datetime.now(UTC)
     jobs = []
     for row in conn.execute("SELECT * FROM jobs"):
@@ -517,7 +521,9 @@ def status_snapshot(conn: sqlite3.Connection, settings: Settings, *,
                 "last_started_at": row["last_started_at"],
                 "last_finished_at": row["last_finished_at"],
                 "last_status": row["last_status"],
-                "last_summary": row["last_summary"],
+                "last_summary": json.loads(row["last_summary_i18n"] or "{}").get(
+                    lang or "", row["last_summary"]
+                ),
             }
         )
     jobs.sort(key=lambda j: JOBS.index(j["name"]))
@@ -543,7 +549,7 @@ def status_snapshot(conn: sqlite3.Connection, settings: Settings, *,
             "streams": streams,
         },  # fmt: skip
         "discovery": summary(conn),
-        "events": list_events(conn, limit=30),
+        "events": list_events(conn, limit=30, lang=lang),
     }
 
 

@@ -298,3 +298,21 @@ def test_a_frequent_job_does_not_crowd_others_out_of_the_plan(conn):
     sync_jobs(conn, settings, NOW)
     jobs = {p["job"] for p in plan_by_job(conn, settings, NOW)}
     assert {"discover", "pack", "health", "sources", "epg"} <= jobs
+
+
+def test_events_and_job_summaries_come_in_the_web_ui_language(conn, tmp_path):
+    from dataclasses import replace
+
+    from mih.config import Settings
+    from mih.events import list_events, record_event, t
+
+    ru = replace(Settings(data_dir=tmp_path), lang="ru")
+    title = t(ru, "job.failed", job=t(ru, "name.sources"))
+    body = "\n".join([f"Мой плейлист: {t(ru, 'unchanged')}", t(ru, "health.up", n=3)])
+    record_event(conn, ru, "job.sources", "routine", title, body)
+    (ev,) = list_events(conn, lang="en")
+    assert ev["title"] == "Job «playlist refresh» failed"
+    assert ev["body"] == "Мой плейлист: unchanged\ncame back: 3"
+    assert list_events(conn, lang="vi")[0]["title"] == "Tác vụ «cập nhật danh sách phát» bị lỗi"
+    assert list_events(conn)[0]["title"] == "Задача «обновление плейлистов» упала с ошибкой"
+    assert list_events(conn, lang="ru")[0]["data"] is None
