@@ -180,3 +180,29 @@ def test_add_source_command_imports_now_and_never_prints_the_url(tmp_path, monke
     out = capsys.readouterr()
     assert '"channels_created": 1' in out.out and "conflict" in out.err
     assert "0123secret" not in out.out + out.err
+
+
+def test_sources_command_lists_ids_without_urls(tmp_path, monkeypatch, capsys):
+    from mih import cli, db
+    from mih.config import Settings
+    from mih.sources import service
+
+    monkeypatch.setattr(service, "check_destination", lambda url, allow_private: None)
+    monkeypatch.setenv("MIH_DATA_DIR", str(tmp_path))
+    playlist = tmp_path / "list.m3u"
+    playlist.write_bytes(b"#EXTM3U\n#EXTINF:-1,One\nhttp://cdn.example/one.m3u8\n")
+    assert cli.main(["import-file", str(playlist), "--source", "my playlist file"]) == 0
+    conn = db.connect(tmp_path / "mih.sqlite3")
+    service.create_source(conn, Settings(data_dir=tmp_path), name="auto: host/x", url=None)
+    service.create_source(conn, Settings(data_dir=tmp_path), name="keyed",
+                          url="http://iptv.example/0123secret/list.m3u")  # fmt: skip
+    conn.close()
+    capsys.readouterr()
+    assert cli.main(["sources"]) == 0
+    out = capsys.readouterr().out
+    line = next(x for x in out.splitlines() if "my playlist file" in x)
+    assert "url=no" in line and "streams=1" in line and "applied" in line
+    assert "keyed  url=yes" in out and "0123secret" not in out
+    assert "auto:" not in out
+    assert cli.main(["sources", "--auto"]) == 0
+    assert "auto: host/x" in capsys.readouterr().out
