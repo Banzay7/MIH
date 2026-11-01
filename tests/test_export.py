@@ -2,7 +2,8 @@ import csv
 import json
 
 from mih.cli import main
-from mih.export import build_catalog, categorize, export_catalog
+from mih.categories import categorize
+from mih.export import build_catalog, export_catalog
 from mih.sources.importer import import_m3u
 from tests.conftest import fixture_bytes
 

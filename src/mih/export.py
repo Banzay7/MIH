@@ -9,9 +9,9 @@ never sees half a file:
 - ``playlist.m3u``: one playable entry per feed (the best live stream), grouped by
   category. It carries stream URLs, so it is skipped with ``with_playlist=False``.
 
-Categories: a channel gets the canonical categories its playlists' ``group-title`` values
-point to, then the ones its name suggests, then the most frequent EPG programme
-categories. Raw group titles are kept as they are in ``groups``.
+Categories come from weighted signals (directory, playlist groups, name, the guide's
+airtime by genre), see mih.categories: the primary one first. Raw group titles are kept
+as they are in ``groups``.
 """
 
 from __future__ import annotations
@@ -27,51 +27,10 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
+from mih.categories import decide, directory_categories, guide_mix
 from mih.identity.normalize import fold
 from mih.ids import utc_now
 from mih.playback import Target, pick_streams
-
-# Canonical category -> folded keywords (ru, en, vi). A keyword matches a whole word
-# or the start of one, so "спорт" matches "Спорт HD" and "спортивные".
-CATEGORIES: dict[str, tuple[str, ...]] = {
-    "news": ("news", "новост", "информац", "tin tuc", "thoi su", "24"),
-    "sport": ("sport", "спорт", "футбол", "football", "soccer", "the thao", "матч", "match"),
-    "kids": ("kids", "children", "cartoon", "детск", "дети", "мульт", "thieu nhi", "hoat hinh"),
-    "movies": ("movie", "film", "cinema", "кино", "фильм", "phim"),
-    "series": ("series", "сериал"),
-    "music": ("music", "музык", "am nhac", "mtv"),
-    "documentary": ("documentary", "докум", "познават", "science", "наук", "discovery",
-                    "history", "истори", "nature", "природ", "tai lieu", "kham pha"),
-    "education": ("education", "образоват", "обучени", "giao duc"),
-    "entertainment": ("entertainment", "развлекат", "юмор", "comedy", "giai tri", "show"),
-    "lifestyle": ("lifestyle", "cooking", "food", "кулинар", "еда", "travel", "путешеств",
-                  "мода", "fashion", "doi song", "du lich"),
-    "religion": ("religio", "религи", "православ", "church", "ton giao"),
-    "business": ("business", "бизнес", "эконом", "финанс", "finance", "kinh te"),
-    "general": ("general", "общие", "общероссийск", "эфирн", "federal", "федеральн",
-                "tong hop"),
-    "regional": ("regional", "регион", "local", "dia phuong"),
-    "shop": ("shop", "магазин", "mua sam"),
-    "adult": ("adult", "xxx", "18+", "+18", "18 плюс", "взросл", "для взрослых", "эрот",
-              "erotic", "erotik", "porn", "порн", "sex", "секс", "nsfw", "playboy",
-              "hustler", "brazzers", "dorcel", "penthouse", "redlight", "red light",
-              "nguoi lon", "интим", "русская ночь", "ню арт", "шалун", "babes tv",
-              "barely legal", "private tv", "vivid red", "vivid tv", "xy max", "exxxotica",
-              "o la la", "o-la-la", "beate uhse", "evil angel", "fap tv"),
-}  # fmt: skip
-
-# iptv-org categories -> the catalog's (CATEGORIES above).
-CATEGORY_MAP = {
-    "animation": "kids", "auto": "lifestyle", "business": "business", "classic": "movies",
-    "comedy": "entertainment", "cooking": "lifestyle", "culture": "education",
-    "documentary": "documentary", "education": "education", "entertainment": "entertainment",
-    "family": "entertainment", "general": "general", "interactive": "entertainment",
-    "kids": "kids", "legislative": "news", "lifestyle": "lifestyle", "movies": "movies",
-    "music": "music", "news": "news", "outdoor": "lifestyle", "public": "general",
-    "relax": "lifestyle", "religious": "religion", "science": "documentary",
-    "series": "series", "shop": "shop", "sports": "sport", "travel": "lifestyle",
-    "weather": "news", "xxx": "adult",
-}  # fmt: skip
 
 _SPLIT_RE = re.compile(r"\s*[;|]\s*")
 
@@ -88,31 +47,10 @@ class ExportResult:
                 "playlist_entries": self.playlist_entries}  # fmt: skip
 
 
-def categorize(texts: list[str]) -> list[str]:
-    """Canonical categories the texts point to, in CATEGORIES order."""
-    words = " " + " ".join(fold(t) for t in texts if t) + " "
-    found = []
-    for cat, keys in CATEGORIES.items():
-        if any(re.search(r"(?<![\w])" + re.escape(fold(k)), words) for k in keys):
-            found.append(cat)
-    return found
-
-
-def directory_categories(raw: list[str], nsfw: bool) -> list[str]:
-    cats = []
-    for c in raw:
-        mapped = CATEGORY_MAP.get(c.casefold())
-        if mapped and mapped not in cats:
-            cats.append(mapped)
-    if nsfw and "adult" not in cats:
-        cats.append("adult")
-    return cats
-
-
 def build_catalog(conn: sqlite3.Connection) -> list[dict]:
     """Every channel with categories and details, sorted by name. No stream URLs."""
     attrs = _current_attrs(conn)
-    epg_cats = _epg_categories(conn)
+    mixes = guide_mix(conn)
     has_epg = {r[0] for r in conn.execute(
         "SELECT DISTINCT f.channel_id FROM epg_mappings m JOIN feeds f ON f.id = m.feed_id"
         " WHERE m.decision IN ('auto', 'approved')"
@@ -184,21 +122,20 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
             langs.update(json.loads(d["languages"] or "[]"))
             if d["country"]:
                 countries.add(d["country"])
-        from_groups = [c for c in categorize(groups) if c not in from_dir]
-        from_name = [c for c in categorize([ch["canonical_name"], *names[ch["id"]]])
-                     if c not in from_dir + from_groups]  # fmt: skip
-        top_epg = [c for c, _ in epg_cats.get(ch["id"], Counter()).most_common(5)]
-        from_epg = [c for c in categorize(top_epg)
-                    if c not in from_dir + from_groups + from_name]  # fmt: skip
-        categories = from_dir + from_groups + from_name + from_epg
+        mix = mixes.get(ch["id"])
+        top_epg = [c for c, _ in mix.raw.most_common(5)] if mix else []
+        decision = decide(directory=from_dir, groups=groups,
+                          names=[ch["canonical_name"], *names[ch["id"]]],
+                          guide=mix.shares() if mix else None)  # fmt: skip
         playable = sum(n for st, n in status_counts.items()
                        if st not in ("quarantine", "archived", "absent"))  # fmt: skip
         out.append({
             "id": ch["id"],
             "name": ch["canonical_name"],
-            "categories": categories or ["other"],
-            "category_source": ("directory" if from_dir else "playlist" if from_groups
-                                else "name" if from_name else "epg" if from_epg else "none"),
+            "categories": decision.categories,
+            "category_source": decision.source,
+            "category_scores": decision.scores,
+            "category_reasons": decision.reasons,
             "groups": groups,
             "epg_categories": top_epg,
             "countries": sorted(countries),
@@ -266,22 +203,6 @@ def _current_attrs(conn: sqlite3.Connection) -> dict[str, dict[str, str]]:
     out: dict[str, dict[str, str]] = {}
     for r in rows:
         out.setdefault(r["stream_id"], json.loads(r["normalized_payload"]).get("attrs", {}))
-    return out
-
-
-def _epg_categories(conn: sqlite3.Connection) -> dict[str, Counter]:
-    out: dict[str, Counter] = defaultdict(Counter)
-    for r in conn.execute(
-        "SELECT f.channel_id, p.categories FROM airings a"
-        " JOIN programmes p ON p.id = a.programme_id"
-        " JOIN epg_mappings m ON m.epg_channel_id = a.epg_channel_id"
-        " JOIN feeds f ON f.id = m.feed_id"
-        " WHERE m.decision IN ('auto', 'approved') AND a.status = 'scheduled'"
-    ):
-        for cat in json.loads(r["categories"] or "[]"):
-            text = cat[1] if isinstance(cat, list) else cat
-            if text:
-                out[r["channel_id"]][text] += 1
     return out
 
 
