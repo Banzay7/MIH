@@ -19,11 +19,12 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+from bisect import bisect_left
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from mih.identity.normalize import fold
+from mih.identity.normalize import fold, split_name
 from mih.search.genres import GENRES
 from mih.search.topics import WHOLE_WORD_BELOW
 
@@ -32,7 +33,8 @@ from mih.search.topics import WHOLE_WORD_BELOW
 CATEGORIES: dict[str, tuple[str, ...]] = {
     "news": ("news", "новост", "новин", "информац", "tin tuc", "thoi su", "24", "nachrichten",
              "noticias", "noticiero", "notizie", "nieuws", "nyheder", "nyheter", "haber",
-             "tagesschau", "telegiornale", "wiadomosci", "stiri"),
+             "tagesschau", "telegiornale", "wiadomosci", "stiri", "info", "franceinfo",
+             "zpravy", "spravy", "zinios", "ειδησεισ", "חדשות"),
     "sport": ("sport", "спорт", "футбол", "football", "soccer", "the thao", "матч", "match",
               "futbol", "fussball", "deport", "esporte", "calcio", "eurosport", "хоккей",
               "hockey", "nhl", "nba", "nfl", "mlb", "fifa", "ufc", "wwe", "tennis", "golf",
@@ -41,15 +43,17 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
              "infantil", "kinder", "jeunesse", "dzieci", "disney", "nick", "nickelodeon",
              "toon", "baby", "junior", "anime", "детям"),
     "movies": ("movie", "film", "cinema", "кино", "кіно", "фильм", "phim", "cine", "kino",
-               "pelicul", "axn", "hbo", "cinemax"),
+               "pelicul", "axn", "hbo", "cinemax", "action", "thriller", "western", "horror"),
     "series": ("series", "сериал", "серіал", "drama", "novela", "telenovel", "dizi"),
     "music": ("music", "музык", "музик", "am nhac", "mtv", "musik", "musica", "musique",
               "muziek", "muzyk", "rock", "jazz", "hits", "stingray", "vh1", "deejay", "ca nhac"),
     "documentary": ("documentary", "докум", "познават", "science", "наук", "discovery",
                     "histor", "истори", "nature", "природ", "tai lieu", "kham pha", "dokument",
                     "documental", "documentaire", "belgesel", "geographic", "nat geo",
-                    "wildlife", "wissen"),
-    "education": ("education", "образоват", "обучени", "giao duc", "educa", "bildung"),
+                    "wildlife", "wissen", "storia"),
+    "education": ("education", "образоват", "обучени", "giao duc", "educa", "bildung", "school",
+                  "школ", "scuola", "escola", "escuela", "ecole", "schul", "universit",
+                  "learning"),
     "entertainment": ("entertainment", "развлекат", "юмор", "comedy", "giai tri", "show",
                       "unterhaltung", "divertissement", "intratteniment", "entretenim",
                       "reality"),
@@ -66,7 +70,7 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
     "general": ("general", "общие", "общероссийск", "эфирн", "federal", "федеральн",
                 "tong hop"),
     "regional": ("regional", "регион", "local", "dia phuong"),
-    "shop": ("shop", "магазин", "mua sam", "teleshop"),
+    "shop": ("shop", "магазин", "телемагазин", "mua sam", "teleshop"),
     "radio": ("radio", "радио", "fm", "dab"),
     "adult": ("adult", "xxx", "18+", "+18", "18 плюс", "взросл", "для взрослых", "эрот",
               "erotic", "erotik", "porn", "порн", "sex", "секс", "nsfw", "playboy",
@@ -80,7 +84,7 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
 WHOLE_KEYS: frozenset[str] = frozenset({
     "24", "nick", "toon", "baby", "nhl", "nba", "nfl", "mlb", "fifa", "ufc", "wwe", "axn",
     "hbo", "cine", "kino", "dizi", "rock", "hits", "jazz", "vh1", "fm", "dab",
-    "pets", "tbn", "ewtn", "golf", "radio", "радио", "drama",
+    "pets", "tbn", "ewtn", "golf", "radio", "радио", "drama", "info", "action", "school",
 })  # fmt: skip
 
 # Big national broadcasters: a word of their name says «general» when nothing more specific
@@ -93,7 +97,8 @@ GENERAL_BRANDS: tuple[str, ...] = (
     "polsat", "tvn", "markiza", "hrt", "rts", "tvr", "pro tv", "antena 1", "ert", "trt",
     "atv", "kanal d", "star tv", "tvri", "sctv", "rcti", "indosiar", "nhk", "kbs", "mbc",
     "sbs", "cctv", "doordarshan", "ptv", "vtv", "htv", "vtc", "первый канал", "россия 1",
-    "нтв", "рен тв", "пятый канал", "твц", "1+1", "інтер", "ictv", "стб",
+    "нтв", "рен тв", "пятый канал", "твц", "1+1", "інтер", "ictv", "стб", "radio canada",
+    "cbc", "ct1", "ct2", "nova",
 )  # fmt: skip
 
 # Keywords that also turn up in names of channels of other kinds ("Кино 24", "Talk Show",
@@ -163,9 +168,15 @@ def _genre_re(forms: tuple[str, ...]) -> re.Pattern:
 _GENRE_RE = {gid: _genre_re(forms) for gid, forms in GENRES.items()}
 
 
+# Broadcaster names with «radio» that are television: «Radio-Canada», «Radio Televizija
+# Srbija», «Radiotelevisione svizzera». Taken out before keywords are looked up.
+_NOT_RADIO_RE = re.compile(r"(?<!\w)(radio[\s\-]+(canada|tele\w*|y television|e televis\w*)"
+                           r"|radiotele\w*)")  # fmt: skip
+
+
 def keyword_hits(texts: list[str]) -> dict[str, str]:
     """Category -> "strong" or "weak": the keywords found in the texts."""
-    words = " " + " ".join(fold(t) for t in texts if t) + " "
+    words = _NOT_RADIO_RE.sub(" ", " " + " ".join(fold(t) for t in texts if t) + " ")
     out = {}
     for cat, (strong, weak) in _KEY_RE.items():
         if strong.search(words):
@@ -206,12 +217,20 @@ class GuideMix:
     minutes: float = 0.0
     airings: int = 0
     by_category: Counter = field(default_factory=Counter)  # minutes
+    titles: Counter = field(default_factory=Counter)  # minutes by programme title
     raw: Counter = field(default_factory=Counter)  # the guide's own genre words, by airing
 
     def shares(self) -> dict[str, float]:
         if self.minutes < GUIDE_MIN_MINUTES or self.airings < GUIDE_MIN_AIRINGS:
             return {}
         return {c: m / self.minutes for c, m in self.by_category.items()}
+
+    def one_show(self) -> str | None:
+        """The title that fills most of the airtime: a channel of one series."""
+        if self.minutes < GUIDE_MIN_MINUTES or self.airings < GUIDE_MIN_AIRINGS or not self.titles:
+            return None
+        title, m = self.titles.most_common(1)[0]
+        return title if m / self.minutes >= ONE_SHOW_SHARE else None
 
 
 def guide_mix(conn: sqlite3.Connection) -> dict[str, GuideMix]:
@@ -244,6 +263,8 @@ def guide_mix(conn: sqlite3.Connection) -> dict[str, GuideMix]:
         mix.minutes += minutes
         mix.airings += 1
         mix.raw.update(texts)
+        if r["title"]:
+            mix.titles[r["title"].strip()] += minutes
         for c in cats:
             mix.by_category[c] += minutes
     return out
@@ -255,6 +276,7 @@ class Decision:
     source: str  # where the primary came from (a _SOURCE_RANK key) or none
     scores: dict[str, float]
     reasons: dict[str, list[str]]
+    fallback: bool = False  # only a weak rule spoke: one show, mixed guide, a broadcaster
 
 
 _SOURCE_RANK = {
@@ -270,8 +292,10 @@ _SOURCE_RANK = {
 
 def decide(*, directory: list[str] = (), groups: list[str] = (), names: list[str] = (),
            guide: dict[str, float] | None = None,
-           extra: list[tuple[str, str, float, str]] = ()) -> Decision:  # fmt: skip
-    """``extra``: more votes as (category, source, weight, reason), e.g. adult evidence."""
+           extra: list[tuple[str, str, float, str]] = (),
+           one_show: str | None = None) -> Decision:  # fmt: skip
+    """``extra``: more votes as (category, source, weight, reason), e.g. adult evidence.
+    ``one_show``: the title that fills most of the channel's guide, if one does."""
     votes: dict[str, dict[str, float]] = defaultdict(dict)  # category -> source -> weight
     reasons: dict[str, list[str]] = defaultdict(list)
 
@@ -312,10 +336,10 @@ def decide(*, directory: list[str] = (), groups: list[str] = (), names: list[str
     if "adult" in scores and "adult" not in kept:
         kept.append("adult")
     if not kept:
-        fallback = _general_fallback(names, guide or {})
+        fallback = _fallback(names, guide or {}, one_show)
         if fallback:
-            return Decision(["general"], fallback[0], {"general": THRESHOLD},
-                            {"general": [fallback[1]]})  # fmt: skip
+            cat, src, why = fallback
+            return Decision([cat], src, {cat: THRESHOLD}, {cat: [why]}, fallback=True)
         return Decision(["other"], "none", scores, dict(reasons))
     primary = votes[kept[0]]
     source = min(primary, key=lambda s: (-primary[s], _SOURCE_RANK[s]))
@@ -328,17 +352,95 @@ MIXED_MIN_KINDS = 3
 MIXED_KIND_SHARE = 0.1
 
 
-def _general_fallback(names, guide: dict[str, float]) -> tuple[str, str] | None:
-    """(source, reason) for «general» when nothing else reached the threshold."""
+# Free streaming services run many channels that each show one programme all day long
+# («Pluto TV Baywatch», «Pluto TV Star Trek»): such a channel is a series channel.
+FAST_BRANDS = ("pluto tv", "samsung tv plus", "rakuten tv", "plex", "xumo", "stirr",
+               "roku channel", "tubi", "lg channels", "tcl channel")  # fmt: skip
+_FAST_RE = re.compile("|".join(r"(?<!\w)" + re.escape(b) + r"(?!\w)" for b in FAST_BRANDS))
+# A guide where one title fills this share of the airtime is a one-show channel.
+ONE_SHOW_SHARE = 0.6
+
+
+def _fallback(names, guide: dict[str, float], one_show: str | None
+              ) -> tuple[str, str, str] | None:  # fmt: skip
+    """(category, source, reason) when nothing reached the threshold."""
+    if one_show:
+        return "series", "epg", f"guide: one show «{one_show}»"
     if (
         sum(share >= MIXED_KIND_SHARE for c, share in guide.items() if c != "adult")
         >= MIXED_MIN_KINDS
     ):
-        return "epg", "guide: mixed"
-    hit = _BRANDS_RE.search(" " + " ".join(fold(n) for n in names if n) + " ")
+        return "general", "epg", "guide: mixed"
+    text = " " + _NON_WORD.sub(" ", " ".join(fold(n) for n in names if n)) + " "
+    hit = _FAST_RE.search(text)
+    if hit and text.replace(hit.group(0), " ").strip():  # «Pluto TV» alone is the service
+        return "series", "name", "streaming service: one show"
+    hit = _BRANDS_RE.search(text)
     if hit:
-        return "name", "broadcaster: " + hit.group(0).strip()
+        return "general", "name", "broadcaster: " + hit.group(0).strip()
     return None
+
+
+# ---------- Sister channels of one brand ----------
+
+# Words at the end of a name that tell sister channels apart: «Eurosport 2», «CNN
+# International», «Rai 3», «Fox Sports Asia». Taken off to find the brand.
+BRAND_TAIL = frozenset({
+    "tv", "channel", "канал", "телеканал", "international", "int", "intl", "world",
+    "global", "europe", "asia", "africa", "america", "latino", "latam", "arabia",
+    "usa", "us", "uk", "east", "west", "north", "south", "plus", "extra", "max", "live",
+    "en", "de", "fr", "es", "it", "pt", "ru", "ar", "tr", "pl",
+})  # fmt: skip
+# Stems too common to be a brand.
+GENERIC_STEMS = frozenset({"tv", "channel", "канал", "телеканал", "radio", "радио", "the",
+                           "live", "canal", "kanal", "channel one", "tele"})  # fmt: skip
+# Share of a brand's categorised channels that must agree on one primary category.
+BRAND_AGREE = 2 / 3
+
+
+def brand_stem(name: str) -> str:
+    """The brand part of a channel name: «Eurosport 2 HD» -> «eurosport»."""
+    tokens = split_name(name).key.split()
+    while len(tokens) > 1 and (tokens[-1].isdigit() or len(tokens[-1]) == 1
+                               or tokens[-1] in BRAND_TAIL):  # fmt: skip
+        tokens.pop()
+    return " ".join(tokens)
+
+
+def brand_votes(stems: dict[str, str], primary: dict[str, str], todo: set[str]
+                ) -> dict[str, tuple[str, str]]:  # fmt: skip
+    """Channel -> (category, brand) for the channels in ``todo``, from their sister channels.
+
+    ``stems``: channel -> brand_stem of its name; ``primary``: channel -> primary category
+    for the channels whose own evidence decided it. A channel looks at the channels whose
+    stem is its own stem or starts with it, then drops the stem's last word and looks
+    again, until it finds categorised sisters. They must agree (``BRAND_AGREE``), or it
+    keeps what it had: «MBC» runs news, film and drama channels alike.
+    """
+    by_stem: dict[str, list[str]] = defaultdict(list)
+    for cid, st in stems.items():
+        if st:
+            by_stem[st].append(cid)
+    ordered = sorted(by_stem)
+    out = {}
+    for cid in todo:
+        tokens = stems.get(cid, "").split()
+        for n in range(len(tokens), 0, -1):
+            stem = " ".join(tokens[:n])
+            if stem in GENERIC_STEMS or len(stem) < 3:
+                break
+            cats: Counter = Counter()
+            i = bisect_left(ordered, stem)
+            while i < len(ordered) and (ordered[i] == stem or ordered[i].startswith(stem + " ")):
+                cats.update(primary[s] for s in by_stem[ordered[i]] if s != cid and s in primary)
+                i += 1
+            if not cats:
+                continue
+            cat, k = cats.most_common(1)[0]
+            if k / cats.total() >= BRAND_AGREE:
+                out[cid] = (cat, stem)
+            break
+    return out
 
 
 # ---------- Adult channels behind harmless names ----------
