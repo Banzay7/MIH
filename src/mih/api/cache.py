@@ -153,7 +153,7 @@ def respond(request: Request, entry: Entry) -> Response:
     # no-cache: the web UI decides itself when a copy is still good (by the data version);
     # anything else asks again and gets a 304 while the answer is the same.
     headers = {"ETag": entry.etag, "Cache-Control": "private, no-cache",
-               "Vary": "Accept-Encoding, Authorization"}  # fmt: skip
+               "Vary": "Accept-Encoding, Authorization, X-MIH-Adult"}  # fmt: skip
     if entry.etag in request.headers.get("if-none-match", ""):
         return Response(status_code=304, headers=headers)
     if "gzip" in request.headers.get("accept-encoding", ""):
