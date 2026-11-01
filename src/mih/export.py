@@ -32,7 +32,11 @@ from mih.categories import (
     NEIGHBOUR_SHARE,
     SOURCE_MIN,
     SOURCE_SHARE,
+    THRESHOLD,
+    Decision,
     adult_name_keys,
+    brand_stem,
+    brand_votes,
     decide,
     directory_categories,
     guide_mix,
@@ -159,7 +163,8 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
             extra.append(("adult", "url", 3.0, "stream or logo address"))
         mix = mixes.get(ch["id"])
         inputs[ch["id"]] = {"directory": from_dir, "groups": groups, "names": all_names,
-                            "guide": mix.shares() if mix else None, "extra": extra}  # fmt: skip
+                            "guide": mix.shares() if mix else None, "extra": extra,
+                            "one_show": mix.one_show() if mix else None}  # fmt: skip
         top_epg = [c for c, _ in mix.raw.most_common(5)] if mix else []
         playable = sum(n for st, n in status_counts.items()
                        if st not in ("quarantine", "archived", "absent"))  # fmt: skip
@@ -189,12 +194,14 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
 def _categorize(catalog: list[dict], inputs: dict[str, dict], manual: dict[str, list[str]],
                 in_group: dict[str, set[str]], in_source: dict[str, set[str]]) -> None:  # fmt: skip
     """Decide every channel's categories; then once more for the channels whose playlist
-    group or playlist is mostly adult."""
+    group or playlist is mostly adult; then channels with no category of their own (or
+    only a broadcaster's «general») take it from sister channels of their brand."""
     first = {cid: decide(**kw) for cid, kw in inputs.items()}
     adult = {cid for cid, d in first.items() if "adult" in d.categories}
     adult |= {cid for cid, cats in manual.items() if "adult" in cats}
     by_group = neighbour_votes(in_group, adult, share=NEIGHBOUR_SHARE, least=NEIGHBOUR_MIN)
     by_source = neighbour_votes(in_source, adult, share=SOURCE_SHARE, least=SOURCE_MIN)
+    final = {}
     for ch in catalog:
         cid = ch["id"]
         decision = first[cid]
@@ -203,6 +210,19 @@ def _categorize(catalog: list[dict], inputs: dict[str, dict], manual: dict[str, 
             kw = inputs[cid]
             kw["extra"] = [*kw["extra"], ("adult", "neighbours", 2.0, f"mostly adult: {group}")]
             decision = decide(**kw)
+        final[cid] = decision
+    primary = {cid: d.categories[0] for cid, d in final.items()
+               if not d.fallback and d.categories[0] not in ("other", "adult")}  # fmt: skip
+    primary |= {cid: cats[0] for cid, cats in manual.items() if cats[0] != "adult"}
+    todo = {cid for cid, d in final.items() if cid not in manual and (
+        d.categories == ["other"] or (d.fallback and d.source == "name"
+                                      and d.categories == ["general"]))}  # fmt: skip
+    stems = {ch["id"]: brand_stem(ch["name"] or "") for ch in catalog}
+    for cid, (cat, stem) in brand_votes(stems, primary, todo).items():
+        final[cid] = Decision([cat], "brand", {cat: THRESHOLD}, {cat: [f"brand: {stem}"]})
+    for ch in catalog:
+        cid = ch["id"]
+        decision = final[cid]
         ch["categories"] = manual.get(cid) or decision.categories
         ch["category_source"] = "manual" if cid in manual else decision.source
         ch["category_auto"] = decision.categories

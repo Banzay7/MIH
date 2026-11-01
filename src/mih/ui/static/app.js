@@ -540,7 +540,7 @@ const CATEGORIES = [["general", t("Общие")], ["news", t("Новости")],
 const categoryName = (id) => CATEGORIES.find(([c]) => c === id)?.[1] || id;
 const CATEGORY_SOURCES = { directory: t("справочник iptv-org"), "directory-name": t("название из справочника 18+"),
   playlist: t("группа в плейлисте"), url: t("адрес потока или логотипа"), epg: t("программа передач"),
-  neighbours: t("соседи по плейлисту"), name: t("название канала"), manual: t("вручную"), none: t("нет данных") };
+  neighbours: t("соседи по плейлисту"), brand: t("каналы того же бренда"), name: t("название канала"), manual: t("вручную"), none: t("нет данных") };
 
 function categoryBlock(id, ch) {
   const cats = ch.categories || [];
