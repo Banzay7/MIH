@@ -130,5 +130,40 @@ def test_harmless_names_are_caught_by_neighbours_and_addresses(conn, settings, m
     assert moon["category_reasons"]["adult"] == ["mostly adult: night / Ночь"]
     relax = by_name["Relax Lounge"]
     assert relax["categories"] == ["adult"] and relax["category_source"] == "url"
-    assert by_name["Garden Life"]["categories"] == ["other"]
+    assert by_name["Garden Life"]["categories"] == ["lifestyle"]  # not adult
     assert "http" not in str(relax["category_reasons"])  # addresses never leave the server
+
+
+def test_words_from_other_languages_and_brands():
+    cases = {
+        "Futbol TV UZ": ["sport"], "TGRT Belgesel TR": ["documentary"],
+        "Viva Telenovelas IL": ["series"], "Pluto TV El Reino Infantil": ["kids"],
+        "Stingray Classica HD DE": ["music"], "tagesschau24": ["news"],
+        "Nickelodeon": ["kids"], "Radio BOB! Emo": ["radio"], "Hír FM": ["radio"],
+    }  # fmt: skip
+    for name, cats in cases.items():
+        assert decide(names=[name]).categories == cats, name
+    # short words count only as words of their own
+    for name in ("Fmovies", "Nickname TV", "Serie A TV", "Raid TV"):
+        assert decide(names=[name]).categories == ["other"], name
+
+
+def test_a_big_broadcaster_is_general_only_when_nothing_else_says_more():
+    d = decide(names=["Rai 3 Trentino-Alto Adige Trento"])
+    assert (d.categories, d.source) == (["general"], "name")
+    assert d.reasons["general"] == ["broadcaster: rai"]
+    assert decide(names=["Fox Sports 1"]).categories == ["sport"]
+    assert decide(names=["BBC News"]).categories == ["news"]
+
+
+def test_a_guide_of_many_small_kinds_is_a_general_channel():
+    mixed = {"news": 0.15, "series": 0.15, "movies": 0.12, "documentary": 0.05}
+    d = decide(guide=mixed)
+    assert (d.categories, d.source, d.reasons["general"]) == (["general"], "epg", ["guide: mixed"])
+    assert decide(guide={"news": 0.15, "series": 0.12}).categories == ["other"]
+
+
+def test_guide_genres_in_other_languages():
+    assert programme_categories("Tagesschau", ["Nachrichten"]) == {"news"}
+    assert programme_categories("Planet Erde", ["Dokumentation"]) == {"documentary"}
+    assert "kids" in programme_categories("Peppa", ["Dessin animé", "Jeunesse"])
