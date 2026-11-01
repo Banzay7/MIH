@@ -97,6 +97,8 @@ def main(argv: list[str] | None = None) -> int:
     lst.add_argument("--presets", action="store_true",
                      help="build every list of MIH_LISTS_FILE into <export>/lists")  # fmt: skip
     sub.add_parser("stats", help="print catalog counts")
+    srcs = sub.add_parser("sources", help="list playlist sources with their ids (URLs not shown)")
+    srcs.add_argument("--auto", action="store_true", help="include sources found by the scout")
     sub.add_parser("epg-coverage", help="working channels with a guide, by country")
     sub.add_parser("report", help="rebuild the coverage report of the web UI now and print it")
     sub.add_parser("status", help="what the service is doing, recent events, the plan")
@@ -236,6 +238,19 @@ def main(argv: list[str] | None = None) -> int:
             "SELECT COUNT(*) FROM match_decisions WHERE decision = 'needs_review'"
         ).fetchone()[0]
         print(json.dumps(counts, indent=2))
+    elif args.cmd == "sources":
+        # The id is what /api/v1/sources/{id}/upload needs; URLs may hold keys, so only a flag.
+        rows = conn.execute(
+            "SELECT s.id, s.name, s.url IS NOT NULL AS has_url,"
+            " (SELECT COUNT(*) FROM streams WHERE source_id = s.id) AS streams,"
+            " (SELECT fetched_at || ' ' || status FROM source_snapshots"
+            "  WHERE source_id = s.id ORDER BY fetched_at DESC, rowid DESC LIMIT 1) AS last_import"
+            " FROM sources s WHERE ? OR s.name NOT LIKE 'auto:%' ORDER BY s.name",
+            (args.auto,),
+        ).fetchall()
+        for r in rows:
+            print(f"{r['id']}  {r['name']}  url={'yes' if r['has_url'] else 'no'}"
+                  f"  streams={r['streams']}  last={r['last_import'] or '-'}")  # fmt: skip
     elif args.cmd == "epg-coverage":
         print(json.dumps(working_coverage(conn).to_dict(), ensure_ascii=False, indent=2))
     elif args.cmd == "report":
