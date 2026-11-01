@@ -103,6 +103,10 @@ def main(argv: list[str] | None = None) -> int:
     job = sub.add_parser("run-job", help="run a background job now; the result is pushed")
     job.add_argument("name", choices=JOBS)
     sub.add_parser("notify-test", help="send a test push to MIH_NTFY_URL")
+    ns = sub.add_parser("notify-send", help="send one push with your own text (used by mihctl.sh)")
+    ns.add_argument("title")
+    ns.add_argument("body", nargs="?", default="")
+    ns.add_argument("--level", default="warning", choices=sorted(notify._PRIORITY))
     lt = sub.add_parser("loadtest", help="many people opening the web UI at once; prints timings")
     lt.add_argument("--url", help="server address (default: this server, MIH_BIND_PORT)")
     lt.add_argument("--users", type=int, default=100, help="people at once (default 100)")
@@ -268,6 +272,10 @@ def main(argv: list[str] | None = None) -> int:
                              t(settings, "notify.test.body"))  # fmt: skip
         print(result)
         return 0 if result == "sent" else 5
+    elif args.cmd == "notify-send":
+        result = notify.send(settings, args.title, args.body, args.level)
+        print(result)
+        return 0 if result in ("sent", "off") else 5
     return 0
 
 

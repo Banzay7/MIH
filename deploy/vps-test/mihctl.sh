@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Manage the MIRTVONLINE test stand: preflight, deploy, backup, restore, rollback, public, uninstall.
+# Manage the MIRTVONLINE test stand: preflight, deploy, update, autoupdate, backup, restore,
+# rollback, public, uninstall.
 # Touches only objects named mirtvonline-test*: one container, one volume, one network, and
 # images tagged mirtvonline/mih:test-*. Nothing else on the host is changed, except this node's
 # Tailscale Funnel entry with `public on|off`, which the owner runs on purpose.
@@ -152,6 +153,120 @@ cmd_deploy() {
   cmd_status
 }
 
+notify_owner() {
+  # One push through the stand's own ntfy settings; silent if pushes are off or the
+  # container is down (the update log keeps the message either way).
+  container_exists || return 0
+  docker exec "$CONTAINER" mih notify-send --level "${3:-warning}" "$1" "${2:-}" >/dev/null 2>&1 || true
+}
+
+ci_state() {
+  # Prints success, pending or failed for the GitHub checks of commit $1; "success" when
+  # MIH_UPDATE_REQUIRE_CI=0. Uses the public API: no token, 60 calls an hour are plenty.
+  local require; require="$(env_value MIH_UPDATE_REQUIRE_CI)"
+  [[ "${require:-1}" == 0 ]] && { echo success; return; }
+  local slug json
+  slug="$(env_value MIH_UPDATE_REPO)"
+  [[ -n "$slug" ]] || slug="$(git -C "$REPO" remote get-url origin \
+    | sed -E 's#^(https://github\.com/|git@github\.com:)##; s#\.git$##')"
+  [[ "$slug" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || { echo failed; return; }
+  json="$(curl -fsS -H 'Accept: application/vnd.github+json' \
+    "${MIH_GITHUB_API:-https://api.github.com}/repos/$slug/commits/$1/check-runs?per_page=100")" \
+    || { echo pending; return; }
+  python3 -c '
+import json, sys
+runs = json.load(sys.stdin).get("check_runs", [])
+if not runs or any(r["status"] != "completed" for r in runs):
+    print("pending")
+elif all(r["conclusion"] in ("success", "skipped", "neutral") for r in runs):
+    print("success")
+else:
+    print("failed")
+' <<<"$json"
+}
+
+cmd_update() {
+  # Bring the stand to the newest commit of MIH_UPDATE_BRANCH (default main), only once
+  # GitHub CI passed for it. Works after a history rewrite too (reset, not merge). If the new
+  # version does not come up healthy, the previous image, database and commit come back and
+  # the owner gets one push; that commit is then skipped until a newer one appears.
+  local auto=0; [[ "${1:-}" == --auto ]] && auto=1
+  mkdir -p "$STATE"
+  exec 9>"$STATE/update.lock"
+  flock -n 9 || { say "another update is running"; return 0; }
+  local branch current target
+  branch="$(env_value MIH_UPDATE_BRANCH)"; branch="${branch:-main}"
+  [[ -z "$(git -C "$REPO" status --porcelain --untracked-files=no)" ]] \
+    || die "the stand's clone has local changes to tracked files; update refuses to overwrite them (see git -C $REPO status)"
+  git -C "$REPO" fetch --quiet origin "$branch"
+  current="$(git -C "$REPO" rev-parse HEAD)"
+  target="$(git -C "$REPO" rev-parse "origin/$branch")"
+  if [[ "$current" == "$target" ]]; then say "up to date: ${current:0:12}"; return 0; fi
+  if (( auto )) && [[ "$(cat "$STATE/bad_commit" 2>/dev/null || true)" == "$target" ]]; then
+    say "skipping ${target:0:12}: it failed before; waiting for a newer commit"; return 0
+  fi
+  case "$(ci_state "$target")" in
+    success) ;;
+    pending) say "CI for ${target:0:12} has not finished yet; try later"; return 0 ;;
+    *)
+      say "CI failed for ${target:0:12}; not deploying it"
+      if (( auto )) && [[ "$(cat "$STATE/bad_commit" 2>/dev/null || true)" != "$target" ]]; then
+        printf '%s\n' "$target" >"$STATE/bad_commit"
+        notify_owner "Стенд не обновлён" "Проверки GitHub не прошли для ${target:0:12}. Стенд остаётся на ${current:0:12}."
+      fi
+      return 0 ;;
+  esac
+  say "== update ${current:0:12} -> ${target:0:12}"
+  printf '%s\n' "$current" >"$STATE/previous_commit"
+  local image_before; image_before="$(cat "$STATE/current_image" 2>/dev/null || true)"
+  git -C "$REPO" reset --quiet --hard "$target"
+  # Run the new script: the update may have changed mihctl.sh itself.
+  if "${MIH_UPDATE_DEPLOY:-$HERE/mihctl.sh}" deploy; then
+    rm -f "$STATE/bad_commit"
+    printf '%s update %s\n' "$(date -u +%FT%TZ)" "${target:0:12}" >>"$STATE/history"
+    say "updated to ${target:0:12}"
+    return 0
+  fi
+  say "== the new version did not start; going back to ${current:0:12}"
+  git -C "$REPO" reset --quiet --hard "$current"
+  printf '%s\n' "$target" >"$STATE/bad_commit"
+  # Roll back only if the new image was started; a failed build left the old one running.
+  if [[ "$(cat "$STATE/current_image" 2>/dev/null || true)" != "$image_before" && -s "$STATE/previous_image" ]]; then
+    "${MIH_UPDATE_ROLLBACK:-$HERE/mihctl.sh}" rollback || true
+  fi
+  notify_owner "Стенд: обновление откатилось" "Версия ${target:0:12} не запустилась, стенд вернулся на ${current:0:12}. Подробности: deploy/vps-test/state/update.log" error
+  return 1
+}
+
+AUTOUPDATE_MARK="# mirtvonline-test autoupdate"
+
+cmd_autoupdate() {
+  # A line in this user's crontab runs `update --auto` (default: every hour at :17).
+  # Only that line is added or removed; the rest of the crontab is left as it is.
+  command -v crontab >/dev/null || die "crontab not found on this host"
+  local schedule line rest
+  schedule="$(env_value MIH_UPDATE_SCHEDULE)"; schedule="${schedule:-17 * * * *}"
+  line="$schedule cd $(printf '%q' "$HERE") && ./mihctl.sh update --auto >>state/update.log 2>&1 && tail -n 2000 state/update.log >state/update.log.tmp && mv state/update.log.tmp state/update.log $AUTOUPDATE_MARK"
+  rest="$(crontab -l 2>/dev/null | grep -vF "$AUTOUPDATE_MARK" || true)"
+  case "${1:-status}" in
+    on)
+      mkdir -p "$STATE"
+      printf '%s\n%s\n' "$rest" "$line" | sed '/^$/d' | crontab -
+      say "autoupdate on: $schedule (log: deploy/vps-test/state/update.log)" ;;
+    off)
+      if [[ -n "$rest" ]]; then printf '%s\n' "$rest" | crontab -; else crontab -r 2>/dev/null || true; fi
+      say "autoupdate off" ;;
+    status)
+      if crontab -l 2>/dev/null | grep -qF "$AUTOUPDATE_MARK"; then
+        say "autoupdate on: $(crontab -l | grep -F "$AUTOUPDATE_MARK" | cut -d' ' -f1-5)"
+        tail -n 5 "$STATE/update.log" 2>/dev/null || true
+      else
+        say "autoupdate off"
+      fi ;;
+    *) die "usage: ./mihctl.sh autoupdate on|off|status" ;;
+  esac
+}
+
 cmd_status() {
   compose ps
   local port addr token
@@ -295,11 +410,13 @@ case "${1:-}" in
   preflight) cmd_preflight ;;
   deploy) cmd_deploy ;;
   status) cmd_status ;;
+  update) shift; cmd_update "${1:-}" ;;
+  autoupdate) shift; cmd_autoupdate "${1:-status}" ;;
   logs) shift; compose logs --tail "${1:-200}" mih ;;
   backup) cmd_backup ;;
   restore) shift; cmd_restore "${1:-}" ;;
   rollback) cmd_rollback ;;
   public) shift; cmd_public "${1:-status}" ;;
   uninstall) shift; cmd_uninstall "${1:-}" ;;
-  *) say "usage: ./mihctl.sh preflight|deploy|status|logs [n]|backup|restore [file]|rollback|public on|off|status|uninstall --yes"; exit 1 ;;
+  *) say "usage: ./mihctl.sh preflight|deploy|update|autoupdate on|off|status|status|logs [n]|backup|restore [file]|rollback|public on|off|status|uninstall --yes"; exit 1 ;;
 esac
