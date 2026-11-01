@@ -87,6 +87,7 @@ def build_report(conn: sqlite3.Connection, *, now: datetime | None = None,
         "new_streams": _new_streams(conn, now),
         "discovery": disc,
         "guides": _guides(conn),
+        "categories": _categories(catalog, working),
         "_countries": per_channel,  # written to its own file by write_report
     }
 
@@ -121,6 +122,16 @@ def _new_streams(conn: sqlite3.Connection, now: datetime) -> list[dict]:
         "SELECT substr(first_seen_at, 1, 10) AS day, COUNT(*) AS streams,"
         " SUM(status = 'active') AS working FROM streams"
         " WHERE substr(first_seen_at, 1, 10) >= ? GROUP BY 1 ORDER BY 1", (since,))]  # fmt: skip
+
+
+def _categories(catalog: list[dict], working: set[str]) -> dict:
+    """How the live channels got their primary category, and which one it is."""
+    live = [ch for ch in catalog if ch["id"] in working]
+    return {
+        "by_source": dict(Counter(ch.get("category_source", "none") for ch in live)),
+        "primary": dict(Counter(ch["categories"][0] for ch in live).most_common()),
+        "several": sum(len(ch["categories"]) > 1 for ch in live),
+    }
 
 
 def _guides(conn: sqlite3.Connection) -> dict:

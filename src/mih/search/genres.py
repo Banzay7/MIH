@@ -40,7 +40,7 @@ GENRES: dict[str, tuple[str, ...]] = {
 }
 
 
-# Genre -> the catalog's channel categories (mih.export.CATEGORIES) it also lists channels
+# Genre -> the catalog's channel categories (mih.categories.CATEGORIES) it also lists channels
 # of: «Для взрослых» finds adult channels even when they have no guide. Genres with no
 # category of their own list programmes only.
 GENRE_CATEGORIES: dict[str, tuple[str, ...]] = {

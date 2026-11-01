@@ -4,6 +4,8 @@ from fastapi.testclient import TestClient
 from mih import db
 from mih.api.app import create_app
 from mih.config import ConfigError, Settings
+from mih.export import build_catalog
+from mih.lists import store_tags
 from tests.conftest import fixture_bytes
 
 TOKEN = "t" * 32
@@ -306,3 +308,38 @@ def test_the_channel_list_carries_countries_even_before_the_first_report(client)
     path.unlink(missing_ok=True)
     items = client.get("/api/v1/channels?limit=10000").json()["items"]
     assert path.exists() and any(i["countries"] for i in items)
+
+
+def test_owner_sets_channel_categories_by_hand(client):
+    src = client.post("/api/v1/sources", json={"name": "a"}).json()
+    files = {"file": ("a.m3u", fixture_bytes("provider_a.m3u"), "audio/x-mpegurl")}
+    client.post(f"/api/v1/sources/{src['id']}/upload", files=files)
+    cid = _channel_id(client, "первый")
+    assert client.get(f"/api/v1/channels/{cid}").json()["categories_manual"] is False
+
+    put = client.put(f"/api/v1/channels/{cid}/categories",
+                     json={"categories": ["movies", "general", "movies"]})  # fmt: skip
+    assert put.status_code == 200
+    assert put.json() == {"categories": ["movies", "general"], "categories_manual": True}
+    detail = client.get(f"/api/v1/channels/{cid}").json()
+    assert detail["categories"] == ["movies", "general"]
+
+    # the search sees them at once, and a catalog build keeps them
+    pool = client.app.state.pool
+    conn = pool.take()
+    try:
+        catalog = {c["id"]: c for c in build_catalog(conn)}
+        assert catalog[cid]["category_source"] == "manual"
+        assert catalog[cid]["category_auto"] == ["general"]
+        store_tags(conn, list(catalog.values()))
+    finally:
+        pool.give(conn)
+    assert client.get(f"/api/v1/channels/{cid}").json()["categories"] == ["movies", "general"]
+
+    bad = client.put(f"/api/v1/channels/{cid}/categories", json={"categories": ["cats"]})
+    assert bad.status_code == 400 and bad.json()["error"]["code"] == "invalid"
+    assert client.put("/api/v1/channels/nope/categories",
+                      json={"categories": ["news"]}).status_code == 404  # fmt: skip
+
+    back = client.delete(f"/api/v1/channels/{cid}/categories").json()
+    assert back["categories_manual"] is False

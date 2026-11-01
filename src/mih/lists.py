@@ -153,6 +153,8 @@ def store_tags(conn: sqlite3.Connection, catalog: list[dict]) -> int:
     """Write each channel's categories and languages to channel_tags for the search.
     Called after every catalog build, so the tags follow the rules in mih.export."""
     rows = {(ch["id"], "category", c) for ch in catalog for c in ch["categories"] if c != "other"}
+    rows |= {(ch["id"], "primary", ch["categories"][0]) for ch in catalog
+             if ch["categories"][0] != "other"}  # fmt: skip
     rows |= {(ch["id"], "language", code) for ch in catalog for lang in ch["languages"]
              if (code := normalize_lang(lang)) and len(code) <= 3}  # fmt: skip
     own = not conn.in_transaction

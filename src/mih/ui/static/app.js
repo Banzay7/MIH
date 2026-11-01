@@ -515,6 +515,39 @@ const GENRES = [["news", t("Новости")], ["sport", t("Спорт")], ["mov
   ["nature", t("Природа и животные")], ["science", t("Наука и техника")], ["history", t("История")],
   ["health", t("Здоровье")], ["religion", t("Религия")], ["adult", t("Для взрослых")]];
 const genreName = (id) => GENRES.find(([g]) => g === id)?.[1] || id;
+// The catalog's channel categories (mih/categories.py), in its order.
+const CATEGORIES = [["general", t("Общие")], ["news", t("Новости")], ["sport", t("Спорт")], ["kids", t("Детям")],
+  ["movies", t("Фильмы")], ["series", t("Сериалы")], ["music", t("Музыка")], ["documentary", t("Документальные")],
+  ["education", t("Образование")], ["entertainment", t("Развлекательные")], ["lifestyle", t("Стиль жизни")],
+  ["religion", t("Религия")], ["business", t("Бизнес")], ["regional", t("Региональные")], ["shop", t("Магазины")],
+  ["adult", t("Для взрослых")], ["other", t("Без категории")]];
+const categoryName = (id) => CATEGORIES.find(([c]) => c === id)?.[1] || id;
+const CATEGORY_SOURCES = { directory: t("справочник iptv-org"), "directory-name": t("название из справочника 18+"),
+  playlist: t("группа в плейлисте"), url: t("адрес потока или логотипа"), epg: t("программа передач"),
+  neighbours: t("соседи по плейлисту"), name: t("название канала"), manual: t("вручную"), none: t("нет данных") };
+
+function categoryBlock(id, ch) {
+  const cats = ch.categories || [];
+  const pick = cats.length ? cats : ["other"];
+  const options = CATEGORIES.filter(([c]) => c !== "other");
+  return html`<h2>${t("Категории")}</h2>
+    <div class="chips">${pick.map((c, i) => html`<span class="chip ${i === 0 ? "on" : ""}" title="${i === 0 ? t("Главная") : ""}">${categoryName(c)}</span>`)}
+      <span class="small muted">${ch.categories_manual ? t("заданы вручную") : t("определены автоматически")}</span></div>
+    <details class="cat-edit"><summary class="small">${t("Изменить категории")}</summary>
+      <form id="cat-form" data-channel="${id}" class="panel">
+        <label class="small">${t("Главная")} <select name="primary">
+          ${options.map(([c, label]) => html`<option value="${c}" ${c === pick[0] ? raw("selected") : ""}>${label}</option>`)}
+        </select></label>
+        <p class="small muted">${t("Дополнительно (до трёх):")}</p>
+        <div class="row">${options.map(([c, label]) => html`<label class="small"><input type="checkbox" name="extra" value="${c}"
+          ${pick.slice(1).includes(c) ? raw("checked") : ""}> ${label}</label>`)}</div>
+        <div class="row">
+          <button class="btn tv" type="submit">${t("Сохранить")}</button>
+          ${ch.categories_manual ? html`<button class="btn" type="button" data-cat-reset="${id}">${t("Вернуть автоматические")}</button>` : ""}
+        </div>
+        <p class="small muted">${t("Ваш выбор главнее автоматики: он сразу действует в поиске, списках и выгрузке.")}</p>
+      </form></details>`;
+}
 
 function chipRow(name, options, current) {
   return html`<div class="row" role="group">${options.map(([v, label]) =>
@@ -688,6 +721,7 @@ async function viewChannel(id, params) {
           ${cls === "now" ? progress(a) : ""}</a></li>`;
       })}</ol>` : html`<div class="empty">${t("На этот день программы нет.")}</div>`}`
       : html`<div class="empty">${t("Для этого канала нет программы передач. Её можно привязать в очереди EPG.")}</div>`}
+    ${categoryBlock(id, ch)}
     ${ch.aliases.length ? html`<h2>${t("Другие названия")}</h2><div class="chips">${[...new Set(ch.aliases.map((a) => a.display).filter(Boolean))]
       .map((n) => html`<span class="chip">${n}</span>`)}</div>` : ""}`;
 }
@@ -1046,6 +1080,20 @@ function growthChart(history) {
   </svg>${legend(series.map(([, cls, name]) => [cls, name]))}`;
 }
 
+function categorySection(c) {
+  if (!c) return "";
+  const live = Object.values(c.by_source || {}).reduce((a, b) => a + b, 0);
+  const src = Object.entries(c.by_source || {}).sort((a, b) => b[1] - a[1]);
+  const prim = Object.entries(c.primary || {});
+  const pmax = Math.max(...prim.map(([, n]) => n), 1), smax = Math.max(...src.map(([, n]) => n), 1);
+  const other = (c.primary || {}).other || 0;
+  return html`<h2>${t("Категории живых каналов")}</h2>
+    <p class="small muted">${t("Без категории: {0} ({1}). С несколькими категориями: {2}.", nf.format(other), pct(other, live), nf.format(c.several || 0))}</p>
+    <div class="panel bars">${prim.map(([k, n]) => barRow(categoryName(k), [[n, k === "other" ? "seg-none" : "seg-step", t("каналов")]], pmax, nf.format(n)))}</div>
+    <h3>${t("Откуда взята главная категория")}</h3>
+    <div class="panel bars">${src.map(([k, n]) => barRow(CATEGORY_SOURCES[k] || k, [[n, k === "none" ? "seg-none" : "seg-guide", t("каналов")]], smax, pct(n, live)))}</div>`;
+}
+
 async function viewCoverage(params) {
   const r = await api("/report");
   if (!r.funnel) return html`<h1>${t("Покрытие")}</h1><div class="empty">${t("Отчёт ещё не построен. Он появится после ближайшей проверки потоков.")}</div>`;
@@ -1124,6 +1172,8 @@ async function viewCoverage(params) {
     <h2>${t("Почему канал не попал в живые")}</h2>
     <div class="panel bars">${reasons.length ? reasons.map(([k, n]) => barRow(REASONS[k] || k, [[n, k === "no_stream" ? "seg-none" : "seg-dead", t("каналов")]], rmax, nf.format(n)))
       : html`<p class="small muted">${t("Все каналы живые.")}</p>`}</div>
+
+    ${categorySection(r.categories)}
 
     <h2>${t("Программа передач")}</h2>
     <div class="kv small">
@@ -1334,6 +1384,14 @@ document.addEventListener("click", (e) => {
     toggleFav(starBtn.dataset.kind, starBtn.dataset.id).catch((err) => toast(errorText(err), 5000));
     return;
   }
+  const catReset = e.target.closest("[data-cat-reset]");
+  if (catReset) {
+    e.preventDefault();
+    api(`/channels/${enc(catReset.dataset.catReset)}/categories`, { method: "DELETE" })
+      .then(() => { toast(t("Категории вернутся к автоматическим после ближайшей проверки (до 10 минут).")); return route(); })
+      .catch((err) => toast(errorText(err), 5000));
+    return;
+  }
   const play = e.target.closest("[data-play]");
   if (play) {
     e.preventDefault();
@@ -1427,6 +1485,16 @@ document.addEventListener("click", (e) => {
 });
 
 document.addEventListener("submit", (e) => {
+  if (e.target.id === "cat-form") {
+    e.preventDefault();
+    const f = e.target, primary = f.primary.value;
+    const extra = [...f.querySelectorAll("input[name=extra]:checked")].map((x) => x.value).filter((c) => c !== primary);
+    if (extra.length > 3) { toast(t("Дополнительных категорий не больше трёх")); return; }
+    api(`/channels/${enc(f.dataset.channel)}/categories`, { method: "PUT", body: { categories: [primary, ...extra] } })
+      .then(() => { toast(t("Категории сохранены")); return route(); })
+      .catch((err) => toast(errorText(err), 5000));
+    return;
+  }
   if (e.target.id === "token-form") {
     e.preventDefault();
     const v = e.target.token.value.trim();
