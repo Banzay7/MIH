@@ -5,3 +5,11 @@ __pycache__/
 .ruff_cache/
 data/
 *.egg-info/
+# Settings and their backup copies hold tokens: never commit them.
+.env
+.env.*
+*.env
+*.env.bak*
+!.env.example
+*.bak
+*.bak-*

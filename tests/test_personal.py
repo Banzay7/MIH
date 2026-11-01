@@ -195,6 +195,7 @@ def test_home_assistant_check_and_unset_bridge(tmp_path, client):
     assert c.post("/api/v1/playback/ha/check").json() == {
         "configured": True,
         "script": "script.mih_play",
+        "notify": None,
         "ok": True,
         "error": None,
     }
@@ -223,4 +224,136 @@ def test_home_assistant_script_saying_not_ok_fails_with_its_error(tmp_path):
     assert (cmd["state"], cmd["error"], cmd["detail"]) == (
         "failed", "ha_not_playing", "Player did not open")  # fmt: skip
     assert "return_response" in seen[0].params
+    c.__exit__(None, None, None)
+
+
+# Regression tests of the direct Home Assistant route: what really happened on the TV
+# (Companion registration lost, slow HA) must show as such, and the agent stays apart.
+
+
+def _ha_play(c):
+    body = {"target": {"channel_id": _channel(c, "первый")}, "adapter": "ha"}
+    return c.post("/api/v1/playback/commands", json=body).json()
+
+
+def test_home_assistant_ok_answer_starts_and_records_stages(tmp_path):
+    import json
+
+    import httpx
+
+    sent = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={"service_response": {"ok": True, "error": None}})
+
+    c = _ha_client(tmp_path, handler, ha_notify="mobile_app_example_tv")
+    cmd = _ha_play(c)
+    assert (cmd["state"], cmd["error"], cmd["detail"]) == ("started", None, None)
+    assert list(cmd["stages"]) == ["accepted", "ha_called", "ha_finished", "started"]
+    assert cmd["stages"]["accepted"] <= cmd["stages"]["ha_called"] <= cmd["stages"]["started"]
+    # The script is told which Companion notify action to use, never a hardcoded TV.
+    assert sent[0]["notify_service"] == "notify.mobile_app_example_tv"
+    c.__exit__(None, None, None)
+
+
+def test_home_assistant_not_ok_fails_with_a_clean_error(tmp_path):
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        error = ("Player did not open http://ha.example:8123/api?token=abc "
+                 "Bearer abcdefghijklmnopqrstuvwxyz0123456789 at 192.168.1.20")  # fmt: skip
+        return httpx.Response(200, json={"service_response": {"ok": False, "error": error}})
+
+    c = _ha_client(tmp_path, handler)
+    cmd = _ha_play(c)
+    assert (cmd["state"], cmd["error"]) == ("failed", "ha_not_playing")
+    assert cmd["detail"].startswith("Player did not open")
+    for secret in ("ha.example", "token=abc", "abcdefghijklmnop", "192.168"):
+        assert secret not in cmd["detail"]
+    assert "failed" in cmd["stages"] and "started" not in cmd["stages"]
+    c.__exit__(None, None, None)
+
+
+@pytest.mark.parametrize("answer", [
+    # HA itself refuses: the script calls a notify action that no longer exists.
+    lambda: __import__("httpx").Response(
+        400, json={"message": "Action notify.mobile_app_old_tv not found"}),
+    # The script checks first and says so.
+    lambda: __import__("httpx").Response(200, json={"service_response": {
+        "ok": False, "error": "notify.mobile_app_old_tv not found"}}),
+])  # fmt: skip
+def test_missing_companion_notify_service_is_never_a_start(tmp_path, answer):
+    c = _ha_client(tmp_path, lambda r: answer())
+    cmd = _ha_play(c)
+    assert (cmd["state"], cmd["error"]) == ("failed", "ha_notify_missing")
+    assert "notify.mobile_app_old_tv" in cmd["detail"]
+    c.__exit__(None, None, None)
+
+
+def test_home_assistant_check_finds_a_missing_companion_notify_service(tmp_path):
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/services":
+            return httpx.Response(200, json=[
+                {"domain": "notify", "services": {"mobile_app_new_tv": {}}},
+                {"domain": "script", "services": {"mih_play": {}}},
+            ])  # fmt: skip
+        return httpx.Response(200, json={"state": "off"})
+
+    c = _ha_client(tmp_path / "old", handler, ha_notify="mobile_app_old_tv")
+    check = c.post("/api/v1/playback/ha/check").json()
+    assert (check["ok"], check["error"], check["notify"]) == (
+        False, "ha_notify_missing", "notify.mobile_app_old_tv")  # fmt: skip
+    c.__exit__(None, None, None)
+    c = _ha_client(tmp_path / "new", handler, ha_notify="notify.mobile_app_new_tv")
+    assert c.post("/api/v1/playback/ha/check").json()["ok"] is True
+    c.__exit__(None, None, None)
+
+
+def test_home_assistant_timeout_closes_the_command(tmp_path):
+    import httpx
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("slow", request=request)
+
+    c = _ha_client(tmp_path, handler, ha_timeout_s=0.5)
+    cmd = _ha_play(c)
+    assert (cmd["state"], cmd["error"]) == ("failed", "ha_timeout")
+    assert cmd["finished_at"] and "ha_finished" in cmd["stages"]
+    # Nothing waits on it afterwards: it is never handed to the agent.
+    from mih import playback
+
+    conn = db.connect(c.app.state.settings.db_path)
+    assert playback.take_commands(conn) == []
+    conn.close()
+    c.__exit__(None, None, None)
+
+
+def test_agent_route_works_while_home_assistant_is_configured_or_broken(tmp_path):
+    import httpx
+
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(500)
+
+    c = _ha_client(tmp_path, handler)
+    body = {"target": {"channel_id": _channel(c, "первый")}, "adapter": "agent"}
+    cmd = c.post("/api/v1/playback/commands", json=body).json()
+    assert (cmd["state"], cmd["adapter"], cmd["taken"]) == ("accepted", "agent", False)
+    assert calls == []  # Home Assistant is not asked
+    from mih import playback
+
+    conn = db.connect(c.app.state.settings.db_path)
+    (taken,) = playback.take_commands(conn)
+    assert taken["id"] == cmd["id"]
+    done = playback.finish_command(conn, cmd["id"], True, None)
+    assert (done["state"], done["error"]) == ("started", None)
+    conn.close()
+    # Without an adapter in the request the server default (agent) is used.
+    body.pop("adapter")
+    assert c.post("/api/v1/playback/commands", json=body).json()["adapter"] == "agent"
     c.__exit__(None, None, None)

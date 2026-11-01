@@ -13,6 +13,8 @@ stream and fails with ``no_adapter``.
 MIH_PLAYBACK=ha, or ``adapter: "ha"`` in a request, skips the agent: MIH calls the
 user's Home Assistant script with the stream URLs and waits for it (mih.ha). The
 script ran = started, it raised or HA did not answer = failed with an ``ha_*`` error.
+Each command keeps the times of its steps in ``stages`` (accepted, ha_called,
+ha_finished, started/failed) with no URLs or tokens.
 """
 
 from __future__ import annotations
@@ -118,12 +120,13 @@ def create_command(
     # run_ha closes it.
     conn.execute(
         "INSERT INTO playback_commands (id, device_id, target, stream_id, state,"
-        " idempotency_key, created_at, finished_at, error, adapter, taken_at)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " idempotency_key, created_at, finished_at, error, adapter, taken_at, stages)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (cmd_id, device_id, json.dumps(target.as_dict()), streams[0] if streams else None,
          "accepted" if waits else "failed", idempotency_key, now,
          None if waits else now, error, mode if mode != "off" else None,
-         now if mode == "ha" else None),
+         now if mode == "ha" else None,
+         json.dumps({"accepted": _stamp()} | ({} if waits else {"failed": _stamp()}))),
     )  # fmt: skip
     return get_command(conn, cmd_id), True
 
@@ -269,6 +272,7 @@ def run_ha(
                     break
             if not catchup_url:
                 detail = "live_no_catchup"
+    stages = json.loads(row["stages"] or "{}")
     if not picked:
         error = "no_stream"
     else:
@@ -278,6 +282,7 @@ def run_ha(
                                         json.loads(locators[s]["headers"] or "{}"))
                                        for s in picked],
                             target.get("quality") or settings.play_quality)  # fmt: skip
+        stages["ha_called"] = _stamp()
         try:
             ha.run_script(settings, {
                 "url": urls[0],
@@ -290,14 +295,18 @@ def run_ha(
                 "program": target.get("title"),
                 "start_ts": target.get("start"),
                 "catchup_url": catchup_url,
+                "notify_service": ha.notify_entity(settings),
             }, transport=transport)  # fmt: skip
         except ha.HaError as exc:
             error, detail = exc.code, exc.detail
+        stages["ha_finished"] = _stamp()
+    state = "failed" if error else "started"
+    stages[state] = _stamp()
     conn.execute(
         "UPDATE playback_commands SET state = ?, stream_id = COALESCE(?, stream_id), offered = ?,"
-        " finished_at = ?, error = ?, detail = ? WHERE id = ?",
-        ("failed" if error else "started", picked[0] if picked else None, json.dumps(picked),
-         utc_now(), error, detail, cmd_id),
+        " finished_at = ?, error = ?, detail = ?, stages = ? WHERE id = ?",
+        (state, picked[0] if picked else None, json.dumps(picked),
+         utc_now(), error, detail, json.dumps(stages), cmd_id),
     )  # fmt: skip
     return get_command(conn, cmd_id)
 
@@ -315,9 +324,14 @@ def command_out(row: sqlite3.Row) -> dict:
         "id": row["id"], "device_id": row["device_id"], "target": json.loads(row["target"]),
         "stream_id": row["stream_id"], "state": row["state"], "error": row["error"],
         "taken": row["taken_at"] is not None, "adapter": row["adapter"],
-        "detail": row["detail"],
+        "detail": row["detail"], "stages": json.loads(row["stages"] or "{}"),
         "created_at": row["created_at"], "finished_at": row["finished_at"],
     }  # fmt: skip
+
+
+def _stamp() -> str:
+    """Now in UTC with milliseconds: a launch takes seconds, so seconds are too coarse."""
+    return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def _iso(dt: datetime) -> str:

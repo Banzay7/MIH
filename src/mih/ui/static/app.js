@@ -214,6 +214,8 @@ const PLAY_TEXT = {
   ha_script_failed: t("Скрипт Home Assistant завершился с ошибкой. Подробности в журнале HA."),
   ha_timeout: t("Home Assistant не ответил вовремя. Канал, возможно, всё же включится."),
   ha_not_playing: t("Скрипт Home Assistant сообщил, что канал не включился"),
+  ha_notify_missing: t("В Home Assistant нет сервиса уведомлений ТВ: войдите в Companion на ТВ заново и укажите новый notify.mobile_app_… (MIH_HA_NOTIFY и скрипт)."),
+  ha_not_configured: t("Home Assistant не настроен на сервере: MIH_HA_URL, MIH_HA_TOKEN."),
 };
 
 // "agent" or "ha": who starts the TV from this browser; none = the server's default.
@@ -789,6 +791,23 @@ async function viewFavorites() {
     ${topicsSlot}`;
 }
 
+// Before HA is picked for "На ТВ": is it reachable, is the script there, is the TV's
+// Companion notify action registered (when MIH_HA_NOTIFY names it)?
+function haStatusText(r) {
+  if (!r.ok) return "⚠ " + (PLAY_TEXT[r.error] || t("Ошибка: {0}", r.error));
+  return r.notify ? t("✓ HA доступен, скрипт {0} и {1} найдены", r.script, r.notify)
+    : t("✓ HA доступен, скрипт {0} найден", r.script);
+}
+
+async function fillHaStatus() {
+  const seq = renderSeq;
+  let text;
+  try { text = haStatusText(await api("/playback/ha/check", { method: "POST" })); }
+  catch (e) { text = "⚠ " + errorText(e); }
+  const slot = document.getElementById("ha-status");
+  if (slot && seq === renderSeq) slot.textContent = text;
+}
+
 async function fillTopics() {
   const seq = renderSeq;
   try {
@@ -809,6 +828,7 @@ async function viewSettings() {
   let adapters = null;
   try { adapters = await api("/playback/adapters"); } catch { /* an older server */ }
   const current = playAdapter() || adapters?.default || "agent";
+  if (adapters?.available.includes("ha")) queueMicrotask(fillHaStatus);
   const hasToken = Boolean(store.get("mih.token"));
   return html`<h1>${t("Настройки")}</h1>
     ${err ? errorBox(err) : ""}
@@ -878,7 +898,8 @@ async function viewSettings() {
       <label class="row"><input type="radio" name="adapter" value="ha" ${current === "ha" ? raw("checked") : ""}
         ${adapters.available.includes("ha") ? "" : raw("disabled")}>
         ${t("Напрямую через Home Assistant{0}", adapters.ha_script ? t(": скрипт {0}", adapters.ha_script) : t(" (не настроен на сервере: MIH_HA_URL, MIH_HA_TOKEN)"))}</label>
-      ${adapters.available.includes("ha") ? html`<div class="row"><button class="btn" type="button" id="ha-check">${t("Проверить связь с HA")}</button></div>` : ""}
+      ${adapters.available.includes("ha") ? html`<div class="row"><button class="btn" type="button" id="ha-check">${t("Проверить связь с HA")}</button>
+        <span class="small" id="ha-status">${t("Проверяю Home Assistant…")}</span></div>` : ""}
       <span class="small muted">${t("Выбор хранится в этом браузере. Home Assistant получает адреса потоков и название канала и запускает свой скрипт, агент не участвует.")}</span>
     </div>` : ""}
     <h2>${t("Качество при запуске")}</h2>
@@ -1373,7 +1394,11 @@ document.addEventListener("click", (e) => {
   if (e.target.id === "ha-check") {
     e.target.disabled = true;
     api("/playback/ha/check", { method: "POST" })
-      .then((r) => toast(r.ok ? t("Home Assistant отвечает, скрипт {0} найден", r.script) : (PLAY_TEXT[r.error] || t("Ошибка: {0}", r.error)), 6000))
+      .then((r) => {
+        toast(r.ok ? t("Home Assistant отвечает, скрипт {0} найден", r.script) : (PLAY_TEXT[r.error] || t("Ошибка: {0}", r.error)), 6000);
+        const slot = document.getElementById("ha-status");
+        if (slot) slot.textContent = haStatusText(r);
+      })
       .catch((err) => toast(errorText(err), 5000))
       .finally(() => { e.target.disabled = false; });
     return;

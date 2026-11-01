@@ -152,6 +152,9 @@ class Settings:
     ha_fields: dict = field(default_factory=dict)
     # The script may wait for the TV to wake up, so give it time.
     ha_timeout_s: float = 60.0
+    # The TV's Home Assistant Companion notify action (notify.mobile_app_<device>): the
+    # check verifies it is registered and the script gets it as ``notify_service``.
+    ha_notify: str | None = None
 
     @property
     def ha_ready(self) -> bool:
@@ -247,6 +250,7 @@ class Settings:
             ),
             ha_fields=_parse_fields(env.get("MIH_HA_FIELDS", "")),
             ha_timeout_s=float(env.get("MIH_HA_TIMEOUT_S", "60")),
+            ha_notify=(env.get("MIH_HA_NOTIFY") or "").strip() or None,
         )
 
     def validate_for_serving(self) -> None:
