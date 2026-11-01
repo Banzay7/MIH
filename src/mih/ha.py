@@ -9,12 +9,47 @@ Home Assistant config; the long-lived token lives only in the server's environme
 
 from __future__ import annotations
 
+import re
+
 import httpx
 
 from mih.config import Settings
 
 # What each answer of Home Assistant means for the command.
 _HTTP_ERRORS = {401: "ha_unauthorized", 403: "ha_unauthorized", 404: "ha_script_not_found"}
+
+
+# What a Home Assistant message may carry that must not reach a browser: addresses,
+# bearer tokens, key=value secrets and long token-like strings.
+_SECRETS = [
+    (re.compile(r"[a-z][a-z0-9+.-]*://\S+", re.I), "<url>"),
+    (re.compile(r"\bbearer\s+\S+", re.I), "Bearer <token>"),
+    (
+        re.compile(r"\b(token|password|passwd|secret|api_key|apikey|key|auth)\s*[=:]\s*\S+", re.I),
+        r"\1=<hidden>",
+    ),
+    (re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b"), "<ip>"),
+    (re.compile(r"[A-Za-z0-9_\-]{24,}(?:\.[A-Za-z0-9_\-]{8,}){0,2}"), "<hidden>"),
+]
+# Home Assistant names a notify action it does not have: the TV's Companion app lost
+# its registration (a new login registers notify.mobile_app_<new name>).
+_NOTIFY_MISSING = re.compile(
+    r"notify\.\S*.*(not found|unknown|not exist|missing|не найден|нет)"
+    r"|(not found|unknown|missing|не найден|нет)\W.*notify\.",
+    re.I,
+)
+
+
+def clean(text: object, limit: int = 200) -> str | None:
+    """A Home Assistant message made safe to show: no URLs, IPs or tokens, one line."""
+    out = " ".join(str(text or "").split())
+    for pattern, repl in _SECRETS:
+        out = pattern.sub(repl, out)
+    return out[:limit] or None
+
+
+def _code_for(detail: str | None, default: str) -> str:
+    return "ha_notify_missing" if detail and _NOTIFY_MISSING.search(detail) else default
 
 
 class HaError(Exception):
@@ -64,12 +99,23 @@ def run_script(
             "ha_unreachable", f"Home Assistant is unreachable: {type(exc).__name__}"
         ) from exc
     if resp.status_code >= 400:
-        code = _HTTP_ERRORS.get(resp.status_code, "ha_script_failed")
-        raise HaError(code, f"Home Assistant answered {resp.status_code}")
+        detail = clean(_message(resp))
+        code = _HTTP_ERRORS.get(resp.status_code) or _code_for(detail, "ha_script_failed")
+        raise HaError(code, f"Home Assistant answered {resp.status_code}", detail)
     answer = _response(resp)
     if str(answer.get("ok", "")).strip().lower() == "false":
-        detail = str(answer.get("error") or "").strip()[:200] or None
-        raise HaError("ha_not_playing", "the script says the channel did not start", detail)
+        detail = clean(answer.get("error"))
+        raise HaError(_code_for(detail, "ha_not_playing"),
+                      "the script says the channel did not start", detail)  # fmt: skip
+
+
+def _message(resp: httpx.Response) -> str:
+    """Home Assistant's own words on an error: {"message": ...} or plain text."""
+    try:
+        body = resp.json()
+    except ValueError:
+        return resp.text
+    return str(body.get("message") or "") if isinstance(body, dict) else ""
 
 
 def _response(resp: httpx.Response) -> dict:
@@ -86,7 +132,8 @@ def check(settings: Settings, *, transport: httpx.BaseTransport | None = None) -
     """For the settings page: does Home Assistant answer, accept the token and know the
     script? Reads only; runs nothing."""
     out = {"configured": bool(settings.ha_url and settings.ha_token),
-           "script": script_entity(settings), "ok": False, "error": None}  # fmt: skip
+           "script": script_entity(settings), "notify": notify_entity(settings),
+           "ok": False, "error": None}  # fmt: skip
     if not out["configured"]:
         out["error"] = "ha_not_configured"
         return out
@@ -99,6 +146,8 @@ def check(settings: Settings, *, transport: httpx.BaseTransport | None = None) -
             if script.status_code >= 400:
                 code = _HTTP_ERRORS.get(script.status_code, "ha_error")
                 raise HaError(code, str(script.status_code))
+            if out["notify"] and not _has_notify(client, settings, out["notify"]):
+                raise HaError("ha_notify_missing", out["notify"])
     except HaError as exc:
         out["error"] = exc.code
         return out
@@ -110,6 +159,31 @@ def check(settings: Settings, *, transport: httpx.BaseTransport | None = None) -
         return out
     out["ok"] = True
     return out
+
+
+def notify_entity(settings: Settings) -> str | None:
+    """The TV's Companion notify action (MIH_HA_NOTIFY), e.g. notify.mobile_app_<device>."""
+    name = (settings.ha_notify or "").strip()
+    if not name:
+        return None
+    return name if name.startswith("notify.") else f"notify.{name}"
+
+
+def _has_notify(client: httpx.Client, settings: Settings, entity: str) -> bool:
+    """Is the notify action registered? Companion re-registers under a new name after a
+    new login, and the old one disappears."""
+    resp = client.get(f"{settings.ha_url}/api/services")
+    if resp.status_code >= 400:
+        raise HaError(_HTTP_ERRORS.get(resp.status_code, "ha_error"), str(resp.status_code))
+    name = entity.removeprefix("notify.")
+    try:
+        domains = resp.json()
+    except ValueError:
+        return False
+    for domain in domains if isinstance(domains, list) else []:
+        if isinstance(domain, dict) and domain.get("domain") == "notify":
+            return name in (domain.get("services") or {})
+    return False
 
 
 def _client(settings: Settings, transport: httpx.BaseTransport | None) -> httpx.Client:
