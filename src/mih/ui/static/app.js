@@ -32,6 +32,17 @@ const store = {
   set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
 
+// The 18+ unlock: kept for this tab only (sessionStorage), until the server's expiry.
+const adultLock = {
+  get() {
+    try {
+      const v = JSON.parse(sessionStorage.getItem("mih.adult") || "null");
+      return v && v.expires_at * 1000 > Date.now() ? v : null;
+    } catch { return null; }
+  },
+  set(v) { try { v ? sessionStorage.setItem("mih.adult", JSON.stringify(v)) : sessionStorage.removeItem("mih.adult"); } catch { /* private mode */ } },
+};
+
 // What the visitor chose in Settings; each read falls back to the default.
 const PAGE_SIZES = [20, 50, 100];
 const RELEVANCE = [["0", t("Все совпадения")], ["0.3", t("Хорошие совпадения")], ["0.7", t("Только лучшие")]];
@@ -59,7 +70,7 @@ class ApiFailure extends Error {
 const KEEP_PREFIX = "mih.c:";
 const KEEP_CHARS = 400000; // bigger answers stay in memory only
 const KEEP_MIN = 30e3, KEEP_MAX = 6 * 3600e3;
-const LIVE_PATHS = /^\/(status|health|playback|data-version|jobs|notifications)/;
+const LIVE_PATHS = /^\/(status|health|playback|data-version|jobs|notifications|settings|adult)/;
 const kept = new Map();
 let dataVersion = store.get("mih.dataVersion") || "";
 let fresh = false;
@@ -123,7 +134,8 @@ async function checkVersion() {
 
 async function api(path, { method = "GET", body } = {}) {
   const keepable = (method === "GET" && !LIVE_PATHS.test(path)) || path === "/search";
-  const key = keepable ? method + " " + path + (body === undefined ? "" : " " + JSON.stringify(body)) : null;
+  const unlock = adultLock.get();
+  const key = keepable ? method + " " + path + (body === undefined ? "" : " " + JSON.stringify(body)) + (unlock ? " +18" : "") : null;
   if (key && !fresh) {
     const hit = keptGet(key);
     if (hit) return hit;
@@ -131,6 +143,7 @@ async function api(path, { method = "GET", body } = {}) {
   const headers = { Accept: "application/json" };
   const token = store.get("mih.token");
   if (token) headers.Authorization = `Bearer ${token}`;
+  if (unlock) headers["X-MIH-Adult"] = unlock.token;
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const resp = await fetch(API + path, {
     method, headers, body: body === undefined ? undefined : JSON.stringify(body),
@@ -331,13 +344,16 @@ function errorText(e) {
   if (e instanceof ApiFailure) {
     if (e.status === 401) return t("Нужен токен доступа: укажите его в настройках.");
     if (e.code === "not_found") return t("Не найдено.");
+    if (e.code === "adult_locked") return t("Это канал 18+. Такие каналы скрыты в настройках.");
+    if (e.code === "wrong_pin") return t("Неверный PIN.");
+    if (e.code === "too_many_attempts") return t("Слишком много неверных PIN. Попробуйте через 15 минут.");
     return t("Ошибка сервера: {0}", e.message);
   }
   return t("Сервер недоступен. Проверьте соединение.");
 }
 
 function errorBox(e) {
-  const needToken = e instanceof ApiFailure && e.status === 401;
+  const needToken = e instanceof ApiFailure && (e.status === 401 || e.code === "adult_locked");
   return html`<div class="error"><p>${errorText(e)}</p>
     ${needToken ? html`<p><a class="btn" href="#/settings">${t("Открыть настройки")}</a></p>` : ""}</div>`;
 }
@@ -855,6 +871,36 @@ async function fillTopics() {
   }
 }
 
+function adultSettings(a) {
+  const modes = [["hide", t("Скрывать")], ["pin", t("Скрывать, открывать по PIN")], ["show", t("Показывать")]];
+  const open = adultLock.get();
+  const until = open ? new Date(open.expires_at * 1000).toLocaleTimeString(LOCALE, { hour: "2-digit", minute: "2-digit" }) : "";
+  return html`<h2>${t("Каналы 18+")}</h2>
+    <form id="adult-form" class="field">
+      ${modes.map(([v, label]) => html`<label class="row"><input type="radio" name="mode" value="${v}" ${v === a.mode ? raw("checked") : ""}> ${label}</label>`)}
+      <label for="adult-pin">${a.has_pin ? t("Новый PIN (если хотите сменить)") : t("PIN, 4–8 цифр (нужен для режима «по PIN»)")}</label>
+      <input id="adult-pin" name="pin" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{4,8}">
+      ${a.has_pin ? html`<label for="adult-current">${t("Текущий PIN")}</label>
+        <input id="adult-current" name="current_pin" type="password" inputmode="numeric" autocomplete="off" required>` : ""}
+      <div class="row"><button class="btn tv" type="submit">${t("Сохранить")}</button></div>
+      <span class="small muted">${t("Каналы 18+ определяются автоматически; канал можно пометить и вручную: карточка канала → «Изменить категории» → «Для взрослых». Настройка хранится на сервере и действует во всех браузерах.")}</span>
+    </form>
+    ${a.mode === "pin" ? (open && a.visible
+      ? html`<div class="row field"><span class="small">${t("Каналы 18+ открыты в этой вкладке до {0}.", until)}</span>
+          <button class="btn" type="button" id="adult-lock">${t("Закрыть сейчас")}</button></div>`
+      : html`<form id="adult-unlock" class="row field">
+          <input name="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" aria-label="PIN" required>
+          <button class="btn" type="submit">${t("Открыть на {0} ч", a.unlock_hours)}</button></form>`) : ""}`;
+}
+
+function adultChanged(text) {
+  forgetKept();
+  state.channelsLoaded = false;
+  state.channels.clear();
+  toast(text);
+  return route();
+}
+
 async function viewSettings() {
   let health = null, metrics = null, err = null;
   try { health = await api("/health/live"); } catch (e) { err = e; }
@@ -864,6 +910,8 @@ async function viewSettings() {
   const current = playAdapter() || adapters?.default || "agent";
   if (adapters?.available.includes("ha")) queueMicrotask(fillHaStatus);
   const hasToken = Boolean(store.get("mih.token"));
+  let adult = null;
+  try { adult = await api("/settings/adult"); } catch { /* an older server */ }
   return html`<h1>${t("Настройки")}</h1>
     ${err ? errorBox(err) : ""}
     <div class="field">
@@ -879,6 +927,7 @@ async function viewSettings() {
         ${hasToken ? html`<button class="btn" type="button" id="token-clear">${t("Забыть токен")}</button>` : ""}</div>
       <span class="small muted">${t("Хранится только в этом браузере. Без токена каталог открывается лишь на том же компьютере, где запущен сервер.")}</span>
     </form>
+    ${adult ? adultSettings(adult) : ""}
     <h2>${t("Выдача")}</h2>
     <div class="field">
       <label for="pref-size">${t("Сколько показывать сразу")}</label>
@@ -1476,6 +1525,11 @@ document.addEventListener("click", (e) => {
     document.getElementById("channel-history-count").textContent = t("Сохранено фильтров каналов: {0}", 0);
     return;
   }
+  if (e.target.id === "adult-lock") {
+    adultLock.set(null);
+    adultChanged(t("Каналы 18+ снова скрыты"));
+    return;
+  }
   if (e.target.id === "token-clear") {
     store.set("mih.token", null);
     state.channelsLoaded = false;
@@ -1485,6 +1539,24 @@ document.addEventListener("click", (e) => {
 });
 
 document.addEventListener("submit", (e) => {
+  if (e.target.id === "adult-form") {
+    e.preventDefault();
+    const f = e.target, body = { mode: f.mode.value };
+    if (f.pin.value) body.pin = f.pin.value;
+    if (f.current_pin) body.current_pin = f.current_pin.value;
+    if (body.mode === "pin" && !body.pin && !f.current_pin) { toast(t("Задайте PIN из 4–8 цифр")); return; }
+    api("/settings/adult", { method: "PUT", body })
+      .then(() => { adultLock.set(null); return adultChanged(t("Настройка 18+ сохранена")); })
+      .catch((err) => toast(errorText(err), 5000));
+    return;
+  }
+  if (e.target.id === "adult-unlock") {
+    e.preventDefault();
+    api("/adult/unlock", { method: "POST", body: { pin: e.target.pin.value } })
+      .then((r) => { adultLock.set(r); return adultChanged(t("Каналы 18+ открыты")); })
+      .catch((err) => toast(errorText(err), 5000));
+    return;
+  }
   if (e.target.id === "cat-form") {
     e.preventDefault();
     const f = e.target, primary = f.primary.value;

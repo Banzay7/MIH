@@ -15,6 +15,7 @@ from starlette.datastructures import Headers
 from mih import ha as mih_ha
 from mih import playback
 from mih.alerts import GRACE, best_streams, channel_names, find_matches, load_rules, play_key
+from mih.api import adult
 from mih.api.cache import respond
 from mih.epg.scope import topic_key
 from mih.ids import utc_now
@@ -64,7 +65,7 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
     Conn = conn  # noqa: N806 - a type alias, as in app.py
 
     @app.get("/api/v1/profiles/{profile_id}/favorites", dependencies=auth)
-    def list_favorites(profile_id: ProfileId, conn: Conn) -> dict:
+    def list_favorites(request: Request, profile_id: ProfileId, conn: Conn) -> dict:
         rows = conn.execute(
             "SELECT f.target_kind, f.target_id, f.position, f.created_at,"
             " c.canonical_name AS channel_name, c.logo_url, c.country,"
@@ -76,7 +77,10 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
             (profile_id,),
         ).fetchall()
         items = []
+        hidden = adult.hidden_ids(request, conn)
         for r in rows:
+            if r["target_kind"] == "channel" and r["target_id"] in hidden:
+                continue
             item = {"target_kind": r["target_kind"], "target_id": r["target_id"],
                     "position": r["position"], "created_at": r["created_at"]}  # fmt: skip
             if r["target_kind"] == "channel":
@@ -230,6 +234,8 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
     def play(request: Request, body: PlaybackIn, conn: Conn) -> JSONResponse:
         t = body.target
         settings = request.app.state.settings
+        if t.channel_id in adult.hidden_ids(request, conn):
+            raise error("adult_locked", "an adult channel: hidden by the 18+ setting")
         mode = body.adapter or settings.playback
         if mode == "ha" and not settings.ha_ready:
             raise error(

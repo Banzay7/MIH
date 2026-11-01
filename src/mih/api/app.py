@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 from starlette.middleware.gzip import GZipMiddleware
 
 from mih import __version__, db
-from mih.api import personal
+from mih.api import adult, personal
 from mih.api.cache import SharedCache, data_version, respond
 from mih.api.guard import Guard
 from mih.categories import MAX_MANUAL, check_manual, clear_override, set_override
@@ -57,7 +57,8 @@ from mih.sources.importer import ImportReport, import_m3u
 from mih.sources.service import SourceError, create_source, get_source, import_from_url
 
 _STATUS = {"unauthorized": 401, "not_found": 404, "conflict": 409, "validation_error": 422,
-           "destination_blocked": 422, "source_unavailable": 502, "too_large": 413}  # fmt: skip
+           "destination_blocked": 422, "source_unavailable": 502, "too_large": 413,
+           "adult_locked": 403, "wrong_pin": 403, "too_many_attempts": 429}  # fmt: skip
 
 
 class ApiError(Exception):
@@ -290,19 +291,25 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         limit: Annotated[int, Query(ge=1, le=10000)] = 100,
         offset: Annotated[int, Query(ge=0)] = 0,
     ):
+        open_ = adult.visible(request, conn)
         if q:
-            return _channels(conn, q, limit, offset)
+            return _channels(conn, q, limit, offset, open_)
         # The whole catalog is what every visitor loads first: one copy for everyone.
-        entry = cache.get(f"channels:{limit}:{offset}", CHANNELS_TTL,
-                          lambda: _channels(conn, None, limit, offset))  # fmt: skip
+        entry = cache.get(f"channels:{limit}:{offset}:{int(open_)}", CHANNELS_TTL,
+                          lambda: _channels(conn, None, limit, offset, open_))  # fmt: skip
         return respond(request, entry)
 
-    def _channels(conn: sqlite3.Connection, q: str | None, limit: int, offset: int) -> dict:
-        where, params = "", []
+    def _channels(conn: sqlite3.Connection, q: str | None, limit: int, offset: int,
+                  adult_open: bool = True) -> dict:  # fmt: skip
+        conds, params = [], []
         if q:
-            where = (" WHERE c.id IN (SELECT channel_id FROM channel_aliases"
-                     " WHERE kind = 'name' AND value LIKE ? ESCAPE '\\')")  # fmt: skip
+            conds.append("c.id IN (SELECT channel_id FROM channel_aliases"
+                         " WHERE kind = 'name' AND value LIKE ? ESCAPE '\\')")  # fmt: skip
             params.append("%" + _like_escape(fold(q)) + "%")
+        if not adult_open:
+            conds.append("c.id NOT IN (SELECT channel_id FROM channel_tags"
+                         " WHERE kind = 'category' AND value = 'adult')")  # fmt: skip
+        where = (" WHERE " + " AND ".join(conds)) if conds else ""
         # Counts are grouped once and joined: a subquery per row made every page cost
         # as much as all the rows before it, seconds for a catalog of a few thousand.
         rows = conn.execute(
@@ -329,10 +336,12 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         return {"items": items, "limit": limit, "offset": offset}
 
     @app.get("/api/v1/channels/{channel_id}", dependencies=auth)
-    def channel_detail(channel_id: str, conn: Conn) -> dict:
+    def channel_detail(request: Request, channel_id: str, conn: Conn) -> dict:
         ch = conn.execute("SELECT * FROM channels WHERE id = ?", (channel_id,)).fetchone()
         if ch is None:
             raise ApiError("not_found", "channel not found")
+        if channel_id in adult.hidden_ids(request, conn):
+            raise ApiError("adult_locked", "an adult channel: hidden by the 18+ setting")
         feeds = conn.execute(
             "SELECT id, region, offset_minutes, audio_lang FROM feeds WHERE channel_id = ?"
             " ORDER BY offset_minutes, region",
@@ -539,16 +548,19 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         starts within N minutes, soonest first; limit/offset page the result, and total
         counts it. The UI asks for one page of "on air" instead of the whole guide."""
         ids = ",".join(sorted(channel_id)) if channel_id else "*"
+        hidden = adult.hidden_ids(request, conn)
+        ids += f":{int(not hidden)}"
         paged = on_air or soon or playable_only or limit is not None or offset
         if not paged:
             key = f"now:{timeshift}:{ids}"
-            entry = cache.get(key, NOW_TTL, lambda: _on_now(conn, channel_id, timeshift))
+            entry = cache.get(key, NOW_TTL, lambda: _on_now(conn, channel_id, timeshift, hidden))
             return respond(request, entry)
         key = f"now:{timeshift}:{ids}:{on_air}:{soon}:{playable_only}:{limit}:{offset}"
         base = f"now-base:{timeshift}:{ids}"
 
         def build() -> dict:
-            data = cache.remember(base, NOW_TTL, lambda: _on_now(conn, channel_id, timeshift))
+            data = cache.remember(base, NOW_TTL,
+                                  lambda: _on_now(conn, channel_id, timeshift, hidden))  # fmt: skip
             items = data["items"]
             if on_air:
                 items = [i for i in items if i["now"]]
@@ -566,10 +578,13 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         return respond(request, entry)
 
     def _on_now(conn: sqlite3.Connection, channel_id: list[str] | None,
-                timeshift: bool) -> dict:  # fmt: skip
+                timeshift: bool, hidden: set[str] = frozenset()) -> dict:  # fmt: skip
         guides = guide.feed_guides(conn, channel_id)
-        if not timeshift:
-            guides = {k: g for k, g in guides.items() if g.shift_minutes == 0}
+        guides = {
+            k: g
+            for k, g in guides.items()
+            if (timeshift or g.shift_minutes == 0) and g.channel_id not in hidden
+        }
         state = guide.now_and_next(conn, datetime.now(UTC), guides)
         info = _channel_cards(conn, {g.channel_id for g in guides.values()})
         items = [
@@ -586,6 +601,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
 
     @app.get("/api/v1/airings", dependencies=auth)
     def list_airings(
+        request: Request,
         conn: Conn,
         channel_id: str,
         start: Annotated[datetime | None, Query(alias="from")] = None,
@@ -597,6 +613,8 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             raise ApiError("validation_error", "'to' must be after 'from', at most 8 days")
         if conn.execute("SELECT 1 FROM channels WHERE id = ?", (channel_id,)).fetchone() is None:
             raise ApiError("not_found", "channel not found")
+        if channel_id in adult.hidden_ids(request, conn):
+            raise ApiError("adult_locked", "an adult channel: hidden by the 18+ setting")
         guides = guide.feed_guides(conn, [channel_id])
         feeds = [{"feed_id": g.feed_id, **_epg_out(g),
                   "airings": guide.schedule(conn, g, start, end)}
@@ -604,7 +622,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         return {"channel_id": channel_id, "from": iso(start), "to": iso(end), "feeds": feeds}
 
     @app.get("/api/v1/programmes/{programme_id}", dependencies=auth)
-    def programme_detail(programme_id: str, conn: Conn) -> dict:
+    def programme_detail(request: Request, programme_id: str, conn: Conn) -> dict:
         p = conn.execute("SELECT * FROM programmes WHERE id = ?", (programme_id,)).fetchone()
         if p is None:
             raise ApiError("not_found", "programme not found")
@@ -618,9 +636,13 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             " ORDER BY a.start_utc",
             (programme_id,),
         ).fetchall()
-        airings = [
-            guide.airing_out(r, g) for r in rows for g in by_epg.get(r["epg_channel_id"], [])
-        ]
+        hidden = adult.hidden_ids(request, conn)
+        every = [(r, g) for r in rows for g in by_epg.get(r["epg_channel_id"], [])]
+        airings = [guide.airing_out(r, g) for r, g in every if g.channel_id not in hidden]
+        if every and not airings:
+            raise ApiError(
+                "adult_locked", "shown on adult channels only: hidden by the 18+ setting"
+            )
         airings.sort(key=lambda a: a["start"])
         localized = json.loads(p["localized"])
         return {
@@ -640,7 +662,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         return respond(request, entry)
 
     @app.post("/api/v1/search", dependencies=auth)
-    def run_search(body: SearchIn, conn: Conn) -> dict:
+    def run_search(request: Request, body: SearchIn, conn: Conn) -> dict:
         tz = body.tz or settings.timezone
         try:
             ZoneInfo(tz)
@@ -661,7 +683,11 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
                             offset=body.offset, strict=body.strict,
                             min_relevance=body.min_relevance,
                             playable_only=body.playable_only, genres=f.genres)  # fmt: skip
-        return search(conn, req, datetime.now(UTC))
+        result = search(conn, req, datetime.now(UTC))
+        hidden = adult.hidden_ids(request, conn)
+        if hidden:
+            result["items"] = [i for i in result["items"] if i.get("channel_id") not in hidden]
+        return result
 
     @app.get("/api/v1/metrics/summary", dependencies=auth)
     def metrics_summary(request: Request, conn: Conn):
@@ -717,6 +743,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
 
     app.include_router(build_router(settings, health_policy, auth))
     app.include_router(status.build_router(settings, health_policy, auth, started_at))
+    adult.register(app, auth=auth, conn=Conn, error=ApiError)
     personal.register(app, auth=auth, conn=Conn, error=ApiError)
     personal.mount_ui(app)  # last: it catches every path the API did not
     return app
