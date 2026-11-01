@@ -309,3 +309,42 @@ def test_vietnamese_letters_look_among_vietnamese_programmes_and_channels(loaded
     assert _titles(_find(loaded, "bóng đá", languages=["en"])) == [
         ("Football Weekly", "2026-10-26T15:00:00Z")
     ]
+
+
+ADULT = (
+    "#EXTM3U\n"
+    '#EXTINF:-1 group-title="Для взрослых",Ночной канал\nhttps://x.example/1.m3u8\n'
+    '#EXTINF:-1 group-title="XXX",Night One\nhttps://x.example/2.m3u8\n'
+    "#EXTINF:-1,Playboy TV\nhttps://x.example/3.m3u8\n"
+    '#EXTINF:-1 tvg-language="Japanese" group-title="Anime",NHK Anime\nhttps://x.example/4.m3u8\n'
+).encode()
+
+
+def test_adult_genre_lists_adult_channels_without_a_guide(loaded, settings, make_source):
+    from mih.export import build_catalog
+    from mih.lists import store_tags
+
+    import_m3u(loaded, settings, make_source("adult"), ADULT)
+    store_tags(loaded, build_catalog(loaded))
+    found = _find(loaded, "", genres=["adult"], limit=50)
+    names = sorted(i["channel_name"] for i in found["items"] if i["type"] == "channel")
+    assert names == ["Night One", "Playboy TV", "Ночной канал"]
+    assert found["total"]["channel"] == 3
+    # A genre without a channel category of its own still lists programmes only.
+    assert not [i for i in _find(loaded, "", genres=["drama"])["items"] if i["type"] == "channel"]
+
+
+def test_language_filter_lists_channels_in_any_language(loaded, settings, make_source):
+    from mih.export import build_catalog
+    from mih.lists import store_tags
+    from mih.search.engine import languages
+
+    import_m3u(loaded, settings, make_source("adult"), ADULT)
+    store_tags(loaded, build_catalog(loaded))
+    found = _find(loaded, "", languages=["ja"], target_types=["channel"])
+    assert [i["channel_name"] for i in found["items"]] == ["NHK Anime"]
+    # Channels the catalog gives no language: by the country, as before.
+    ru = _find(loaded, "", languages=["ru"], target_types=["channel"])
+    assert {i["channel_name"] for i in ru["items"]} >= {"Первый канал HD"}
+    codes = [x["code"] for x in languages(loaded)]
+    assert {"ru", "en", "vi", "ja"} <= set(codes)
