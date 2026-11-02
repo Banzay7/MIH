@@ -1,6 +1,6 @@
 // Caches the app shell only. API answers are live data and always go to the network.
-const SHELL = "mih-shell-v19";
-const FILES = ["./", "index.html", "app.css", "i18n.js", "app.js", "icon.svg", "manifest.webmanifest"];
+const SHELL = "mih-shell-v20";
+const FILES = ["./", "index.html", "app.css", "i18n.js", "i18n/en.js", "app.js", "icon.svg", "manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(SHELL).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));

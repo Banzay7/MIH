@@ -3,6 +3,8 @@
 // playlists and guides, which are untrusted.
 "use strict";
 
+translateShell();
+
 const API = "/api/v1";
 const PROFILE = "default";
 const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -1015,7 +1017,7 @@ async function viewSettings() {
     ${err ? errorBox(err) : ""}
     <div class="field">
       <label for="pref-lang">${t("Язык интерфейса")}</label>
-      <select id="pref-lang">${Object.entries(LANGS_UI).map(([code, name]) => html`<option value="${code}" ${code === LANG ? raw("selected") : ""}>${name}</option>`)}</select>
+      <select id="pref-lang">${Object.entries(LANGS_UI).map(([code, name], i) => html`${i === LANGS_MAIN.length ? raw('<option disabled>──────────</option>') : ""}<option value="${code}" lang="${code}" ${code === LANG ? raw("selected") : ""}>${name}</option>`)}</select>
       <span class="small muted">${t("Слова времени и языка («сегодня», «вечером», «на русском») поиск понимает по-русски и по-английски; названия ищутся на любом языке.")}</span>
     </div>
     <form id="token-form" class="field">
@@ -1147,7 +1149,7 @@ function eventItem(e) {
 }
 
 async function viewStatus() {
-  const s = await api(`/status?lang=${LANG}`);
+  const s = await api(`/status?lang=${SERVER_LANG}`);
   const running = s.running.length
     ? html`<ul class="plain">${s.running.map((r) => html`<li><span class="live">●</span> ${t("{0}, с {1}", JOB_NAMES[r.job] || r.job, time(r.since))}</li>`)}</ul>`
     : html`<p class="muted">${t("Сейчас ничего не выполняется.")}</p>`;
