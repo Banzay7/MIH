@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from mih.identity.normalize import fold, split_name
+from mih.places import place_in_names, subdivision_of_group
 from mih.search.genres import GENRES
 from mih.search.topics import WHOLE_WORD_BELOW
 
@@ -56,7 +57,8 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
                   "learning"),
     "entertainment": ("entertainment", "развлекат", "юмор", "comedy", "giai tri", "show",
                       "unterhaltung", "divertissement", "intratteniment", "entretenim",
-                      "reality"),
+                      "reality", "rozrywk", "zabav", "szorakoz", "eglence", "underholdning",
+                      "underhallning", "viihde", "vermaak", "divertisment", "розваж"),
     "lifestyle": ("lifestyle", "cooking", "food", "кулинар", "еда", "travel", "путешеств",
                   "мода", "fashion", "doi song", "du lich", "kochen", "cuisine", "reisen",
                   "viaggi", "viajes", "voyage", "pets", "garden", "fishing", "hunting",
@@ -117,7 +119,7 @@ GENERAL_BRANDS: tuple[str, ...] = (
     "atv", "kanal d", "star tv", "tvri", "sctv", "rcti", "indosiar", "nhk", "kbs", "mbc",
     "sbs", "cctv", "doordarshan", "ptv", "vtv", "htv", "vtc", "первый канал", "россия 1",
     "нтв", "рен тв", "пятый канал", "твц", "1+1", "інтер", "ictv", "стб", "radio canada",
-    "cbc", "ct1", "ct2", "nova",
+    "cbc", "ct1", "ct2", "nova", "radio bremen", "hr fernsehen", "br fernsehen", "sr fernsehen",
 )  # fmt: skip
 
 # Keywords that also turn up in names of channels of other kinds ("Кино 24", "Talk Show",
@@ -149,6 +151,17 @@ GENRE_TO_CATEGORY: dict[str, str] = {
     "health": "lifestyle", "religion": "religion", "adult": "adult",
 }  # fmt: skip
 _FICTION = {"romance", "comedy", "drama", "action", "crime", "horror", "scifi"}
+
+# Guides that write a genre as a number (epgshare01 and epg.pw for India). The meaning of
+# each code is read off the programmes that carry it on the stand: «185» goes with news
+# programmes, «180» and «181» with cricket and other sport, «82» and «15» with bhajans and
+# holy mass. Codes that go with everything at once («178»: travel, news and films alike)
+# are left out.
+NUMERIC_GENRES: dict[str, str] = {
+    "15": "religion", "17": "education", "20": "music", "22": "lifestyle",
+    "82": "religion", "177": "entertainment", "180": "sport", "181": "sport",
+    "183": "movies", "185": "news",
+}  # fmt: skip
 
 ORDER = [*CATEGORIES, "other"]
 THRESHOLD = 2.0
@@ -190,9 +203,12 @@ _GENRE_RE = {gid: _genre_re(forms) for gid, forms in GENRES.items()}
 
 
 # Broadcaster names with «radio» that are television: «Radio-Canada», «Radio Televizija
-# Srbija», «Radiotelevisione svizzera». Taken out before keywords are looked up.
+# Srbija», «Radiotelevisione svizzera», «Radio Bremen TV», «Radio Javan TV». Taken out
+# before keywords are looked up.
 _NOT_RADIO_RE = re.compile(r"(?<!\w)(radio[\s\-]+(canada|tele\w*|y television|e televis\w*)"
-                           r"|radiotele\w*)")  # fmt: skip
+                           r"|radiotele\w*"
+                           r"|radio(?:[\s\-]+[\w']+){0,2}[\s\-]+(?:tv|television|fernsehen"
+                           r"|телевидение|телеканал)(?!\w))")  # fmt: skip
 
 
 def keyword_hits(texts: list[str]) -> dict[str, str]:
@@ -232,6 +248,7 @@ def programme_categories(title: str, categories: list[str]) -> set[str]:
     cats = {GENRE_TO_CATEGORY[g] for g in genres if g in GENRE_TO_CATEGORY
             and not (g in _FICTION and genres & {"movie", "series", "cartoon"})}  # fmt: skip
     cats |= set(categorize(categories))  # the guide's own words: «Информационные» and so on
+    cats |= {NUMERIC_GENRES[c] for t in categories if (c := t.strip()) in NUMERIC_GENRES}
     return cats
 
 
@@ -316,9 +333,10 @@ _SOURCE_RANK = {
 def decide(*, directory: list[str] = (), groups: list[str] = (), names: list[str] = (),
            guide: dict[str, float] | None = None,
            extra: list[tuple[str, str, float, str]] = (),
-           one_show: str | None = None) -> Decision:  # fmt: skip
+           one_show: str | None = None, countries: list[str] = ()) -> Decision:  # fmt: skip
     """``extra``: more votes as (category, source, weight, reason), e.g. adult evidence.
-    ``one_show``: the title that fills most of the channel's guide, if one does."""
+    ``one_show``: the title that fills most of the channel's guide, if one does.
+    ``countries``: where the channel is from, for a place in its name («TV Prato»)."""
     votes: dict[str, dict[str, float]] = defaultdict(dict)  # category -> source -> weight
     reasons: dict[str, list[str]] = defaultdict(list)
 
@@ -359,7 +377,7 @@ def decide(*, directory: list[str] = (), groups: list[str] = (), names: list[str
     if "adult" in scores and "adult" not in kept:
         kept.append("adult")
     if not kept:
-        fallback = _fallback(names, guide or {}, one_show)
+        fallback = _fallback(names, guide or {}, one_show, groups, countries)
         if fallback:
             cat, src, why = fallback
             return Decision([cat], src, {cat: THRESHOLD}, {cat: [why]}, fallback=True)
@@ -384,8 +402,8 @@ _FAST_RE = re.compile("|".join(r"(?<!\w)" + re.escape(b) + r"(?!\w)" for b in FA
 ONE_SHOW_SHARE = 0.6
 
 
-def _fallback(names, guide: dict[str, float], one_show: str | None
-              ) -> tuple[str, str, str] | None:  # fmt: skip
+def _fallback(names, guide: dict[str, float], one_show: str | None, groups=(),
+              countries=()) -> tuple[str, str, str] | None:  # fmt: skip
     """(category, source, reason) when nothing reached the threshold."""
     if one_show:
         return "series", "epg", f"guide: one show «{one_show}»"
@@ -401,6 +419,16 @@ def _fallback(names, guide: dict[str, float], one_show: str | None
     hit = _BRANDS_RE.search(text)
     if hit:
         return "general", "name", "broadcaster: " + hit.group(0).strip()
+    # A playlist group named after a state or province («California», «Gorj»), or a
+    # place of the channel's own country in its name («TV Prato», «Ultra TV Puebla»):
+    # a local channel.
+    for g in groups:
+        place = subdivision_of_group(g)
+        if place:
+            return "regional", "playlist", "playlist: region " + g
+    place = place_in_names(list(names), list(countries))
+    if place:
+        return "regional", "name", "place: " + place
     return None
 
 

@@ -10,6 +10,7 @@ from mih.categories import (
     directory_categories,
     programme_categories,
 )
+from mih.places import country_of_group
 from tests.golden_categories import CASES
 
 
@@ -21,6 +22,8 @@ def test_golden_primary(case):
         directory=directory_categories(list(case.directory), False),
         guide=case.guide or None,
         one_show=case.one_show,
+        # as the catalog build does: a country from the playlist groups when none is known
+        countries=list(case.countries) or [c for g in case.groups if (c := country_of_group(g))],
     )
     assert d.categories[0] == case.expected, (d.categories, d.reasons)
 
@@ -59,6 +62,14 @@ def test_golden_set_is_big_and_varied():
         ("סדרה", "series"),
         ("Αθλητικά", "sport"),
         ("ספורט", "sport"),
+        # numeric codes (epgshare01 / epg.pw India)
+        ("185", "news"),
+        ("181", "sport"),
+        ("180", "sport"),
+        ("82", "religion"),
+        ("15", "religion"),
+        ("183", "movies"),
+        ("Program rozrywkowy", "entertainment"),
     ],
 )
 def test_guide_genres_in_more_languages(genre, expected):
@@ -95,3 +106,14 @@ def test_sister_channels_lend_their_category():
     got = brand_votes(stems, primary, {"e4", "r3t", "m5", "t3"})
     assert got == {"e4": ("sport", "eurosport"), "r3t": ("general", "rai")}
     # MBC sisters disagree; «TV» is no brand
+
+
+def test_numeric_code_with_no_single_meaning_says_nothing():
+    assert not programme_categories("Quest", ["178"])
+    assert not programme_categories("Backpack", [" 9999 "])
+
+
+def test_radio_with_tv_in_the_name_is_television():
+    assert decide(names=["Radio Bremen TV"]).categories == ["general"]
+    assert "radio" not in decide(names=["Radio Javan TV"]).categories
+    assert decide(names=["Radio Record"], groups=["Radio"]).categories == ["radio"]
