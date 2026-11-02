@@ -58,3 +58,50 @@ def test_directory_adult_names(conn):
                          guide={"movies": 0.7, "adult": 0.2})  # fmt: skip
     # the directory links the channel to an ordinary entry: its own word wins
     assert not adult_by_name(["Happy Channel"], keys=keys, linked_ordinary=True, guide=None)
+
+
+# ---------- thin 18+ evidence goes to the owner's review (re-check of 2026-11-02) ----------
+
+from mih.categories import (  # noqa: E402
+    Decision,
+    adult_brands,
+    adult_review,
+    brand_word,
+    explicit_adult_name,
+)
+
+
+def test_explicit_adult_names():
+    for name in ("Brazzers TV", "PassionXXX HD", "Hot Erotic Nights", "Dorcel TV"):
+        assert explicit_adult_name([name]), name
+    for name in ("VF Юмор 18+", "Music Box Sexy", "Sextavision", "Adult Channel"):
+        assert not explicit_adult_name([name]), name
+
+
+def _adult(reasons):
+    return Decision(["adult"], "name", {"adult": 2.0}, {"adult": reasons})
+
+
+def test_which_adult_calls_need_review():
+    # firm: the directory says adult, an explicit word, an adult playlist group
+    assert adult_review(_adult(["directory"]), nsfw=True, linked_ordinary=False,
+                        names=["X"]) is None  # fmt: skip
+    assert adult_review(_adult(["name"]), nsfw=False, linked_ordinary=False,
+                        names=["Brazzers TV"]) is None  # fmt: skip
+    assert adult_review(_adult(["playlist: взрослые"]), nsfw=False, linked_ordinary=False,
+                        names=["Shot TV"]) is None  # fmt: skip
+    # thin: an ambiguous word, or the directory knows it as an ordinary channel
+    assert adult_review(_adult(["name"]), nsfw=False, linked_ordinary=False,
+                        names=["VF Юмор 18+"])[0][0] == "weak"  # fmt: skip
+    assert adult_review(_adult(["playlist: взрослые"]), nsfw=False, linked_ordinary=True,
+                        names=["Shot TV"])[0][0] == "directory-ordinary"  # fmt: skip
+    assert adult_review(Decision(["movies"], "epg", {}, {}), nsfw=False,
+                        linked_ordinary=True, names=["Kino"]) is None  # fmt: skip
+
+
+def test_mostly_adult_brands():
+    words = {"a": brand_word("Bang Bros HD"), "b": brand_word("Bang Bus"),
+             "c": brand_word("Bang Bang TV"), "d": brand_word("Wicked"),
+             "e": brand_word("Wicked Tuna"), "f": brand_word("Wicked Tuna Germany")}  # fmt: skip
+    brands = adult_brands(words, adult={"a", "b", "d"})
+    assert brands == {"bang": (2, 3)}  # one adult «Wicked» among three is not enough

@@ -601,6 +601,61 @@ def neighbour_votes(members: dict[str, set[str]], adult: set[str], *, share: flo
     return out
 
 
+# ---------- 18+ channels to check by hand ----------
+
+# Thin evidence still puts a channel into «adult» (hidden by default), and the web UI lists
+# it first under «Для взрослых» to be confirmed or moved. Review reasons are codes the UI
+# translates: [code, detail].
+REVIEW_GUIDE_SHARE = 0.015  # adult programmes this share of airtime: a night block
+REVIEW_BRAND_MIN = 2  # adult sister channels of the brand, at least
+REVIEW_BRAND_SHARE = 0.5  # and this share of the brand's channels
+# Name words that are adult and also something else: «VF Юмор 18+», «Music Box Sexy».
+_AMBIGUOUS_ADULT_RE = re.compile(
+    r"(?<!\w)(18\s*\+|\+\s*18|18 плюс|adult|взросл\w*|для взрослых|sex\w*|секс\w*)(?!\w)"
+)
+
+
+def explicit_adult_name(names: list[str]) -> bool:
+    """An adult word in the names that means nothing else («porn», «erotic», a brand)."""
+    text = _AMBIGUOUS_ADULT_RE.sub(" ", " ".join(fold(n) for n in names if n))
+    return "adult" in keyword_hits([text])
+
+
+def adult_review(decision: Decision, *, nsfw: bool, linked_ordinary: bool,
+                 names: list[str]) -> list[list[str]] | None:  # fmt: skip
+    """Why an automatic «adult» needs the owner's eye, or None when the evidence is firm:
+    the directory says adult, the name has an explicit word, or a playlist group says so
+    for a channel the directory does not know as an ordinary one."""
+    if "adult" not in decision.categories or nsfw:
+        return None
+    why = decision.reasons.get("adult", [])
+    if linked_ordinary:
+        return [["directory-ordinary", "; ".join(why)]]
+    if explicit_adult_name(names) or any(r.startswith("playlist") for r in why):
+        return None
+    return [["weak", "; ".join(why)]]
+
+
+def brand_word(name: str) -> str | None:
+    """The first word of a channel's brand, long enough to mean something."""
+    words = brand_stem(name).split()
+    return words[0] if words and len(words[0]) >= 4 and not words[0].isdigit() else None
+
+
+def adult_brands(words: dict[str, str | None], adult: set[str]) -> dict[str, tuple[int, int]]:
+    """Brand word -> (adult channels, all channels) for brands mostly adult."""
+    total, bad = Counter(), Counter()
+    for cid, w in words.items():
+        if w:
+            total[w] += 1
+            bad[w] += cid in adult
+    return {
+        w: (bad[w], total[w])
+        for w in total
+        if bad[w] >= REVIEW_BRAND_MIN and bad[w] / total[w] >= REVIEW_BRAND_SHARE
+    }
+
+
 # ---------- Categories set by hand (web UI) ----------
 
 MAX_MANUAL = 4
@@ -636,6 +691,7 @@ def set_override(conn: sqlite3.Connection, channel_id: str, categories: list[str
         )
         conn.execute("DELETE FROM channel_tags WHERE channel_id = ?"
                      " AND kind IN ('category', 'primary')", (channel_id,))  # fmt: skip
+        conn.execute("DELETE FROM category_review WHERE channel_id = ?", (channel_id,))
         conn.executemany("INSERT INTO channel_tags (channel_id, kind, value) VALUES (?, ?, ?)",
                          [(channel_id, "primary", cats[0]),
                           *((channel_id, "category", c) for c in cats)])  # fmt: skip

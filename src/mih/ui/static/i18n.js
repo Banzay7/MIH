@@ -448,7 +448,18 @@ en: {
   "Каналы 18+ снова скрыты": "18+ channels are hidden again",
   "Задайте PIN из 4–8 цифр": "Set a PIN of 4–8 digits",
   "Настройка 18+ сохранена": "18+ setting saved",
-  "Каналы 18+ открыты": "18+ channels are open"
+  "Каналы 18+ открыты": "18+ channels are open",
+  "в программе есть передачи для взрослых: {0} эфира": "adult programmes in the guide: {0} of airtime",
+  "большинство каналов этого бренда — 18+ ({0})": "most channels of this brand are 18+ ({0})",
+  "справочник iptv-org считает канал обычным, а признаки 18+ слабые ({0})": "the iptv-org directory lists it as an ordinary channel and the 18+ signs are weak ({0})",
+  "18+ только по косвенным признакам ({0})": "18+ on indirect signs only ({0})",
+  "Да, 18+": "Yes, 18+",
+  "Перенести в категорию": "Move to a category",
+  "Перенести в…": "Move to…",
+  "На разбор · {0}": "To review · {0}",
+  "Эти каналы попали в «Для взрослых» по косвенным признакам. Подтвердите 18+ или перенесите канал в другую категорию.": "These channels went to «Adult» on indirect signs. Confirm 18+ or move the channel to another category.",
+  "Оставлен в «Для взрослых»": "Kept in «Adult»",
+  "Перенесён в «{0}»": "Moved to «{0}»"
 },
 vi: {
   "Язык": "Ngôn ngữ",
@@ -883,7 +894,18 @@ vi: {
   "Каналы 18+ снова скрыты": "Kênh 18+ đã được ẩn lại",
   "Задайте PIN из 4–8 цифр": "Hãy đặt PIN 4–8 chữ số",
   "Настройка 18+ сохранена": "Đã lưu cài đặt 18+",
-  "Каналы 18+ открыты": "Đã mở kênh 18+"
+  "Каналы 18+ открыты": "Đã mở kênh 18+",
+  "в программе есть передачи для взрослых: {0} эфира": "lịch phát sóng có chương trình người lớn: {0} thời lượng",
+  "большинство каналов этого бренда — 18+ ({0})": "phần lớn kênh của thương hiệu này là 18+ ({0})",
+  "справочник iptv-org считает канал обычным, а признаки 18+ слабые ({0})": "danh bạ iptv-org coi đây là kênh thường, dấu hiệu 18+ yếu ({0})",
+  "18+ только по косвенным признакам ({0})": "18+ chỉ theo dấu hiệu gián tiếp ({0})",
+  "Да, 18+": "Đúng, 18+",
+  "Перенести в категорию": "Chuyển sang thể loại",
+  "Перенести в…": "Chuyển sang…",
+  "На разбор · {0}": "Cần xem lại · {0}",
+  "Эти каналы попали в «Для взрослых» по косвенным признакам. Подтвердите 18+ или перенесите канал в другую категорию.": "Các kênh này được xếp vào «Người lớn» theo dấu hiệu gián tiếp. Xác nhận 18+ hoặc chuyển kênh sang thể loại khác.",
+  "Оставлен в «Для взрослых»": "Giữ trong «Người lớn»",
+  "Перенесён в «{0}»": "Đã chuyển sang «{0}»"
 },
 }[LANG] || {};
 
