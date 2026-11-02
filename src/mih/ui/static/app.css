@@ -232,3 +232,8 @@ label.row input[type=checkbox], label.row input[type=radio] { flex: none; margin
 .chip.open.fast, .chip.open.ok { color: var(--ok); }
 .chip.open.slow, .chip.open.very_slow { color: var(--warn); }
 .chip.open.very_slow { border-color: var(--warn); }
+.help-toc ol { margin: .4rem 0 0; padding-left: 1.4rem; }
+.help ul { padding-left: 1.2rem; }
+.help li { margin: .45rem 0; line-height: 1.5; }
+.help { scroll-margin-top: 5rem; }
+.tip a { text-decoration: underline; white-space: nowrap; }

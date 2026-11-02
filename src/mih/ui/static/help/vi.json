@@ -1,0 +1,109 @@
+{
+  "title": "Trợ giúp",
+  "intro": "Cách dùng MIRTVONLINE: tìm thứ để xem và bật kênh chỉ với vài lần chạm.",
+  "contents": "Mục lục",
+  "more": "Xem thêm trong Trợ giúp",
+  "tips": {
+    "home": "Đây là những gì đang phát và sắp bắt đầu. “Lên TV” bật kênh trên TV, ★ thêm kênh vào yêu thích. Danh sách không tự làm mới: bấm “↻ Làm mới” khi cần.",
+    "search": "Gõ bằng lời thường, có thể kèm thời gian và ngôn ngữ: “bóng đá ngày mai”, “thời sự tối nay”, “phim tiếng Việt”. Cũng có thể không gõ gì, chọn thể loại rồi bấm “Tìm”. Tìm kiếm chạy khi bấm Enter hoặc nút “Tìm”.",
+    "channels": "Tất cả kênh trong danh mục. Gõ một phần tên, chọn quốc gia và bấm “Hiển thị”. Trang kênh có lịch phát cả tuần và thể loại của kênh, bạn có thể sửa.",
+    "favorites": "Đây là các kênh và chương trình đã đánh dấu ★. Thêm chủ đề, ví dụ “bóng đá”, và bạn sẽ nhận thông báo trước khi chương trình như vậy bắt đầu.",
+    "coverage": "Danh mục có bao nhiêu kênh, bao nhiêu kênh đang hoạt động và bao nhiêu kênh có lịch phát sóng. Cập nhật sau mỗi lần kiểm tra luồng.",
+    "status": "Máy chủ đang làm gì: các tác vụ nền, lịch chạy và các sự kiện gần đây. Có thể chạy tác vụ bằng tay với nút “Chạy”.",
+    "settings": "Tại đây đổi ngôn ngữ giao diện, kênh 18+, số kết quả, chế độ tìm kiếm và nút “Lên TV”. Cũng có thể bật lại các gợi ý từ đây."
+  },
+  "sections": [
+    {
+      "id": "start",
+      "title": "Bắt đầu",
+      "items": [
+        "Mở địa chỉ máy chủ trong trình duyệt trên điện thoại hoặc máy tính. Trên điện thoại có thể thêm vào màn hình chính: menu trình duyệt → “Thêm vào Màn hình chính” (Add to Home Screen), danh mục sẽ mở như một ứng dụng.",
+        "Nếu danh mục yêu cầu token, mở “Cài đặt” → “Token truy cập API”, dán token và bấm “Lưu”. Token chỉ được lưu trong trình duyệt này.",
+        "Phía trên có bảy mục: “Đang phát”, “Tìm kiếm”, “Kênh”, “Yêu thích”, “Độ phủ”, “Trạng thái”, “Cài đặt”. Lần đầu mở mỗi trang sẽ có gợi ý ngắn “Cách dùng”; “Đã hiểu” để ẩn nó.",
+        "Màn hình không tự làm mới. Nút “↻ Làm mới” hoặc chuyển sang tab khác sẽ tải dữ liệu mới."
+      ]
+    },
+    {
+      "id": "home",
+      "title": "Đang phát",
+      "items": [
+        "“Đang phát”: những gì đang chiếu trên các kênh ngay lúc này, có thanh tiến độ và chương trình tiếp theo.",
+        "“Sắp bắt đầu”: các chương trình sắp bắt đầu.",
+        "Khối “Yêu thích” riêng ở trên cùng cho thấy những gì đang phát trên các kênh yêu thích của bạn. Số kênh hiển thị một lần được đặt trong “Cài đặt” → “Kết quả”."
+      ]
+    },
+    {
+      "id": "search",
+      "title": "Tìm kiếm",
+      "items": [
+        "Gõ như khi nói: “thời sự tối nay”, “bóng đá ngày mai”, “phim tiếng Việt”, “VTV3”. Tìm kiếm tự hiểu thời gian và ngôn ngữ, tìm được cả khi gõ có dấu hoặc không dấu (“thời sự” = “thoi su”).",
+        "Bộ lọc dưới ô tìm kiếm: thời gian (bây giờ, hôm nay, tối nay, ngày mai), tìm gì (chương trình, kênh hoặc tất cả), ngôn ngữ lịch phát và thể loại. Bộ lọc chỉ thay đổi lựa chọn; tìm kiếm chạy khi bấm “Tìm” hoặc Enter.",
+        "Danh sách ngôn ngữ có tiếng Nga, tiếng Việt và tiếng Anh ở trên cùng, sau đó là mọi ngôn ngữ có trong lịch phát và danh mục. Ngôn ngữ đã chọn thu hẹp cả chương trình lẫn kênh.",
+        "Thể loại không cần từ khóa: chọn, ví dụ, “Thể thao” rồi bấm “Tìm”. Tìm kiếm trống không có bộ lọc sẽ hiện mọi thứ đang phát và trong vài giờ tới.",
+        "“Tìm thường” tìm cả các dạng và một phần của từ, “Chính xác: nguyên từ” chỉ tìm đúng nguyên từ như đã gõ. Chế độ mặc định và độ chính xác khi tìm chương trình được đặt trong “Cài đặt”.",
+        "Các lần tìm trước hiện thành danh sách dưới ô tìm kiếm. Có thể tắt và xóa trong “Cài đặt” → “Lịch sử tìm kiếm”.",
+        "Nút “🔔 Theo dõi chủ đề” dưới kết quả thêm chủ đề vào yêu thích: bạn sẽ nhận thông báo trước khi chương trình phù hợp bắt đầu."
+      ]
+    },
+    {
+      "id": "channels",
+      "title": "Kênh và thể loại",
+      "items": [
+        "Mục “Kênh” hiển thị toàn bộ danh mục. Bộ lọc: một phần tên, quốc gia (các quốc gia chính ở trên, sau đó là các nước khác kèm số kênh) và “chỉ kênh có lịch”. Bấm “Hiển thị”.",
+        "Kênh không có luồng hoạt động được ẩn theo mặc định; đổi trong “Cài đặt” → “Kết quả”.",
+        "Trang kênh có lịch phát theo ngày với chương trình đang phát được đánh dấu, các phiên bản của kênh (ví dụ “+2” lệch giờ hoặc bản khu vực) và nút “Lên TV”.",
+        "Mỗi kênh có một thể loại chính và tối đa ba thể loại phụ. Chúng được xác định tự động từ danh bạ kênh, nhóm trong playlist, tên, thương hiệu và lịch phát sóng, và được tính lại sau mỗi lần cập nhật danh mục.",
+        "Để sửa thể loại: trang kênh → “Đổi thể loại” → chọn thể loại chính và phụ → “Lưu”. Lựa chọn của bạn được ưu tiên hơn tự động và áp dụng ngay trong tìm kiếm, danh sách và bản xuất. “Trở về tự động” hủy lựa chọn; thể loại tự động sẽ trở lại sau lần kiểm tra kế tiếp, trong vòng 10 phút."
+      ]
+    },
+    {
+      "id": "adult",
+      "title": "Kênh 18+",
+      "items": [
+        "Kênh người lớn được nhận diện tự động, kể cả khi có tên vô hại. Cài đặt nằm ở “Cài đặt” → “Kênh 18+”: “Ẩn”, “Ẩn, mở bằng PIN” hoặc “Hiện”. Cài đặt lưu trên máy chủ và áp dụng trên mọi trình duyệt.",
+        "Chế độ PIN: đặt PIN 4–8 chữ số và bấm “Lưu”. Để mở kênh 18+, nhập PIN trong cùng mục và bấm “Mở trong … giờ”; “Đóng ngay” sẽ ẩn lại. Sau vài lần nhập sai PIN, việc nhập bị khóa 15 phút.",
+        "Khối “Cần xem lại”: mở “Tìm kiếm”, chọn thể loại “Người lớn” và bấm “Tìm”. Ở trên cùng sẽ có các kênh bị xếp vào 18+ chỉ dựa trên dấu hiệu gián tiếp, mỗi kênh có ghi lý do.",
+        "Với mỗi kênh trong “Cần xem lại”, bấm “Đúng, 18+” nếu đó thực sự là kênh người lớn, hoặc chọn “Chuyển sang…” và thể loại phù hợp. Quyết định được lưu như thể loại thủ công và kênh rời khỏi khối.",
+        "Cũng có thể đánh dấu kênh 18+ bằng tay: trang kênh → “Đổi thể loại” → “Người lớn”."
+      ]
+    },
+    {
+      "id": "favorites",
+      "title": "Yêu thích và chủ đề",
+      "items": [
+        "★ ở kênh hoặc chương trình sẽ thêm vào “Yêu thích”. Yêu thích được lưu trên máy chủ và thấy được từ mọi thiết bị.",
+        "Nếu một kênh biến mất khỏi playlist, nó vẫn ở trong yêu thích và sẽ quay lại khi xuất hiện lại trong nguồn.",
+        "“Chủ đề”: thêm một từ, ví dụ “bóng đá”, và bạn sẽ nhận thông báo trước khi chương trình phù hợp bắt đầu."
+      ]
+    },
+    {
+      "id": "tv",
+      "title": "Nút “Lên TV”",
+      "items": [
+        "“Lên TV” bật kênh đã chọn trên TV. Cách thực hiện được chọn trong “Cài đặt” → “Nút “Lên TV””: qua trợ lý tại nhà hoặc trực tiếp qua Home Assistant.",
+        "Với Home Assistant có nút “Kiểm tra kết nối HA”: cho biết nó có phản hồi không và có tìm thấy script bật kênh không.",
+        "“Chất lượng khi bật”: “Tối đa 720p” bật nhanh hơn và ít giật hơn (mặc định), “Tốt nhất” cho chất lượng cao nhất, “Tự động” để trình phát tự chọn."
+      ]
+    },
+    {
+      "id": "coverage",
+      "title": "Độ phủ và trạng thái",
+      "items": [
+        "“Độ phủ” cho biết danh mục có bao nhiêu kênh, bao nhiêu kênh đang sống và bao nhiêu có lịch phát, theo quốc gia và theo nguồn của thể loại.",
+        "“Trạng thái” hiển thị các tác vụ nền (cập nhật playlist và lịch phát, kiểm tra luồng, tìm playlist mới), lịch chạy, kết quả lần chạy gần nhất và dòng sự kiện. Có thể chạy tác vụ bằng tay với nút “Chạy”.",
+        "Danh mục được dựng lại sau mỗi lần kiểm tra luồng, thường chưa đến một phút. Ngay sau khi khởi động lại máy chủ, lần dựng đầu tiên lâu hơn trong lúc bộ nhớ đệm khởi động."
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Cài đặt và ngôn ngữ",
+      "items": [
+        "“Ngôn ngữ giao diện”: 20 ngôn ngữ, ba ngôn ngữ chính (tiếng Nga, tiếng Anh, tiếng Việt) ở đầu danh sách. Ngôn ngữ được ghi nhớ trong trình duyệt này.",
+        "Văn bản từ máy chủ (sự kiện, tóm tắt) hiển thị bằng tiếng Nga, tiếng Anh hoặc tiếng Việt; với các ngôn ngữ giao diện khác chúng hiển thị bằng tiếng Anh.",
+        "“Kết quả”: số mục hiển thị một lần, logo kênh, có ẩn kênh không có luồng hoạt động hay không.",
+        "“Gợi ý” → “Hiện lại tất cả gợi ý” đưa các gợi ý “Cách dùng” trở lại mọi trang.",
+        "Cài đặt kết quả, tìm kiếm và ngôn ngữ lưu trong trình duyệt này; chế độ 18+, yêu thích và thể loại thủ công lưu trên máy chủ."
+      ]
+    }
+  ]
+}
