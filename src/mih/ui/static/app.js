@@ -1064,7 +1064,8 @@ async function viewSettings() {
     <div class="row field"><span class="small muted" id="channel-history-count">${t("Сохранено фильтров каналов: {0}", channelHistory().length)}</span>
       <button class="btn" type="button" id="channel-history-clear" ${channelHistory().length ? "" : raw("disabled")}>${t("Очистить историю каналов")}</button></div>
     <h2>${t("Подсказки")}</h2>
-    <div class="row field"><button class="btn" type="button" id="tips-reset">${t("Показать все подсказки снова")}</button></div>
+    <div class="row field"><button class="btn" type="button" id="tips-reset">${t("Показать все подсказки снова")}</button>
+      ${helpText?.title ? html`<a class="btn" href="#/help">${helpText.title}</a>` : ""}</div>
     <h2>${t("Сервер")}</h2>
     <div class="kv small">
       <span class="muted">${t("Версия")}</span><span>${health?.version || "—"}</span>
@@ -1457,23 +1458,53 @@ let renderSeq = 0;
 function render(content) { view.innerHTML = String(content); }
 
 // First-visit tips: one card per page, gone after «Понятно» until reset in Settings.
-const TIPS = {
-  home: "Здесь то, что идёт прямо сейчас. «На ТВ» включает канал на телевизоре, ★ добавляет его в избранное. Список не обновляется сам: нажмите «↻ Обновить», когда нужно.",
-  search: "Пишите обычными словами, можно со временем и языком: «футбол завтра», «новости вечером», «роботы на русском». Поиск запускается по Enter или кнопке «Найти». Прошлые поиски появятся списком под строкой поиска.",
-  channels: "Все каналы каталога. Введите часть названия, выберите страну и нажмите «Показать». Откройте канал, чтобы увидеть его программу на неделю.",
-  favorites: "Здесь каналы и передачи, отмеченные ★. Добавьте тему, например «футбол», и перед началом такой передачи придёт пуш.",
-  coverage: "Сколько каналов в каталоге, сколько из них сейчас работает и у скольких есть программа передач. Обновляется после каждой проверки потоков.",
-  status: "Что делает сервер: фоновые задачи, их расписание и последние события. Задачу можно запустить вручную кнопкой «Запустить».",
-  settings: "Настройки хранятся в этом браузере. Здесь меняются язык, размер выдачи и режим поиска, и отсюда можно вернуть подсказки.",
-};
+// ---------- Help ----------
+// The user guide (#/help) and the «Как пользоваться» tips live in help/<lang>.json, one
+// file per interface language. A language without its own file reads the English one.
+// {{Русский текст}} in a help text is a button or section name: it shows as t() renders it,
+// so the guide always names a control exactly as the screen does.
+const TIP_PAGES = ["home", "search", "channels", "favorites", "coverage", "status", "settings"];
+let helpText = null;
+
+async function loadHelp() {
+  if (helpText) return helpText;
+  for (const lang of [...new Set([LANG, "en", "ru"])]) {
+    try {
+      const r = await fetch(`help/${lang}.json`);
+      if (r.ok) { helpText = JSON.parse(await r.text(), (k, v) => typeof v === "string" ? helpLabels(v) : v); break; }
+    } catch { /* offline: try the next file, the shell cache may have it */ }
+  }
+  helpText ||= { tips: {}, sections: [] };
+  const tab = document.querySelector('.tabs a[data-tab="help"]');
+  if (tab && helpText.title) tab.textContent = helpText.title;
+  return helpText;
+}
+
+const helpLabels = (text) => text.replace(/\{\{([^{}]+)\}\}/g, (_, key) => t(key));
+
+const helpSection = (page) => (helpText?.sections || []).some((s) => s.id === page) ? page : page === "status" ? "coverage" : "";
 
 function tipCard(page) {
-  if (!TIPS[page] || store.get("mih.tips." + page)) return "";
-  return html`<aside class="tip" role="note"><div><b>${t("Как пользоваться")}</b><p>${t(TIPS[page])}</p></div>
+  const text = helpText?.tips?.[page];
+  if (!text || store.get("mih.tips." + page)) return "";
+  const s = helpSection(page);
+  return html`<aside class="tip" role="note"><div><b>${t("Как пользоваться")}</b><p>${text}
+    ${s && helpText.more ? html` <a href="#/help?s=${s}">${helpText.more}</a>` : ""}</p></div>
     <button class="btn" type="button" data-tip-ok="${page}">${t("Понятно")}</button></aside>`;
 }
 
-function resetTips() { Object.keys(TIPS).forEach((page) => store.set("mih.tips." + page, null)); }
+function resetTips() { TIP_PAGES.forEach((page) => store.set("mih.tips." + page, null)); }
+
+async function viewHelp() {
+  const h = await loadHelp();
+  const sections = h.sections || [];
+  return html`<h1>${h.title || ""}</h1>
+    ${h.intro ? html`<p class="muted">${h.intro}</p>` : ""}
+    <nav class="panel help-toc" aria-label="${h.contents || ""}"><b>${h.contents || ""}</b>
+      <ol>${sections.map((s) => html`<li><a href="#/help?s=${s.id}">${s.title}</a></li>`)}</ol></nav>
+    ${sections.map((s) => html`<section class="help" id="help-${s.id}"><h2>${s.title}</h2>
+      <ul>${(s.items || []).map((i) => html`<li>${i}</li>`)}</ul></section>`)}`;
+}
 
 function setTab(name) {
   document.querySelectorAll(".tabs a").forEach((a) => a.classList.toggle("on", a.dataset.tab === name));
@@ -1496,15 +1527,17 @@ async function route() {
   else if (parts[0] === "settings") { tab = "settings"; fn = viewSettings; }
   else if (parts[0] === "status") { tab = "status"; fn = viewStatus; }
   else if (parts[0] === "coverage") { tab = "coverage"; fn = () => viewCoverage(params); }
+  else if (parts[0] === "help") { tab = "help"; fn = viewHelp; }
   else fn = async () => html`<div class="empty">${t("Страница не найдена.")} <a href="#/">${t("На главную")}</a></div>`;
   setTab(tab);
   try {
-    await checkVersion();
+    await Promise.all([checkVersion(), loadHelp()]);
     const out = await fn();
     if (seq === renderSeq) {
       render(parts.length > 1 ? out : html`${tipCard(parts[0] || "home")}${out}`);
       // Open a channel's schedule at what is on now, not at midnight.
       if (parts[0] === "channel") view.querySelector(".schedule li.now")?.scrollIntoView({ block: "center" });
+      if (parts[0] === "help" && params.get("s")) document.getElementById("help-" + params.get("s"))?.scrollIntoView();
     }
   } catch (e) {
     if (seq === renderSeq) render(errorBox(e));

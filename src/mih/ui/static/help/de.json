@@ -1,0 +1,111 @@
+{
+  "title": "Hilfe",
+  "intro": "So nutzen Sie MIRTVONLINE: etwas zum Anschauen finden und einen Sender mit wenigen Tippern einschalten.",
+  "contents": "Inhalt",
+  "more": "Mehr in der Hilfe",
+  "tips": {
+    "home": "Hier sehen Sie, was gerade läuft und was bald beginnt. „{{На ТВ}}“ schaltet den Sender auf dem Fernseher ein, ★ fügt ihn zu den Favoriten hinzu. Die Liste aktualisiert sich nicht selbst: Tippen Sie bei Bedarf auf „{{↻ Обновить}}“.",
+    "search": "Schreiben Sie in normalen Worten, gern mit Zeit und Sprache: „Fußball morgen“, „Nachrichten heute Abend“, „Roboter auf Deutsch“. Sie können auch nichts eingeben, ein Genre wählen und „{{Найти}}“ drücken. Die Suche startet mit Enter oder der Schaltfläche „{{Найти}}“.",
+    "channels": "Alle Sender des Katalogs. Geben Sie einen Teil des Namens ein, wählen Sie ein Land und drücken Sie „{{Показать}}“. Die Senderseite zeigt das Programm für die Woche und die Kategorien, die Sie korrigieren können.",
+    "favorites": "Hier stehen mit ★ markierte Sender und Sendungen. Fügen Sie ein Thema hinzu, zum Beispiel „Fußball“, und Sie erhalten vor Beginn einer solchen Sendung eine Push-Nachricht.",
+    "coverage": "Wie viele Sender der Katalog hat, wie viele davon gerade funktionieren und wie viele ein Programm haben. Wird nach jeder Stream-Prüfung aktualisiert.",
+    "status": "Was der Server tut: Hintergrundaufgaben, ihr Zeitplan und die letzten Ereignisse. Eine Aufgabe lässt sich mit „{{Запустить}}“ von Hand starten.",
+    "settings": "Hier ändern Sie die Oberflächensprache, 18+-Sender, die Anzahl der Ergebnisse, den Suchmodus und die Schaltfläche „{{На ТВ}}“. Von hier aus holen Sie auch die Tipps zurück."
+  },
+  "sections": [
+    {
+      "id": "start",
+      "title": "Erste Schritte",
+      "items": [
+        "Öffnen Sie die Adresse des Servers im Browser auf Telefon oder Computer. Auf dem Telefon können Sie sie zum Startbildschirm hinzufügen: Browsermenü → „Zum Startbildschirm hinzufügen“ (Add to Home Screen), dann öffnet sich der Katalog wie eine App.",
+        "Fragt der Katalog nach einem Token, öffnen Sie „{{Настройки}}“ → „{{Токен доступа к API}}“, fügen Sie das Token ein und drücken Sie „{{Сохранить}}“. Das Token bleibt nur in diesem Browser.",
+        "Oben gibt es sieben Bereiche: „{{Эфир}}“, „{{Поиск}}“, „{{Каналы}}“, „{{Избранное}}“, „{{Покрытие}}“, „{{Статус}}“, „{{Настройки}}“. Beim ersten Öffnen zeigt jede Seite einen kurzen Tipp „{{Как пользоваться}}“; „{{Понятно}}“ blendet ihn aus.",
+        "Die Seiten aktualisieren sich nicht selbst. Frische Daten lädt „{{↻ Обновить}}“ oder der Wechsel zu einem anderen Tab."
+      ]
+    },
+    {
+      "id": "home",
+      "title": "Im Programm",
+      "items": [
+        "„{{Сейчас в эфире}}“: was gerade auf den Sendern läuft, mit Fortschrittsbalken und der nächsten Sendung.",
+        "„{{Скоро начнётся}}“: Sendungen, die gleich beginnen.",
+        "Ein eigener Block „{{Избранное}}“ oben zeigt, was gerade auf Ihren Lieblingssendern läuft. Wie viele Sender auf einmal erscheinen, stellen Sie unter „{{Настройки}}“ → „{{Выдача}}“ ein.",
+        "„{{Недавно открытые}}“: Sender, die Sie zuletzt mit „{{На ТВ}}“ eingeschaltet haben, mit ihrer Startgeschwindigkeit. „{{Очистить}}“ leert diese Liste; der Geschwindigkeitsverlauf bleibt."
+      ]
+    },
+    {
+      "id": "search",
+      "title": "Suche",
+      "items": [
+        "Schreiben Sie, wie Sie es sagen würden: „Nachrichten heute Abend“, „Fußball morgen“, „Roboter auf Deutsch“, „ZDF“. Die Suche erkennt Zeit und Sprache selbst und findet auch andere Wortformen.",
+        "Filter unter dem Suchfeld: Zeit (jetzt, heute, abends, morgen), was gesucht wird (Sendungen, Sender oder alles), Sprache des Programms und Genre. Filter ändern nur die Auswahl; die Suche selbst startet mit „{{Найти}}“ oder Enter.",
+        "In der Sprachliste stehen Russisch, Vietnamesisch und Englisch oben, danach alle Sprachen aus Programm und Katalog. Die gewählte Sprache schränkt Sendungen und Sender ein.",
+        "Genre ohne Suchwort: Wählen Sie etwa „{{Спорт}}“ und drücken Sie „{{Найти}}“. Eine leere Suche ohne Filter zeigt alles, was jetzt und in den nächsten Stunden läuft.",
+        "„{{Обычный поиск}}“ findet Wortformen und Wortteile, „{{Строгий: целые слова}}“ nur das ganze Wort wie eingegeben. Standardmodus und Genauigkeit der Sendungssuche stellen Sie unter „{{Настройки}}“ ein.",
+        "Frühere Suchen erscheinen als Liste unter dem Suchfeld. Abschalten und löschen können Sie das unter „{{Настройки}}“ → „{{История поиска}}“.",
+        "Die Schaltfläche „🔔 Thema folgen“ unter den Ergebnissen fügt das Thema zu den Favoriten hinzu: Vor Beginn einer passenden Sendung kommt eine Push-Nachricht."
+      ]
+    },
+    {
+      "id": "channels",
+      "title": "Sender und Kategorien",
+      "items": [
+        "Der Bereich „{{Каналы}}“ zeigt den ganzen Katalog. Filter: Teil des Namens, Land (Hauptländer oben, dann alle anderen mit Senderzahl) und „{{только с программой}}“. Drücken Sie „{{Показать}}“.",
+        "Sender ohne funktionierende Streams sind standardmäßig ausgeblendet; das ändern Sie unter „{{Настройки}}“ → „{{Выдача}}“.",
+        "Die Senderseite zeigt das Programm nach Tagen mit Markierung der laufenden Sendung, die Varianten des Senders (zum Beispiel „+2“ mit Zeitversatz oder regionale) und die Schaltfläche „{{На ТВ}}“.",
+        "Jeder Sender hat eine Hauptkategorie und bis zu drei weitere. Sie werden automatisch aus dem Senderverzeichnis, den Playlist-Gruppen, dem Namen, der Marke und dem Programm ermittelt und nach jeder Katalogaktualisierung neu berechnet.",
+        "Kategorie korrigieren: Senderseite → „{{Изменить категории}}“ → Haupt- und Zusatzkategorien wählen → „{{Сохранить}}“. Ihre Wahl hat Vorrang vor der Automatik und gilt sofort in Suche, Listen und Export. „{{Вернуть автоматические}}“ macht sie rückgängig; die automatischen Kategorien kehren nach der nächsten Prüfung zurück, spätestens nach 10 Minuten."
+      ]
+    },
+    {
+      "id": "adult",
+      "title": "18+-Sender",
+      "items": [
+        "Sender für Erwachsene werden automatisch erkannt, auch hinter harmlosen Namen. Die Einstellung finden Sie unter „{{Настройки}}“ → „{{Каналы 18+}}“: „{{Скрывать}}“, „{{Скрывать, открывать по PIN}}“ oder „{{Показывать}}“. Sie wird auf dem Server gespeichert und gilt in allen Browsern.",
+        "PIN-Modus: Legen Sie eine PIN aus 4–8 Ziffern fest und drücken Sie „{{Сохранить}}“. Zum Öffnen der 18+-Sender geben Sie die PIN im selben Bereich ein und drücken „Für … Std. öffnen“; „{{Закрыть сейчас}}“ blendet sie wieder aus. Nach mehreren falschen PINs ist die Eingabe 15 Minuten gesperrt.",
+        "Der Block „Zu prüfen“: Öffnen Sie „{{Поиск}}“, wählen Sie das Genre „{{Для взрослых}}“ und drücken Sie „{{Найти}}“. Oben erscheinen Sender, die nur aufgrund indirekter Hinweise als 18+ eingestuft wurden, jeweils mit Begründung.",
+        "Drücken Sie bei jedem Sender in „Zu prüfen“ „{{Да, 18+}}“, wenn es wirklich ein Erwachsenensender ist, oder wählen Sie „{{Перенести в…}}“ und die passende Kategorie. Die Entscheidung wird als manuelle Kategorie gespeichert, und der Sender verschwindet aus dem Block.",
+        "Einen Sender können Sie auch von Hand als 18+ markieren: Senderseite → „{{Изменить категории}}“ → „{{Для взрослых}}“."
+      ]
+    },
+    {
+      "id": "favorites",
+      "title": "Favoriten und Themen",
+      "items": [
+        "★ bei einem Sender oder einer Sendung fügt sie zu „{{Избранное}}“ hinzu. Favoriten liegen auf dem Server und sind auf allen Geräten sichtbar.",
+        "Verschwindet ein Sender aus den Playlists, bleibt er in den Favoriten und kehrt zurück, sobald er wieder in einer Quelle auftaucht.",
+        "„{{Темы}}“: Fügen Sie ein Wort hinzu, zum Beispiel „Fußball“, und Sie erhalten vor Beginn einer passenden Sendung eine Push-Nachricht."
+      ]
+    },
+    {
+      "id": "tv",
+      "title": "Die Schaltfläche „{{На ТВ}}“",
+      "items": [
+        "„{{На ТВ}}“ schaltet den gewählten Sender auf dem Fernseher ein. Wie, legen Sie unter „{{Настройки}}“ → {{Кнопка «На ТВ»}} fest: über den Heim-Agenten oder direkt über Home Assistant.",
+        "Für Home Assistant gibt es die Schaltfläche „{{Проверить связь с HA}}“: Sie zeigt, ob er antwortet und ob das Startskript gefunden wird.",
+        "„{{Качество при запуске}}“: „Bis 720p“ startet schneller und puffert weniger (Standard), „Beste“ liefert die höchste Qualität, „Auto“ überlässt die Wahl dem Player.",
+        "Jeder Start mit „{{На ТВ}}“ wird gemessen. Die Geschwindigkeit eines Senders ist der Median seiner letzten 10 Starts: ⚡ schnell, ✓ normal, 🐢 langsam, 🐢🐢 sehr langsam. Langsame Sender rücken ans Ende der Listen. Die Schwelle stellen Sie unter „{{Настройки}}“ → „{{Порог медленного открытия, секунд}}“ ein (Standard 5 s); die Senderseite zeigt den Verlauf „{{Скорость открытия на ТВ}}“."
+      ]
+    },
+    {
+      "id": "coverage",
+      "title": "Abdeckung und Status",
+      "items": [
+        "„{{Покрытие}}“ zeigt, wie viele Sender der Katalog hat, wie viele gerade laufen und wie viele ein Programm haben, nach Ländern und nach Herkunft der Kategorie.",
+        "„{{Статус}}“ zeigt die Hintergrundaufgaben (Playlists und Programm aktualisieren, Streams prüfen, neue Playlists finden), ihren Zeitplan, das Ergebnis des letzten Laufs und die Ereignisliste. Eine Aufgabe lässt sich mit „{{Запустить}}“ von Hand starten.",
+        "Der Katalog wird nach jeder Stream-Prüfung neu aufgebaut, meist in unter einer Minute. Direkt nach einem Neustart des Servers dauert der erste Aufbau länger, bis der Cache warm ist."
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Einstellungen und Sprache",
+      "items": [
+        "„{{Язык интерфейса}}“: 20 Sprachen, die drei wichtigsten (Russisch, Englisch, Vietnamesisch) oben in der Liste. Die Sprache wird in diesem Browser gespeichert.",
+        "Texte vom Server (Ereignisse, Zusammenfassungen) erscheinen auf Russisch, Englisch oder Vietnamesisch; bei den übrigen Oberflächensprachen kommen sie auf Englisch.",
+        "„{{Выдача}}“: wie viel auf einmal angezeigt wird, Senderlogos, ob Sender ohne funktionierende Streams ausgeblendet werden.",
+        "„{{Подсказки}}“ → „{{Показать все подсказки снова}}“ bringt die Tipps „{{Как пользоваться}}“ auf allen Seiten zurück.",
+        "Einstellungen zu Ergebnissen, Suche und Sprache bleiben in diesem Browser; 18+-Modus, Favoriten und manuelle Kategorien liegen auf dem Server."
+      ]
+    }
+  ]
+}

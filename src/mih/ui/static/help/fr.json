@@ -1,0 +1,111 @@
+{
+  "title": "Aide",
+  "intro": "Comment utiliser MIRTVONLINE : trouver quoi regarder et allumer une chaîne en quelques touches.",
+  "contents": "Sommaire",
+  "more": "Plus de détails dans l’aide",
+  "tips": {
+    "home": "Voici ce qui passe en ce moment et ce qui commence bientôt. « {{На ТВ}} » allume la chaîne sur le téléviseur, ★ l’ajoute aux favoris. La liste ne se met pas à jour toute seule : appuyez sur « {{↻ Обновить}} » quand il le faut.",
+    "search": "Écrivez avec des mots simples, avec une heure et une langue si vous voulez : « foot demain », « infos ce soir », « robots en français ». Vous pouvez aussi ne rien écrire, choisir un genre et appuyer sur « {{Найти}} ». La recherche se lance avec Entrée ou le bouton « {{Найти}} ».",
+    "channels": "Toutes les chaînes du catalogue. Tapez une partie du nom, choisissez un pays et appuyez sur « {{Показать}} ». La page d’une chaîne montre son programme de la semaine et ses catégories, que vous pouvez corriger.",
+    "favorites": "Ici se trouvent les chaînes et émissions marquées d’une ★. Ajoutez un sujet, par exemple « football », et vous recevrez une notification avant le début d’une telle émission.",
+    "coverage": "Combien de chaînes compte le catalogue, combien fonctionnent en ce moment et combien ont un programme. Mis à jour après chaque vérification des flux.",
+    "status": "Ce que fait le serveur : tâches de fond, leur planning et les derniers événements. Une tâche peut être lancée à la main avec le bouton « {{Запустить}} ».",
+    "settings": "Ici, vous changez la langue de l’interface, les chaînes 18+, le nombre de résultats, le mode de recherche et le bouton « {{На ТВ}} ». Vous pouvez aussi faire revenir les astuces d’ici."
+  },
+  "sections": [
+    {
+      "id": "start",
+      "title": "Pour commencer",
+      "items": [
+        "Ouvrez l’adresse du serveur dans le navigateur du téléphone ou de l’ordinateur. Sur un téléphone, vous pouvez l’ajouter à l’écran d’accueil : menu du navigateur → « Ajouter à l’écran d’accueil » (Add to Home Screen), et le catalogue s’ouvre comme une application.",
+        "Si le catalogue demande un jeton, ouvrez « {{Настройки}} » → « {{Токен доступа к API}} », collez le jeton et appuyez sur « {{Сохранить}} ». Le jeton reste uniquement dans ce navigateur.",
+        "En haut, il y a sept rubriques : « {{Эфир}} », « {{Поиск}} », « {{Каналы}} », « {{Избранное}} », « {{Покрытие}} », « {{Статус}} », « {{Настройки}} ». À la première visite, chaque page affiche une courte astuce « {{Как пользоваться}} » ; « {{Понятно}} » la masque.",
+        "Les écrans ne se mettent pas à jour tout seuls. Le bouton « {{↻ Обновить}} » ou le passage à un autre onglet charge des données fraîches."
+      ]
+    },
+    {
+      "id": "home",
+      "title": "À l’antenne",
+      "items": [
+        "« {{Сейчас в эфире}} » : ce qui passe sur les chaînes en ce moment, avec une barre de progression et l’émission suivante.",
+        "« {{Скоро начнётся}} » : les émissions qui vont commencer.",
+        "Un bloc « {{Избранное}} » à part, en haut, montre ce qui passe sur vos chaînes favorites. Le nombre de chaînes affichées d’un coup se règle dans « {{Настройки}} » → « {{Выдача}} ».",
+        "« {{Недавно открытые}} » : les chaînes que vous avez allumées récemment avec « {{На ТВ}} », avec leur vitesse d’ouverture. « {{Очистить}} » vide cette liste ; l’historique de vitesse est conservé."
+      ]
+    },
+    {
+      "id": "search",
+      "title": "Recherche",
+      "items": [
+        "Écrivez comme vous le diriez : « infos ce soir », « foot demain », « robots en français », « France 2 ». La recherche comprend seule l’heure et la langue et trouve aussi les autres formes d’un mot.",
+        "Filtres sous la barre de recherche : heure (maintenant, aujourd’hui, ce soir, demain), quoi chercher (émissions, chaînes ou tout), langue du programme et genre. Les filtres ne changent que le choix ; la recherche se lance avec « {{Найти}} » ou Entrée.",
+        "La liste des langues commence par le russe, le vietnamien et l’anglais, puis toutes les langues présentes dans le programme et le catalogue. La langue choisie restreint les émissions et les chaînes.",
+        "Un genre sans mots : choisissez par exemple « {{Спорт}} » et appuyez sur « {{Найти}} ». Une recherche vide sans filtre montre tout ce qui passe maintenant et dans les prochaines heures.",
+        "« {{Обычный поиск}} » trouve les formes et les parties de mots, « {{Строгий: целые слова}} » seulement le mot entier tel qu’il est tapé. Le mode par défaut et la précision de recherche des émissions se règlent dans « {{Настройки}} ».",
+        "Les recherches précédentes apparaissent en liste sous la barre de recherche. Vous pouvez désactiver et effacer cela dans « {{Настройки}} » → « {{История поиска}} ».",
+        "Le bouton « 🔔 Suivre le sujet » sous les résultats ajoute le sujet aux favoris : une notification arrive avant le début d’une émission correspondante."
+      ]
+    },
+    {
+      "id": "channels",
+      "title": "Chaînes et catégories",
+      "items": [
+        "La rubrique « {{Каналы}} » montre tout le catalogue. Filtres : partie du nom, pays (pays principaux en haut, puis tous les autres avec leur nombre de chaînes) et « {{только с программой}} ». Appuyez sur « {{Показать}} ».",
+        "Les chaînes sans flux qui fonctionne sont masquées par défaut ; changez cela dans « {{Настройки}} » → « {{Выдача}} ».",
+        "La page d’une chaîne montre son programme par jour avec l’émission en cours signalée, les versions de la chaîne (par exemple « +2 » avec décalage horaire, ou régionales) et le bouton « {{На ТВ}} ».",
+        "Chaque chaîne a une catégorie principale et jusqu’à trois catégories supplémentaires. Elles sont déterminées automatiquement d’après l’annuaire des chaînes, les groupes des playlists, le nom, la marque et le programme, et recalculées après chaque mise à jour du catalogue.",
+        "Pour corriger une catégorie : page de la chaîne → « {{Изменить категории}} » → choisissez la principale et les supplémentaires → « {{Сохранить}} ». Votre choix prime sur l’automatique et s’applique tout de suite à la recherche, aux listes et aux exports. « {{Вернуть автоматические}} » l’annule ; les catégories automatiques reviennent après la prochaine vérification, sous 10 minutes."
+      ]
+    },
+    {
+      "id": "adult",
+      "title": "Chaînes 18+",
+      "items": [
+        "Les chaînes pour adultes sont détectées automatiquement, même derrière des noms anodins. Le réglage se trouve dans « {{Настройки}} » → « {{Каналы 18+}} » : « {{Скрывать}} », « {{Скрывать, открывать по PIN}} » ou « {{Показывать}} ». Il est enregistré sur le serveur et vaut pour tous les navigateurs.",
+        "Mode PIN : définissez un PIN de 4 à 8 chiffres et appuyez sur « {{Сохранить}} ». Pour ouvrir les chaînes 18+, saisissez le PIN dans la même rubrique et appuyez sur « Ouvrir pour … h » ; « {{Закрыть сейчас}} » les masque à nouveau. Après plusieurs PIN erronés, la saisie est bloquée 15 minutes.",
+        "Le bloc « À vérifier » : ouvrez « {{Поиск}} », choisissez le genre « {{Для взрослых}} » et appuyez sur « {{Найти}} ». En haut apparaissent les chaînes classées 18+ seulement sur des indices indirects, chacune avec la raison.",
+        "Pour chaque chaîne de « À vérifier », appuyez sur « {{Да, 18+}} » si c’est vraiment une chaîne pour adultes, ou choisissez « {{Перенести в…}} » et la bonne catégorie. La décision est enregistrée comme catégorie manuelle et la chaîne quitte le bloc.",
+        "Vous pouvez aussi marquer une chaîne 18+ à la main : page de la chaîne → « {{Изменить категории}} » → « {{Для взрослых}} »."
+      ]
+    },
+    {
+      "id": "favorites",
+      "title": "Favoris et sujets",
+      "items": [
+        "★ sur une chaîne ou une émission l’ajoute aux « {{Избранное}} ». Les favoris sont gardés sur le serveur et visibles depuis tous les appareils.",
+        "Si une chaîne disparaît des playlists, elle reste dans les favoris et revient quand elle réapparaît dans une source.",
+        "« {{Темы}} » : ajoutez un mot, par exemple « football », et une notification arrive avant le début d’une émission correspondante."
+      ]
+    },
+    {
+      "id": "tv",
+      "title": "Le bouton « {{На ТВ}} »",
+      "items": [
+        "« {{На ТВ}} » allume la chaîne choisie sur le téléviseur. La méthode se choisit dans « {{Настройки}} » → {{Кнопка «На ТВ»}} : via l’agent domestique ou directement via Home Assistant.",
+        "Pour Home Assistant, le bouton « {{Проверить связь с HA}} » indique s’il répond et si le script de lancement est trouvé.",
+        "« {{Качество при запуске}} » : « Jusqu’à 720p » démarre plus vite et met moins en mémoire tampon (par défaut), « Meilleure » donne la plus haute qualité, « Auto » laisse le lecteur choisir.",
+        "Chaque lancement avec « {{На ТВ}} » est chronométré. La vitesse d’une chaîne est la médiane de ses 10 dernières ouvertures : ⚡ rapide, ✓ normale, 🐢 lente, 🐢🐢 très lente. Les chaînes lentes passent en fin de liste. Le seuil se règle dans « {{Настройки}} » → « {{Порог медленного открытия, секунд}} » (5 s par défaut) ; la page de la chaîne montre l’historique « {{Скорость открытия на ТВ}} »."
+      ]
+    },
+    {
+      "id": "coverage",
+      "title": "Couverture et état",
+      "items": [
+        "« {{Покрытие}} » montre combien de chaînes compte le catalogue, combien sont en vie et combien ont un programme, par pays et selon l’origine de la catégorie.",
+        "« {{Статус}} » montre les tâches de fond (mise à jour des playlists et du programme, vérification des flux, recherche de nouvelles playlists), leur planning, le résultat du dernier passage et le fil des événements. Une tâche peut être lancée à la main avec le bouton « {{Запустить}} ».",
+        "Le catalogue est reconstruit après chaque vérification des flux, en général en moins d’une minute. Juste après un redémarrage du serveur, la première construction est plus longue, le temps que le cache se remplisse."
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Réglages et langue",
+      "items": [
+        "« {{Язык интерфейса}} » : 20 langues, les trois principales (russe, anglais, vietnamien) en haut de la liste. La langue est mémorisée dans ce navigateur.",
+        "Les textes venant du serveur (événements, résumés) s’affichent en russe, anglais ou vietnamien ; pour les autres langues de l’interface, ils arrivent en anglais.",
+        "« {{Выдача}} » : combien d’éléments afficher d’un coup, logos des chaînes, masquer ou non les chaînes sans flux qui fonctionne.",
+        "« {{Подсказки}} » → « {{Показать все подсказки снова}} » fait revenir les astuces « {{Как пользоваться}} » sur toutes les pages.",
+        "Les réglages des résultats, de la recherche et de la langue restent dans ce navigateur ; le mode 18+, les favoris et les catégories manuelles sont sur le serveur."
+      ]
+    }
+  ]
+}

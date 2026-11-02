@@ -20,8 +20,6 @@ def _dicts() -> dict[str, dict[str, str]]:
 def _keys() -> set[str]:
     app = (STATIC / "app.js").read_text(encoding="utf-8")
     keys = {json.loads(f'"{k}"') for k in re.findall(r'\bt\("((?:[^"\\]|\\.)*)"', app)}
-    tips = re.search(r"const TIPS = \{(.*?)\n\};", app, re.S).group(1)
-    keys |= set(re.findall(r':\s*"([^"]+)"', tips))
     shell = (STATIC / "index.html").read_text(encoding="utf-8")
     keys |= set(re.findall(r'data-i18n(?:-[a-z-]+)?="([^"]+)"', shell))
     return keys

@@ -340,17 +340,22 @@ class _MemoryFiles:
 
     _TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
               ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml",
-              ".webmanifest": "application/manifest+json"}  # fmt: skip
+              ".webmanifest": "application/manifest+json", ".json": "application/json"}  # fmt: skip
 
     def __init__(self, folder) -> None:
         self.files: dict[str, tuple[bytes, bytes, str, str]] = {}
-        for f in folder.iterdir():
+        # One level of subfolders (help/<lang>.json): importlib traversables have no rglob.
+        entries = [(f, "/" + f.name) for f in folder.iterdir()]
+        entries += [
+            (g, f"/{f.name}/{g.name}") for f, _ in list(entries) if f.is_dir() for g in f.iterdir()
+        ]
+        for f, path in entries:
             if not f.is_file():
                 continue
             body = f.read_bytes()
             etag = '"' + hashlib.blake2b(body, digest_size=12).hexdigest() + '"'
             kind = self._TYPES.get(f.name[f.name.rfind(".") :], "application/octet-stream")
-            self.files["/" + f.name] = (body, gzip.compress(body, 9), etag, kind)
+            self.files[path] = (body, gzip.compress(body, 9), etag, kind)
         self.files["/"] = self.files["/index.html"]
 
     async def __call__(self, scope, receive, send) -> None:

@@ -96,6 +96,9 @@ def test_web_ui_is_served_without_a_token_and_api_still_needs_one(client):
     assert page.status_code == 200 and "MIRTVONLINE" in page.text
     assert anon.get("/app.js").status_code == 200
     assert anon.get("/manifest.webmanifest").status_code == 200
+    guide = anon.get("/help/ru.json")
+    assert guide.status_code == 200 and guide.headers["content-type"].startswith("application/json")
+    assert guide.json()["sections"]
     assert anon.get("/api/v1/channels").status_code == 401
     assert anon.get("/api/docs").status_code == 200
 

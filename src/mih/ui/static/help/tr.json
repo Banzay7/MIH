@@ -1,0 +1,111 @@
+{
+  "title": "Yardım",
+  "intro": "MIRTVONLINE nasıl kullanılır: izleyecek bir şey bulun ve kanalı birkaç dokunuşla açın.",
+  "contents": "İçindekiler",
+  "more": "Yardımda daha fazlası",
+  "tips": {
+    "home": "Burada şu anda yayında olanlar ve yakında başlayacaklar var. “{{На ТВ}}” kanalı televizyonda açar, ★ kanalı favorilere ekler. Liste kendiliğinden yenilenmez: gerektiğinde “{{↻ Обновить}}” düğmesine basın.",
+    "search": "Sade kelimelerle yazın, isterseniz zaman ve dil ekleyin: “yarın futbol”, “bu akşam haberler”, “Türkçe robotlar”. Hiçbir şey yazmadan bir tür seçip “{{Найти}}” düğmesine de basabilirsiniz. Arama Enter tuşuyla veya “{{Найти}}” düğmesiyle başlar.",
+    "channels": "Katalogdaki tüm kanallar. Adın bir kısmını yazın, bir ülke seçin ve “{{Показать}}” düğmesine basın. Kanal sayfasında haftalık yayın akışı ve düzeltebileceğiniz kategorileri bulunur.",
+    "favorites": "★ ile işaretlenen kanallar ve programlar burada. Örneğin “futbol” gibi bir konu ekleyin; böyle bir program başlamadan önce bildirim gelir.",
+    "coverage": "Katalogda kaç kanal olduğu, kaçının şu anda çalıştığı ve kaçının yayın akışı olduğu. Her yayın kontrolünden sonra güncellenir.",
+    "status": "Sunucunun ne yaptığı: arka plan görevleri, zamanlamaları ve son olaylar. Bir görev “{{Запустить}}” düğmesiyle elle başlatılabilir.",
+    "settings": "Arayüz dili, 18+ kanallar, sonuç sayısı, arama modu ve “{{На ТВ}}” düğmesi burada değiştirilir. İpuçlarını da buradan geri getirebilirsiniz."
+  },
+  "sections": [
+    {
+      "id": "start",
+      "title": "Başlarken",
+      "items": [
+        "Sunucunun adresini telefonun veya bilgisayarın tarayıcısında açın. Telefonda ana ekrana ekleyebilirsiniz: tarayıcı menüsü → “Ana ekrana ekle” (Add to Home Screen); katalog bir uygulama gibi açılır.",
+        "Katalog bir token isterse “{{Настройки}}” → “{{Токен доступа к API}}” bölümünü açın, token'ı yapıştırın ve “{{Сохранить}}” düğmesine basın. Token yalnızca bu tarayıcıda saklanır.",
+        "Üstte yedi bölüm var: “{{Эфир}}”, “{{Поиск}}”, “{{Каналы}}”, “{{Избранное}}”, “{{Покрытие}}”, “{{Статус}}”, “{{Настройки}}”. Her sayfa ilk açılışta kısa bir “{{Как пользоваться}}” ipucu gösterir; “{{Понятно}}” onu gizler.",
+        "Ekranlar kendiliğinden yenilenmez. “{{↻ Обновить}}” düğmesi veya başka bir sekmeye geçmek yeni verileri yükler."
+      ]
+    },
+    {
+      "id": "home",
+      "title": "Yayında",
+      "items": [
+        "“{{Сейчас в эфире}}”: kanallarda şu anda ne olduğu, ilerleme çubuğu ve sıradaki programla birlikte.",
+        "“{{Скоро начнётся}}”: başlamak üzere olan programlar.",
+        "Üstteki ayrı “{{Избранное}}” bloğu favori kanallarınızda şu anda ne olduğunu gösterir. Bir seferde kaç kanal gösterileceği “{{Настройки}}” → “{{Выдача}}” bölümünden ayarlanır.",
+        "“{{Недавно открытые}}”: “{{На ТВ}}” ile son açtığınız kanallar, açılma hızlarıyla birlikte. “{{Очистить}}” bu listeyi boşaltır; hız geçmişi korunur."
+      ]
+    },
+    {
+      "id": "search",
+      "title": "Arama",
+      "items": [
+        "Söyler gibi yazın: “bu akşam haberler”, “yarın futbol”, “Türkçe robotlar”, “TRT 1”. Arama zamanı ve dili kendisi anlar ve kelimenin diğer biçimlerini de bulur.",
+        "Arama kutusunun altındaki filtreler: zaman (şimdi, bugün, bu akşam, yarın), ne aranacağı (programlar, kanallar veya hepsi), yayın akışı dili ve tür. Filtreler yalnızca seçimi değiştirir; arama “{{Найти}}” veya Enter ile başlar.",
+        "Dil listesinin başında Rusça, Vietnamca ve İngilizce var, ardından yayın akışında ve katalogda bulunan tüm diller gelir. Seçilen dil hem programları hem kanalları daraltır.",
+        "Kelimesiz tür: örneğin “{{Спорт}}” seçip “{{Найти}}” düğmesine basın. Filtresiz boş bir arama şu anda ve önümüzdeki saatlerde yayında olan her şeyi gösterir.",
+        "“{{Обычный поиск}}” kelimenin biçimlerini ve parçalarını bulur, “{{Строгий: целые слова}}” yalnızca yazıldığı gibi tam kelimeyi bulur. Varsayılan mod ve program aramasının hassasiyeti “{{Настройки}}” bölümünden ayarlanır.",
+        "Önceki aramalar arama kutusunun altında liste olarak görünür. Bunu “{{Настройки}}” → “{{История поиска}}” bölümünden kapatıp temizleyebilirsiniz.",
+        "Sonuçların altındaki “🔔 Konuyu takip et” düğmesi konuyu favorilere ekler: uygun bir program başlamadan önce bildirim gelir."
+      ]
+    },
+    {
+      "id": "channels",
+      "title": "Kanallar ve kategoriler",
+      "items": [
+        "“{{Каналы}}” bölümü tüm kataloğu gösterir. Filtreler: adın bir kısmı, ülke (ana ülkeler üstte, ardından kanal sayılarıyla diğer tüm ülkeler) ve “{{только с программой}}”. “{{Показать}}” düğmesine basın.",
+        "Çalışan yayını olmayan kanallar varsayılan olarak gizlidir; bunu “{{Настройки}}” → “{{Выдача}}” bölümünden değiştirin.",
+        "Kanal sayfasında günlere göre yayın akışı (şu anki program işaretli), kanalın sürümleri (örneğin saat farklı “+2” veya bölgesel sürümler) ve “{{На ТВ}}” düğmesi bulunur.",
+        "Her kanalın bir ana kategorisi ve en fazla üç ek kategorisi vardır. Bunlar kanal rehberinden, çalma listesi gruplarından, addan, markadan ve yayın akışından otomatik belirlenir ve her katalog güncellemesinden sonra yeniden hesaplanır.",
+        "Kategoriyi düzeltmek için: kanal sayfası → “{{Изменить категории}}” → ana ve ek kategorileri seçin → “{{Сохранить}}”. Sizin seçiminiz otomatik olandan önce gelir ve aramada, listelerde ve dışa aktarmada hemen geçerli olur. “{{Вернуть автоматические}}” seçimi geri alır; otomatik kategoriler bir sonraki kontrolden sonra, en geç 10 dakika içinde geri gelir."
+      ]
+    },
+    {
+      "id": "adult",
+      "title": "18+ kanallar",
+      "items": [
+        "Yetişkin kanalları, zararsız adların arkasında olsalar bile otomatik tespit edilir. Ayar “{{Настройки}}” → “{{Каналы 18+}}” bölümündedir: “{{Скрывать}}”, “{{Скрывать, открывать по PIN}}” veya “{{Показывать}}”. Sunucuda saklanır ve tüm tarayıcılarda geçerlidir.",
+        "PIN modu: 4–8 haneli bir PIN belirleyin ve “{{Сохранить}}” düğmesine basın. 18+ kanalları açmak için aynı bölümde PIN'i girin ve “… saat için aç” düğmesine basın; “{{Закрыть сейчас}}” onları yeniden gizler. Birkaç yanlış PIN'den sonra giriş 15 dakika kilitlenir.",
+        "“İncelenecek” bloğu: “{{Поиск}}” bölümünü açın, “{{Для взрослых}}” türünü seçin ve “{{Найти}}” düğmesine basın. Üstte yalnızca dolaylı işaretlerle 18+ sayılan kanallar, her biri nedeniyle birlikte görünür.",
+        "“İncelenecek” bölümündeki her kanal için, gerçekten yetişkin kanalıysa “{{Да, 18+}}” düğmesine basın ya da “{{Перенести в…}}” seçip doğru kategoriyi seçin. Karar elle verilmiş kategori olarak kaydedilir ve kanal bloktan çıkar.",
+        "Bir kanalı elle de 18+ olarak işaretleyebilirsiniz: kanal sayfası → “{{Изменить категории}}” → “{{Для взрослых}}”."
+      ]
+    },
+    {
+      "id": "favorites",
+      "title": "Favoriler ve konular",
+      "items": [
+        "Bir kanaldaki veya programdaki ★ onu “{{Избранное}}” bölümüne ekler. Favoriler sunucuda saklanır ve tüm cihazlardan görünür.",
+        "Bir kanal çalma listelerinden kaybolursa favorilerde kalır ve bir kaynakta yeniden görününce geri gelir.",
+        "“{{Темы}}”: örneğin “futbol” gibi bir kelime ekleyin; uygun bir program başlamadan önce bildirim gelir."
+      ]
+    },
+    {
+      "id": "tv",
+      "title": "“{{На ТВ}}” düğmesi",
+      "items": [
+        "“{{На ТВ}}” seçilen kanalı televizyonda açar. Nasıl açılacağı “{{Настройки}}” → {{Кнопка «На ТВ»}} bölümünden seçilir: ev ajanı üzerinden veya doğrudan Home Assistant ile.",
+        "Home Assistant için “{{Проверить связь с HA}}” düğmesi var: yanıt verip vermediğini ve başlatma betiğinin bulunup bulunmadığını gösterir.",
+        "“{{Качество при запуске}}”: “720p'ye kadar” daha hızlı başlar ve daha az arabelleğe alır (varsayılan), “En iyi” en yüksek kaliteyi verir, “Otomatik” seçimi oynatıcıya bırakır.",
+        "“{{На ТВ}}” ile her başlatma ölçülür. Kanalın hızı son 10 açılışının medyanıdır: ⚡ hızlı, ✓ normal, 🐢 yavaş, 🐢🐢 çok yavaş. Yavaş kanallar listelerin sonuna gider. Eşik “{{Настройки}}” → “{{Порог медленного открытия, секунд}}” bölümünden ayarlanır (varsayılan 5 sn); kanal sayfasında “{{Скорость открытия на ТВ}}” geçmişi bulunur."
+      ]
+    },
+    {
+      "id": "coverage",
+      "title": "Kapsam ve durum",
+      "items": [
+        "“{{Покрытие}}” katalogda kaç kanal olduğunu, kaçının şu anda canlı olduğunu ve kaçının yayın akışı olduğunu ülkelere ve kategorinin kaynağına göre gösterir.",
+        "“{{Статус}}” arka plan görevlerini (çalma listelerini ve yayın akışını güncelleme, yayınları kontrol etme, yeni çalma listeleri bulma), zamanlamalarını, son çalışmanın sonucunu ve olay akışını gösterir. Bir görev “{{Запустить}}” düğmesiyle elle başlatılabilir.",
+        "Katalog her yayın kontrolünden sonra, genellikle bir dakikadan kısa sürede yeniden oluşturulur. Sunucu yeniden başlatıldıktan hemen sonra önbellek dolana kadar ilk oluşturma daha uzun sürer."
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Ayarlar ve dil",
+      "items": [
+        "“{{Язык интерфейса}}”: 20 dil; üç ana dil (Rusça, İngilizce, Vietnamca) listenin başında. Dil bu tarayıcıda hatırlanır.",
+        "Sunucudan gelen metinler (olaylar, özetler) Rusça, İngilizce veya Vietnamca gösterilir; diğer arayüz dillerinde İngilizce gelir.",
+        "“{{Выдача}}”: bir seferde kaç öğe gösterileceği, kanal logoları, çalışan yayını olmayan kanalların gizlenip gizlenmeyeceği.",
+        "“{{Подсказки}}” → “{{Показать все подсказки снова}}” “{{Как пользоваться}}” ipuçlarını tüm sayfalara geri getirir.",
+        "Sonuç, arama ve dil ayarları bu tarayıcıda; 18+ modu, favoriler ve elle verilen kategoriler sunucuda saklanır."
+      ]
+    }
+  ]
+}

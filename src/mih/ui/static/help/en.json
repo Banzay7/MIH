@@ -1,0 +1,111 @@
+{
+  "title": "Help",
+  "intro": "How to use MIRTVONLINE: find something to watch and turn a channel on in a couple of taps.",
+  "contents": "Contents",
+  "more": "More in Help",
+  "tips": {
+    "home": "This is what is on right now and what starts soon. “{{На ТВ}}” turns the channel on on the TV, ★ adds it to favourites. The list does not refresh by itself: press “{{↻ Обновить}}” when you need to.",
+    "search": "Type in plain words, with a time and a language if you like: “football tomorrow”, “news tonight”, “robots in English”. You can also type nothing, pick a genre and press “{{Найти}}”. The search runs on Enter or the “{{Найти}}” button.",
+    "channels": "Every channel in the catalog. Type part of a name, pick a country and press “{{Показать}}”. A channel's page has its guide for the week and its categories, which you can correct.",
+    "favorites": "Channels and programmes marked with ★ are here. Add a topic, for example “football”, and you get a push before such a programme starts.",
+    "coverage": "How many channels the catalog has, how many of them work right now and how many have a programme guide. Updated after every stream check.",
+    "status": "What the server is doing: background jobs, their schedule and the latest events. A job can be started by hand with the “{{Запустить}}” button.",
+    "settings": "Change the interface language, 18+ channels, the number of results, the search mode and the “{{На ТВ}}” button here. You can also bring the tips back from here."
+  },
+  "sections": [
+    {
+      "id": "start",
+      "title": "Getting started",
+      "items": [
+        "Open the server's address in a browser on your phone or computer. On a phone you can add it to the home screen: browser menu → “Add to Home Screen”, and the catalog opens like an app.",
+        "If the catalog asks for a token, open “{{Настройки}}” → “{{Токен доступа к API}}”, paste the token and press “{{Сохранить}}”. The token is kept only in this browser.",
+        "There are seven sections at the top: “{{Эфир}}”, “{{Поиск}}”, “{{Каналы}}”, “{{Избранное}}”, “{{Покрытие}}”, “{{Статус}}”, “{{Настройки}}”. The first time you open a page it shows a short “{{Как пользоваться}}” tip; “{{Понятно}}” hides it.",
+        "Screens do not refresh by themselves. The “{{↻ Обновить}}” button or switching to another tab loads fresh data."
+      ]
+    },
+    {
+      "id": "home",
+      "title": "On air",
+      "items": [
+        "“{{Сейчас в эфире}}”: what is on the channels right now, with a progress bar and what comes next.",
+        "“{{Скоро начнётся}}”: programmes that are about to begin.",
+        "A separate “{{Избранное}}” block at the top shows what is on your favourite channels now. How many channels to show at once is set in “{{Настройки}}” → “{{Выдача}}”.",
+        "“{{Недавно открытые}}”: channels you recently turned on with “{{На ТВ}}”, with their open speed. “{{Очистить}}” empties this list; the speed history stays."
+      ]
+    },
+    {
+      "id": "search",
+      "title": "Search",
+      "items": [
+        "Type the way you would say it: “news tonight”, “football tomorrow”, “robots in English”, “BBC One”. The search understands time and language by itself and finds other forms of a word (“robot” finds “robots”).",
+        "Filters under the search box: time (now, today, tonight, tomorrow), what to look for (programmes, channels or everything), the guide language and the genre. Filters only change the choice; the search itself runs on “{{Найти}}” or Enter.",
+        "The language list has Russian, Vietnamese and English at the top, then every language found in the guide and the catalog. The chosen language narrows both programmes and channels.",
+        "A genre without words: pick, say, “{{Спорт}}” and press “{{Найти}}”. An empty search with no filters shows everything on now and in the next few hours.",
+        "“{{Обычный поиск}}” finds word forms and parts of words, “{{Строгий: целые слова}}” finds only the whole word as typed. The default mode and the programme search precision are set in “{{Настройки}}”.",
+        "Past searches appear as a list under the search box. You can turn this off and clear it in “{{Настройки}}” → “{{История поиска}}”.",
+        "The “🔔 Follow the topic” button under the results adds the topic to favourites: you get a push before a matching programme starts."
+      ]
+    },
+    {
+      "id": "channels",
+      "title": "Channels and categories",
+      "items": [
+        "The “{{Каналы}}” section shows the whole catalog. Filters: part of the name, the country (main countries at the top, then all others with their channel counts) and “{{только с программой}}”. Press “{{Показать}}”.",
+        "Channels without working streams are hidden by default; change this in “{{Настройки}}” → “{{Выдача}}”.",
+        "A channel's page has its guide by day with what is on now marked, the channel's versions (for example “+2” with a time shift, or regional ones) and the “{{На ТВ}}” button.",
+        "Every channel has one main category and up to three extra ones. They are found automatically from the channel directory, playlist groups, the name, the brand and the programme guide, and recalculated after every catalog update.",
+        "To correct a category: channel page → “{{Изменить категории}}” → pick the main and extra ones → “{{Сохранить}}”. Your choice beats the automatic one and applies at once in search, lists and exports. “{{Вернуть автоматические}}” undoes it; the automatic categories return after the next check, within 10 minutes."
+      ]
+    },
+    {
+      "id": "adult",
+      "title": "18+ channels",
+      "items": [
+        "Adult channels are detected automatically, including ones behind harmless names. The setting is in “{{Настройки}}” → “{{Каналы 18+}}”: “{{Скрывать}}”, “{{Скрывать, открывать по PIN}}” or “{{Показывать}}”. It is kept on the server and applies in every browser.",
+        "PIN mode: set a PIN of 4–8 digits and press “{{Сохранить}}”. To open 18+ channels, enter the PIN in the same section and press “Open for … h”; “{{Закрыть сейчас}}” hides them again. After several wrong PINs entry is blocked for 15 minutes.",
+        "The “To review” block: open “{{Поиск}}”, pick the genre “{{Для взрослых}}” and press “{{Найти}}”. At the top you see channels that were put under 18+ on indirect signs only, each with the reason.",
+        "For each channel in “To review” press “{{Да, 18+}}” if it really is an adult channel, or choose “{{Перенести в…}}” and the right category. The decision is saved as a manual category and the channel leaves the block.",
+        "You can also mark a channel as 18+ by hand: channel page → “{{Изменить категории}}” → “{{Для взрослых}}”."
+      ]
+    },
+    {
+      "id": "favorites",
+      "title": "Favourites and topics",
+      "items": [
+        "★ on a channel or programme adds it to “{{Избранное}}”. Favourites are kept on the server and seen from every device.",
+        "If a channel disappears from the playlists it stays in favourites and comes back when it reappears in a source.",
+        "“{{Темы}}”: add a word, for example “football”, and you get a push before a matching programme starts."
+      ]
+    },
+    {
+      "id": "tv",
+      "title": "The “{{На ТВ}}” button",
+      "items": [
+        "“{{На ТВ}}” turns the chosen channel on on the TV. How is chosen in “{{Настройки}}” → {{Кнопка «На ТВ»}}: through the home agent or straight through Home Assistant.",
+        "For Home Assistant there is a “{{Проверить связь с HA}}” button: it shows whether it answers and whether the start script is found.",
+        "“{{Качество при запуске}}”: “Up to 720p” starts faster and buffers less (the default), “Best” gives the highest quality, “Auto” leaves the choice to the player.",
+        "Every “{{На ТВ}}” launch is timed. A channel's speed is the median of its last 10 opens: ⚡ fast, ✓ normal, 🐢 slow, 🐢🐢 very slow. Slow channels go to the end of the lists. The threshold is set in “{{Настройки}}” → “{{Порог медленного открытия, секунд}}” (default 5 s); the channel page shows its “{{Скорость открытия на ТВ}}” history."
+      ]
+    },
+    {
+      "id": "coverage",
+      "title": "Coverage and status",
+      "items": [
+        "“{{Покрытие}}” shows how many channels the catalog has, how many are alive now and how many have a guide, by country and by where the category came from.",
+        "“{{Статус}}” shows the background jobs (updating playlists and the guide, checking streams, finding new playlists), their schedule, the result of the last run and the event feed. A job can be started by hand with the “{{Запустить}}” button.",
+        "The catalog is rebuilt after every stream check, usually in under a minute. Right after a server restart the first build takes longer while the cache warms up."
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Settings and language",
+      "items": [
+        "“{{Язык интерфейса}}”: 20 languages, with the three main ones (Russian, English, Vietnamese) at the top of the list. The language is remembered in this browser.",
+        "Texts that come from the server (events, summaries) are shown in Russian, English or Vietnamese; for the other interface languages they come in English.",
+        "“{{Выдача}}”: how many to show at once, channel logos, whether to hide channels without working streams.",
+        "“{{Подсказки}}” → “{{Показать все подсказки снова}}” brings the “{{Как пользоваться}}” tips back on every page.",
+        "Results, search and language settings are kept in this browser; the 18+ mode, favourites and manual categories are kept on the server."
+      ]
+    }
+  ]
+}
