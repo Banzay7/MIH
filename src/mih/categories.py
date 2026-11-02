@@ -273,9 +273,30 @@ class GuideMix:
         return title if m / self.minutes >= ONE_SHOW_SHARE else None
 
 
+# Programme (title, genres as stored) -> its categories. Kept for the life of the process:
+# the scheduler rebuilds the catalog after every job, and the guide's 600 000 programmes
+# through ~60 genre patterns each took about three minutes of one core every time. A
+# programme's categories depend only on its title and genres, so a repeat (an episode,
+# the same film on another channel, the next rebuild) costs a lookup.
+_PROGRAMME_CACHE: dict[tuple[str, str], frozenset[str]] = {}
+_PROGRAMME_CACHE_MAX = 1_500_000  # about 300 MB of keys; cleared and refilled past it
+_CATS_INTERN: dict[frozenset[str], frozenset[str]] = {}
+
+
+def _cached_programme_categories(title: str, stored: str, texts: list[str]) -> frozenset[str]:
+    key = (title, stored)
+    hit = _PROGRAMME_CACHE.get(key)
+    if hit is None:
+        if len(_PROGRAMME_CACHE) >= _PROGRAMME_CACHE_MAX:
+            _PROGRAMME_CACHE.clear()
+        cats = frozenset(programme_categories(title, texts))
+        hit = _PROGRAMME_CACHE[key] = _CATS_INTERN.setdefault(cats, cats)
+    return hit
+
+
 def guide_mix(conn: sqlite3.Connection) -> dict[str, GuideMix]:
     """Channel id -> airtime per category over the scheduled airings the guide keeps."""
-    cache: dict[str, tuple[set[str], list[str]]] = {}
+    cache: dict[str, tuple[frozenset[str], list[str]]] = {}
     out: dict[str, GuideMix] = defaultdict(GuideMix)
     for r in conn.execute(
         "SELECT DISTINCT f.channel_id, a.id, a.programme_id, a.start_utc, a.stop_utc,"
@@ -289,7 +310,8 @@ def guide_mix(conn: sqlite3.Connection) -> dict[str, GuideMix]:
         if hit is None:
             raw = json.loads(r["categories"] or "[]")
             texts = [t for c in raw if (t := c[1] if isinstance(c, list) else c)]
-            hit = cache[r["programme_id"]] = (programme_categories(r["title"], texts), texts)
+            cats = _cached_programme_categories(r["title"] or "", r["categories"] or "", texts)
+            hit = cache[r["programme_id"]] = (cats, texts)
         cats, texts = hit
         try:
             minutes = (datetime.fromisoformat(r["stop_utc"].replace("Z", "+00:00"))

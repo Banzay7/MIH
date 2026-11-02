@@ -33,6 +33,7 @@ from mih.epg.auto import run_autopilot
 from mih.epg.coverage import working_coverage
 from mih.epg.service import import_epg_from_url
 from mih.events import list_events, record_event, t, translations
+from mih.export import build_catalog
 from mih.health.policy import HealthPolicy
 from mih.health.runner import run_checks
 from mih.ids import utc_now
@@ -257,24 +258,27 @@ def _rebuild_lists(conn, settings, data: dict, guide_max_age: timedelta = GUIDE_
     catalog by its importer; the lists are rebuilt right after, so they grow as the
     work goes instead of waiting for a full pass. A list's guide file is rewritten
     after a guide import, and otherwise only now and then (see mih.lists.write_list)."""
+    # One catalog for the lists and the report: building it is the slow part.
     try:
+        catalog = build_catalog(conn)
         built = build_presets(conn, settings.lists_dir, load_presets(settings.lists_file),
                               public_url=settings.public_url, token=settings.api_token,
-                              guide_max_age=guide_max_age)  # fmt: skip
+                              guide_max_age=guide_max_age, catalog=catalog)  # fmt: skip
     except (ValueError, OSError) as exc:
         return t(settings, "error", error=exc)
     data["lists"] = {r.name: r.channels for r in built}
     data["lists_with_guide"] = {r.name: r.with_guide for r in built}
-    _refresh_report(conn, settings, timedelta(0) if guide_max_age == timedelta(0) else REPORT_EVERY)
+    _refresh_report(conn, settings, timedelta(0) if guide_max_age == timedelta(0) else REPORT_EVERY,
+                    catalog=catalog)  # fmt: skip
     return t(settings, "health.lists",
              lists=", ".join(f"{r.name} {r.channels} ({r.with_guide})" for r in built))  # fmt: skip
 
 
-def _refresh_report(conn, settings, every: timedelta) -> None:
+def _refresh_report(conn, settings, every: timedelta, catalog: list[dict] | None = None) -> None:
     """The «Покрытие» tab's numbers (mih.report): after a guide import at once, after
     other work at most every REPORT_EVERY. A failure here never fails the job."""
     try:
-        write_report(conn, report_path(settings.data_dir), every=every)
+        write_report(conn, report_path(settings.data_dir), every=every, catalog=catalog)
     except (sqlite3.Error, OSError, ValueError, KeyError):
         log.exception("coverage report failed")
 
