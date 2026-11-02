@@ -34,6 +34,7 @@ from mih.categories import (
     SOURCE_SHARE,
     THRESHOLD,
     Decision,
+    adult_by_name,
     adult_name_keys,
     brand_stem,
     brand_votes,
@@ -44,7 +45,7 @@ from mih.categories import (
     neighbour_votes,
     url_is_adult,
 )
-from mih.identity.normalize import fold, split_name
+from mih.identity.normalize import fold
 from mih.ids import utc_now
 from mih.playback import Target, pick_streams
 
@@ -156,12 +157,14 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
                 countries.add(d["country"])
         all_names = [ch["canonical_name"], *names[ch["id"]]]
         extra = []
-        if any(split_name(n).key in adult_keys for n in all_names if n):
+        mix = mixes.get(ch["id"])
+        linked_ordinary = d is not None and "adult" not in from_dir
+        if adult_by_name(all_names, adult_keys, linked_ordinary=linked_ordinary,
+                         guide=mix.shares() if mix else None):  # fmt: skip
             extra.append(("adult", "directory-name", 3.0, "directory: adult channel name"))
         logo = ch["logo_url"] or (d["logo_url"] if d is not None else None)
         if url_adult or url_is_adult(logo):
             extra.append(("adult", "url", 3.0, "stream or logo address"))
-        mix = mixes.get(ch["id"])
         inputs[ch["id"]] = {"directory": from_dir, "groups": groups, "names": all_names,
                             "guide": mix.shares() if mix else None, "extra": extra,
                             "one_show": mix.one_show() if mix else None}  # fmt: skip

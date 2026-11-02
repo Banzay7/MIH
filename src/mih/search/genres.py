@@ -320,7 +320,19 @@ GENRES: dict[str, tuple[str, ...]] = {
     ),
     "health": ("здоров", "медицин", "health", "medical", "suc khoe"),
     "religion": ("религи", "religio", "ton giao", "θρησκ", "דת"),
-    "adult": ("для взрослых", "эрот", "adult", "erotic", "xxx", "nguoi lon"),
+    "adult": (
+        "для взрослых",
+        "эрот",
+        "adult",
+        "erotic",
+        "xxx",
+        "nguoi lon",
+        "erotisch",
+        "erotycz",
+        "erotico",
+        "erotique",
+        "erotik",
+    ),
 }
 
 
