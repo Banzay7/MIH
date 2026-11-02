@@ -70,7 +70,7 @@ class ApiFailure extends Error {
 const KEEP_PREFIX = "mih.c:";
 const KEEP_CHARS = 400000; // bigger answers stay in memory only
 const KEEP_MIN = 30e3, KEEP_MAX = 6 * 3600e3;
-const LIVE_PATHS = /^\/(status|health|playback|data-version|jobs|notifications|settings|adult)/;
+const LIVE_PATHS = /^\/(status|health|playback|data-version|jobs|notifications|settings|adult|categories\/review)/;
 const kept = new Map();
 let dataVersion = store.get("mih.dataVersion") || "";
 let fresh = false;
@@ -565,6 +565,52 @@ function categoryBlock(id, ch) {
       </form></details>`;
 }
 
+// Why a channel waits for the owner under «Для взрослых» (mih/export.py _review_adult).
+const REVIEW_REASONS = { guide: t("в программе есть передачи для взрослых: {0} эфира"),
+  brand: t("большинство каналов этого бренда — 18+ ({0})"),
+  "directory-ordinary": t("справочник iptv-org считает канал обычным, а признаки 18+ слабые ({0})"),
+  weak: t("18+ только по косвенным признакам ({0})") };
+const reviewReason = ([code, detail]) => (REVIEW_REASONS[code] || code + ": {0}").replace("{0}", detail || "");
+
+function reviewCard(c) {
+  const cats = c.categories || [];
+  const options = CATEGORIES.filter(([k]) => k !== "adult" && k !== "other");
+  return html`<article class="card review" data-review="${c.id}">
+    ${logo(c.id, c.canonical_name)}
+    <div class="body">
+      <a class="title" href="#/channel/${enc(c.id)}">${c.canonical_name}</a>
+      <div class="chips">${cats.map((k) => html`<span class="chip">${categoryName(k)}</span>`)}</div>
+      ${(c.reasons || []).map((r) => html`<div class="small muted">${reviewReason(r)}</div>`)}
+    </div>
+    <div class="actions row">
+      <button class="btn" type="button" data-review-ok="${c.id}" data-cats="${cats.join(",")}">${t("Да, 18+")}</button>
+      <select data-review-move="${c.id}" aria-label="${t("Перенести в категорию")}">
+        <option value="">${t("Перенести в…")}</option>
+        ${options.map(([k, label]) => html`<option value="${k}">${label}</option>`)}
+      </select>
+    </div>
+  </article>`;
+}
+
+// Shown first when the search filters by «Для взрослых».
+async function reviewBlock() {
+  let r;
+  try { r = await api("/categories/review"); } catch { return ""; } // an older server
+  if (!r.items?.length) return "";
+  return html`<section class="panel" id="review-block">
+    <h2>${t("На разбор · {0}", nf.format(r.items.length))}</h2>
+    <p class="small muted">${t("Эти каналы попали в «Для взрослых» по косвенным признакам. Подтвердите 18+ или перенесите канал в другую категорию.")}</p>
+    ${r.items.map(reviewCard)}
+  </section>`;
+}
+
+function reviewDone(id, text) {
+  document.querySelector(`[data-review="${CSS.escape(id)}"]`)?.remove();
+  const block = document.getElementById("review-block");
+  if (block && !block.querySelector("[data-review]")) block.remove();
+  toast(text);
+}
+
 function chipRow(name, options, current) {
   return html`<div class="row" role="group">${options.map(([v, label]) =>
     html`<button type="button" class="chip ${v === current ? "on" : ""}" data-filter="${name}" data-value="${v}"
@@ -624,8 +670,10 @@ async function viewSearch(params) {
   ].filter(Boolean);
   const channels = res.items.filter((i) => i.type === "channel");
   const airings = res.items.filter((i) => i.type === "airing");
+  const review = genre === "adult" ? await reviewBlock() : "";
   return html`<h1>${t("Поиск")}</h1>${filters}
     ${understood.length ? html`<p class="small muted">${t("Понял запрос так: {0}", understood.join(" · "))}</p>` : ""}
+    ${review}
     ${pq.terms.length ? html`<p><button class="btn" type="button" data-follow="${pq.terms.join(" ")}">${t("🔔 Следить за темой «{0}»", pq.terms.join(" "))}</button></p>` : ""}
     ${channels.length ? html`<h2>${t("Каналы · {0}", nf.format(total.channel ?? channels.length))}</h2>
       ${paged(channels, channelCard, { total: total.channel ?? channels.length, fetchMore: more("channel") })}` : ""}
@@ -1433,6 +1481,18 @@ document.addEventListener("click", (e) => {
     toggleFav(starBtn.dataset.kind, starBtn.dataset.id).catch((err) => toast(errorText(err), 5000));
     return;
   }
+  const reviewOk = e.target.closest("[data-review-ok]");
+  if (reviewOk) {
+    e.preventDefault();
+    const id = reviewOk.dataset.reviewOk;
+    const cats = reviewOk.dataset.cats.split(",").filter((c) => c && c !== "other");
+    const keep = cats.includes("adult") ? cats : [...cats, "adult"];
+    const body = { categories: keep.length > 4 ? [...keep.filter((c) => c !== "adult").slice(0, 3), "adult"] : keep };
+    api(`/channels/${enc(id)}/categories`, { method: "PUT", body })
+      .then(() => reviewDone(id, t("Оставлен в «Для взрослых»")))
+      .catch((err) => toast(errorText(err), 5000));
+    return;
+  }
   const catReset = e.target.closest("[data-cat-reset]");
   if (catReset) {
     e.preventDefault();
@@ -1607,6 +1667,13 @@ document.addEventListener("change", (e) => {
     const cur = new URLSearchParams(location.hash.split("?")[1] || "");
     if (el.value) cur.set(el.dataset.filterSelect, el.value); else cur.delete(el.dataset.filterSelect);
     history.replaceState(null, "", "#/search?" + cur);
+    return;
+  }
+  if (el.dataset.reviewMove && el.value) {
+    const id = el.dataset.reviewMove, cat = el.value;
+    api(`/channels/${enc(id)}/categories`, { method: "PUT", body: { categories: [cat] } })
+      .then(() => reviewDone(id, t("Перенесён в «{0}»", categoryName(cat))))
+      .catch((err) => { el.value = ""; toast(errorText(err), 5000); });
     return;
   }
   if (PREF_KEYS[el.id]) { store.set(PREF_KEYS[el.id], el.value); toast(t("Сохранено")); }

@@ -385,6 +385,21 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
         clear_override(conn, channel_id)
         return _channel_categories(conn, channel_id)
 
+    @app.get("/api/v1/categories/review", dependencies=auth)
+    def categories_review(request: Request, conn: Conn) -> dict:
+        """Channels put into «adult» on thin evidence, for the owner to confirm or move.
+        Empty while 18+ channels are hidden from this request."""
+        if adult.hidden_ids(request, conn):
+            return {"items": [], "locked": True}
+        rows = conn.execute(
+            "SELECT r.channel_id, r.category, r.reasons, c.canonical_name FROM category_review r"
+            " JOIN channels c ON c.id = r.channel_id ORDER BY c.canonical_name COLLATE NOCASE"
+        ).fetchall()
+        items = [{"id": r["channel_id"], "canonical_name": r["canonical_name"],
+                  "category": r["category"], "reasons": json.loads(r["reasons"]),
+                  **_channel_categories(conn, r["channel_id"])} for r in rows]  # fmt: skip
+        return {"items": items, "locked": False}
+
     @app.post("/api/v1/epg/sources", status_code=201, dependencies=auth)
     def add_epg_source(body: EPGSourceIn, conn: Conn) -> dict:
         try:

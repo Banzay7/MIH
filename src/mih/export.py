@@ -30,14 +30,18 @@ from pathlib import Path
 from mih.categories import (
     NEIGHBOUR_MIN,
     NEIGHBOUR_SHARE,
+    REVIEW_GUIDE_SHARE,
     SOURCE_MIN,
     SOURCE_SHARE,
     THRESHOLD,
     Decision,
+    adult_brands,
     adult_by_name,
     adult_name_keys,
+    adult_review,
     brand_stem,
     brand_votes,
+    brand_word,
     decide,
     directory_categories,
     guide_mix,
@@ -77,6 +81,7 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
     in_group: dict[str, set[str]] = defaultdict(set)  # "source / group" -> channels
     in_source: dict[str, set[str]] = defaultdict(set)
     inputs: dict[str, dict] = {}
+    meta: dict[str, tuple[bool, bool, bool]] = {}  # linked, nsfw, linked ordinary
     has_epg = {r[0] for r in conn.execute(
         "SELECT DISTINCT f.channel_id FROM epg_mappings m JOIN feeds f ON f.id = m.feed_id"
         " WHERE m.decision IN ('auto', 'approved')"
@@ -168,6 +173,7 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
         logo = ch["logo_url"] or (d["logo_url"] if d is not None else None)
         if url_adult or url_is_adult(logo):
             extra.append(("adult", "url", 3.0, "stream or logo address"))
+        meta[ch["id"]] = (d is not None, "adult" in from_dir, linked_ordinary)
         inputs[ch["id"]] = {"directory": from_dir, "groups": groups, "names": all_names,
                             "guide": mix.shares() if mix else None, "extra": extra,
                             "one_show": mix.one_show() if mix else None,
@@ -195,6 +201,7 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
             "feeds": feeds_out,
         })  # fmt: skip
     _categorize(out, inputs, manual, in_group, in_source)
+    _review_adult(out, inputs, manual, meta)
     return out
 
 
@@ -236,6 +243,44 @@ def _categorize(catalog: list[dict], inputs: dict[str, dict], manual: dict[str, 
         ch["category_auto"] = decision.categories
         ch["category_scores"] = decision.scores
         ch["category_reasons"] = decision.reasons
+
+
+def _review_adult(catalog: list[dict], inputs: dict[str, dict], manual: dict[str, list[str]],
+                  meta: dict[str, tuple[bool, bool, bool]]) -> None:  # fmt: skip
+    """Mark the 18+ calls the owner should check («category_review»), and put into «adult»
+    the channels with a night block of adult programmes or a mostly adult brand: such
+    channels stay hidden until the owner confirms or moves them in the web UI."""
+    adult = {ch["id"] for ch in catalog if "adult" in ch["categories"]}
+    words = {ch["id"]: brand_word(ch["name"] or "") for ch in catalog}
+    brands = adult_brands(words, adult)
+    for ch in catalog:
+        cid = ch["id"]
+        ch["category_review"] = None
+        if cid in manual:
+            continue
+        linked, nsfw, ordinary = meta[cid]
+        kw = inputs[cid]
+        if cid in adult:
+            d = Decision(ch["categories"], ch["category_source"], ch["category_scores"],
+                         ch["category_reasons"])  # fmt: skip
+            ch["category_review"] = adult_review(d, nsfw=nsfw, linked_ordinary=ordinary,
+                                                 names=kw["names"])  # fmt: skip
+            continue
+        if "kids" in ch["categories"]:
+            continue  # a children's channel is never hidden on a guess
+        why = []
+        share = (kw["guide"] or {}).get("adult", 0.0)
+        if share >= REVIEW_GUIDE_SHARE:
+            why.append(["guide", f"{round(share * 100, 1)}%"])
+        w = words[cid]
+        if w in brands and not linked:
+            why.append(["brand", f"{w}: {brands[w][0]}/{brands[w][1]}"])
+        if why:
+            cats = [c for c in ch["categories"] if c != "other"]
+            ch["categories"] = [*cats, "adult"] if cats else ["adult"]
+            ch["category_reasons"] = {**ch["category_reasons"],
+                                      "adult": [f"review: {c} {x}" for c, x in why]}  # fmt: skip
+            ch["category_review"] = why
 
 
 def export_catalog(

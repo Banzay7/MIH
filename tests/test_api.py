@@ -343,3 +343,31 @@ def test_owner_sets_channel_categories_by_hand(client):
 
     back = client.delete(f"/api/v1/channels/{cid}/categories").json()
     assert back["categories_manual"] is False
+
+
+def test_adult_review_list(client):
+    src = client.post("/api/v1/sources", json={"name": "a"}).json()
+    files = {"file": ("a.m3u", fixture_bytes("provider_a.m3u"), "audio/x-mpegurl")}
+    client.post(f"/api/v1/sources/{src['id']}/upload", files=files)
+    cid = _channel_id(client, "первый")
+    pool = client.app.state.pool
+    conn = pool.take()
+    try:
+        catalog = build_catalog(conn)
+        for ch in catalog:
+            if ch["id"] == cid:  # as if its guide had a night block of adult films
+                ch["categories"] = ["general", "adult"]
+                ch["category_review"] = [["guide", "4%"]]
+        store_tags(conn, catalog)
+    finally:
+        pool.give(conn)
+    # hidden by default: the list says so and shows nothing
+    assert client.get("/api/v1/categories/review").json() == {"items": [], "locked": True}
+    client.put("/api/v1/settings/adult", json={"mode": "show"})
+    items = client.get("/api/v1/categories/review").json()["items"]
+    assert [(i["id"], i["reasons"], i["categories"]) for i in items] == [
+        (cid, [["guide", "4%"]], ["general", "adult"])
+    ]
+    # the owner moves it: the review is over
+    client.put(f"/api/v1/channels/{cid}/categories", json={"categories": ["news"]})
+    assert client.get("/api/v1/categories/review").json()["items"] == []

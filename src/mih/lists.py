@@ -164,6 +164,11 @@ def store_tags(conn: sqlite3.Connection, catalog: list[dict]) -> int:
         conn.execute("DELETE FROM channel_tags")
         conn.executemany("INSERT OR IGNORE INTO channel_tags (channel_id, kind, value)"
                          " VALUES (?, ?, ?)", sorted(rows))  # fmt: skip
+        conn.execute("DELETE FROM category_review")
+        conn.executemany("INSERT INTO category_review (channel_id, category, reasons)"
+                         " VALUES (?, 'adult', ?)",
+                         [(ch["id"], json.dumps(ch["category_review"], ensure_ascii=False))
+                          for ch in catalog if ch.get("category_review")])  # fmt: skip
         if own:
             conn.execute("COMMIT")
     except Exception:
