@@ -21,7 +21,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from starlette.middleware.gzip import GZipMiddleware
 
-from mih import __version__, db
+from mih import __version__, db, openspeed
 from mih.api import adult, personal
 from mih.api.cache import SharedCache, data_version, respond
 from mih.api.guard import Guard
@@ -310,6 +310,7 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             conds.append("c.id NOT IN (SELECT channel_id FROM channel_tags"
                          " WHERE kind = 'category' AND value = 'adult')")  # fmt: skip
         where = (" WHERE " + " AND ".join(conds)) if conds else ""
+        speed = openspeed.summary(conn)
         # Counts are grouped once and joined: a subquery per row made every page cost
         # as much as all the rows before it, seconds for a catalog of a few thousand.
         rows = conn.execute(
@@ -321,8 +322,10 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             " LEFT JOIN (SELECT f.channel_id, COUNT(*) AS n FROM streams s"
             "   JOIN feeds f ON f.id = s.feed_id WHERE s.availability_reason IS NULL"
             "   GROUP BY f.channel_id) sc ON sc.channel_id = c.id"
-            f"{where} ORDER BY c.canonical_name COLLATE NOCASE LIMIT ? OFFSET ?",
-            (*params, limit, offset),
+            # Channels slow to open on the TV go last (mih.openspeed).
+            f"{where} ORDER BY c.id IN (SELECT value FROM json_each(?)),"
+            " c.canonical_name COLLATE NOCASE LIMIT ? OFFSET ?",
+            (*params, json.dumps(sorted(_slow(speed))), limit, offset),
         ).fetchall()
         # Countries as «Покрытие» counts them (playlists, iptv-org ids, language).
         if not countries_path(settings.data_dir).exists():
@@ -331,7 +334,8 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
                 write_report(conn, report_path(settings.data_dir))
         known = read_countries(settings.data_dir)
         items = [{**dict(r), "has_epg": bool(r["has_epg"]),
-                  "countries": known.get(r["id"]) or ([r["country"]] if r["country"] else [])}
+                  "countries": known.get(r["id"]) or ([r["country"]] if r["country"] else []),
+                  **({"open": speed[r["id"]]} if r["id"] in speed else {})}
                  for r in rows]  # fmt: skip
         return {"items": items, "limit": limit, "offset": offset}
 
@@ -364,7 +368,10 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             (channel_id,),
         ).fetchall()
         return {**dict(ch), "aliases": [dict(a) for a in aliases], "feeds": out_feeds,
-                **_channel_categories(conn, channel_id)}  # fmt: skip
+                **_channel_categories(conn, channel_id),
+                "open": openspeed.summary(conn, [channel_id]).get(channel_id),
+                "open_history": openspeed.history(conn, channel_id),
+                "open_slow_s": openspeed.threshold_s(conn)}  # fmt: skip
 
     @app.put("/api/v1/channels/{channel_id}/categories", dependencies=auth)
     def channel_categories_set(channel_id: str, body: CategoriesIn, conn: Conn) -> dict:
@@ -610,6 +617,11 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             for g in guides.values()
         ]  # fmt: skip
         items.sort(key=lambda i: ((i["channel_name"] or "").casefold(), i["feed_id"]))
+        speed = openspeed.summary(conn, {i["channel_id"] for i in items})
+        for i in items:
+            if i["channel_id"] in speed:
+                i["open"] = speed[i["channel_id"]]
+        items = openspeed.slow_last(items, lambda i: i["channel_id"], _slow(speed))
         channels = conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0]
         return {"items": items, "channels": channels,
                 "guided": len({g.channel_id for g in guides.values()})}  # fmt: skip
@@ -849,6 +861,10 @@ def _channel_cards(conn: sqlite3.Connection, ids: set[str]) -> dict[str, dict]:
 
 def _aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
+def _slow(speed: dict[str, dict]) -> set[str]:
+    return {c for c, s in speed.items() if s["slow"]}
 
 
 def _now_s() -> str:

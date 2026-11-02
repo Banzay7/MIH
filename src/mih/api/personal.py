@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from starlette.datastructures import Headers
 
 from mih import ha as mih_ha
-from mih import playback
+from mih import openspeed, playback
 from mih.alerts import GRACE, best_streams, channel_names, find_matches, load_rules, play_key
 from mih.api import adult
 from mih.api.cache import respond
@@ -55,6 +55,11 @@ class PlaybackIn(BaseModel):
     adapter: str | None = Field(default=None, pattern="^(agent|ha)$")
     # The picture to start with (mih.quality); none = MIH_PLAY_QUALITY.
     quality: str | None = Field(default=None, pattern="^(auto|720|1080|best)$")
+
+
+class OpenSpeedIn(BaseModel):
+    # Seconds: a channel whose usual open takes longer is slow and goes last in lists.
+    slow_s: float = Field(ge=openspeed.MIN_SLOW_S, le=openspeed.MAX_SLOW_S)
 
 
 ALERTS_TTL = 300.0
@@ -285,6 +290,35 @@ def register(app: FastAPI, *, auth: list, conn: Any, error: type[Exception]) -> 
         """Does Home Assistant answer, take the token and know the script? Runs nothing."""
         return mih_ha.check(request.app.state.settings,
                             transport=getattr(request.app.state, "ha_transport", None))  # fmt: skip
+
+    def _open_settings(conn) -> dict:
+        return {"slow_s": openspeed.threshold_s(conn), "default_s": openspeed.default_slow_s(),
+                "min_s": openspeed.MIN_SLOW_S, "max_s": openspeed.MAX_SLOW_S}  # fmt: skip
+
+    @app.get("/api/v1/settings/open-speed", dependencies=auth)
+    def open_speed_settings(conn: Conn) -> dict:
+        """The threshold that marks a channel slow to open on the TV (mih.openspeed)."""
+        return _open_settings(conn)
+
+    @app.put("/api/v1/settings/open-speed", dependencies=auth)
+    def set_open_speed(body: OpenSpeedIn, conn: Conn) -> dict:
+        openspeed.set_threshold(conn, body.slow_s)
+        return _open_settings(conn)
+
+    @app.get("/api/v1/recent", dependencies=auth)
+    def recent_channels(
+        request: Request, conn: Conn, limit: Annotated[int, Query(ge=1, le=200)] = 30
+    ) -> dict:
+        """Channels started with "На ТВ" lately, newest first, with their open speed."""
+        hidden = adult.hidden_ids(request, conn)
+        items = [i for i in openspeed.recent(conn, limit) if i["channel_id"] not in hidden]
+        return {"items": items, "slow_s": openspeed.threshold_s(conn)}
+
+    @app.delete("/api/v1/recent", status_code=204, dependencies=auth)
+    def clear_recent(conn: Conn) -> Response:
+        """Empty the list; the open times stay, so speed grades are kept."""
+        openspeed.clear_recent(conn)
+        return Response(status_code=204)
 
     @app.get("/api/v1/playback/commands/{command_id}", dependencies=auth)
     def playback_status(command_id: str, conn: Conn) -> dict:

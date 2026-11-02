@@ -227,3 +227,8 @@ label.row input[type=checkbox], label.row input[type=radio] { flex: none; margin
 .tip > div { flex: 1 1 260px; }
 .combo { position: relative; flex: 1 1 220px; }
 .combo input { width: 100%; }
+
+/* Open speed on the TV (mih.openspeed) */
+.chip.open.fast, .chip.open.ok { color: var(--ok); }
+.chip.open.slow, .chip.open.very_slow { color: var(--warn); }
+.chip.open.very_slow { border-color: var(--warn); }

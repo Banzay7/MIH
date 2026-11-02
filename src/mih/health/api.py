@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
+from mih import openspeed
 from mih.api.app import ApiError, Conn
 from mih.config import Settings
 from mih.health.policy import HealthPolicy, device_report
@@ -50,6 +51,9 @@ def build_router(settings: Settings, policy: HealthPolicy, auth: list) -> APIRou
         conn.execute("BEGIN")
         decision = record(conn, stream_id, obs, policy, kind="playback",
                           startup_ms=body.startup_ms, error_kind=body.error)  # fmt: skip
+        if body.result == "started" and body.startup_ms is not None:
+            openspeed.record(conn, openspeed.channel_of_stream(conn, stream_id),
+                             body.startup_ms, source="device", stream_id=stream_id)  # fmt: skip
         conn.execute("COMMIT")
         return {"stream_id": stream_id, "status": decision.state.status,
                 "availability_reason": decision.state.availability_reason,

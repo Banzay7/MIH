@@ -26,6 +26,7 @@ import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from mih import openspeed
 from mih.config import Settings
 from mih.health.policy import is_slow_start
 from mih.ids import new_id, utc_now
@@ -183,8 +184,11 @@ def take_commands(conn: sqlite3.Connection, now: datetime | None = None) -> list
             "SELECT * FROM playback_commands WHERE state = 'accepted' AND taken_at IS NULL"
             " ORDER BY created_at"
         ).fetchall()
-        conn.executemany("UPDATE playback_commands SET taken_at = ? WHERE id = ?",
-                         [(_iso(now), r["id"]) for r in rows])  # fmt: skip
+        stamp = _stamp(now)
+        conn.executemany("UPDATE playback_commands SET taken_at = ?, stages = ? WHERE id = ?",
+                         [(_iso(now), json.dumps(json.loads(r["stages"] or "{}")
+                                                 | {"taken": stamp}), r["id"])
+                          for r in rows])  # fmt: skip
         conn.execute("COMMIT")
     except Exception:
         conn.execute("ROLLBACK")
@@ -194,23 +198,32 @@ def take_commands(conn: sqlite3.Connection, now: datetime | None = None) -> list
 
 def finish_command(
     conn: sqlite3.Connection, cmd_id: str, ok: bool, stream_id: str | None,
-    error: str | None = None, now: datetime | None = None,
+    error: str | None = None, now: datetime | None = None, ms: int | None = None,
 ) -> dict:  # fmt: skip
     """A report from the agent. ok=True closes the command as started at once. A failure
     is noted; the command fails when every offered stream has failed, otherwise the
     agent is trying a spare and silence until RUN means that one plays. When the last
-    one only timed out, the TV is still loading it: the command is started, unconfirmed."""
+    one only timed out, the TV is still loading it: the command is started, unconfirmed.
+    ``ms`` is the agent's start-up time (none = from taking the command to this report);
+    a success or a slow start is kept as the channel's open time (mih.openspeed)."""
     row = conn.execute("SELECT * FROM playback_commands WHERE id = ?", (cmd_id,)).fetchone()
     if row is None:
         raise PlaybackError("not_found", "playback command not found")
     now = now or datetime.now(UTC)
     taken = row["taken_at"] or _iso(now)
+    stages = json.loads(row["stages"] or "{}")
+    stages.setdefault("taken", _stamp(datetime.fromisoformat(taken.replace("Z", "+00:00"))))
+    channel_id = json.loads(row["target"]).get("channel_id")
     if ok:
+        stages["started"] = _stamp(now)
         conn.execute(
             "UPDATE playback_commands SET state = 'started', stream_id = COALESCE(?, stream_id),"
-            " finished_at = ?, error = NULL, taken_at = ? WHERE id = ?",
-            (stream_id, _iso(now), taken, cmd_id),
+            " finished_at = ?, error = NULL, taken_at = ?, stages = ? WHERE id = ?",
+            (stream_id, _iso(now), taken, json.dumps(stages), cmd_id),
         )
+        took = ms if ms is not None else openspeed.ms_between(stages, "taken", "started")
+        openspeed.record(conn, channel_id, took, source="agent", stream_id=stream_id,
+                         command_id=cmd_id, now=now)  # fmt: skip
         return get_command(conn, cmd_id)
     if row["state"] == "started":
         return command_out(row)  # a late failure of a spare never undoes a start
@@ -220,12 +233,17 @@ def finish_command(
     offered = json.loads(row["offered"] or "[]") or [row["stream_id"]]
     done = all(s in failed for s in offered)
     if done and is_slow_start(error):
+        stages["started"] = _stamp(now)
         conn.execute(
             "UPDATE playback_commands SET state = 'started', stream_id = COALESCE(?, stream_id),"
-            " failed = ?, finished_at = ?, error = NULL, detail = 'unconfirmed', taken_at = ?"
-            " WHERE id = ?",
-            (stream_id, json.dumps(failed), _iso(now), taken, cmd_id),
+            " failed = ?, finished_at = ?, error = NULL, detail = 'unconfirmed', taken_at = ?,"
+            " stages = ? WHERE id = ?",
+            (stream_id, json.dumps(failed), _iso(now), taken, json.dumps(stages), cmd_id),
         )  # fmt: skip
+        # Still loading when the agent's wait ran out: slow at least by that much.
+        took = ms if ms is not None else openspeed.ms_between(stages, "taken", "started")
+        openspeed.record(conn, channel_id, took, source="agent", outcome="slow",
+                         stream_id=stream_id, command_id=cmd_id, now=now)  # fmt: skip
         return get_command(conn, cmd_id)
     conn.execute(
         "UPDATE playback_commands SET failed = ?, error = ?, taken_at = ?, state = ?,"
@@ -302,6 +320,13 @@ def run_ha(
         stages["ha_finished"] = _stamp()
     state = "failed" if error else "started"
     stages[state] = _stamp()
+    # The script returns once the player is in front and got "Play": the open time as
+    # the household waits for it, from the button. A timeout is a slow open at least.
+    if state == "started" or error == "ha_timeout":
+        took = openspeed.ms_between(stages, "accepted", state)
+        openspeed.record(conn, target["channel_id"], took, source="ha",
+                         outcome="opened" if state == "started" else "slow",
+                         stream_id=picked[0] if picked else None, command_id=cmd_id)  # fmt: skip
     conn.execute(
         "UPDATE playback_commands SET state = ?, stream_id = COALESCE(?, stream_id), offered = ?,"
         " finished_at = ?, error = ?, detail = ?, stages = ? WHERE id = ?",
@@ -329,9 +354,10 @@ def command_out(row: sqlite3.Row) -> dict:
     }  # fmt: skip
 
 
-def _stamp() -> str:
+def _stamp(at: datetime | None = None) -> str:
     """Now in UTC with milliseconds: a launch takes seconds, so seconds are too coarse."""
-    return datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    at = (at or datetime.now(UTC)).astimezone(UTC)
+    return at.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def _iso(dt: datetime) -> str:

@@ -70,7 +70,7 @@ class ApiFailure extends Error {
 const KEEP_PREFIX = "mih.c:";
 const KEEP_CHARS = 400000; // bigger answers stay in memory only
 const KEEP_MIN = 30e3, KEEP_MAX = 6 * 3600e3;
-const LIVE_PATHS = /^\/(status|health|playback|data-version|jobs|notifications|settings|adult|categories\/review)/;
+const LIVE_PATHS = /^\/(status|health|playback|data-version|jobs|notifications|settings|adult|categories\/review|recent)/;
 const kept = new Map();
 let dataVersion = store.get("mih.dataVersion") || "";
 let fresh = false;
@@ -418,6 +418,49 @@ async function showMore(btn) {
 const refreshButton = () => html`<button class="btn" type="button" data-refresh title="${t("Загрузить свежие данные")}">${t("↻ Обновить")}</button>`;
 const heading = (title) => html`<div class="head"><h1>${title}</h1>${refreshButton()}</div>`;
 
+// ---------- Open speed on the TV ----------
+
+// The server times each "На ТВ" launch it can (HA script, agent's success report) and
+// grades a channel by the median of its last opens against the slow threshold (Settings).
+const OPEN_GRADES = {
+  fast: ["⚡", t("открывается быстро")], ok: ["✓", t("открывается нормально")],
+  slow: ["🐢", t("открывается медленно")], very_slow: ["🐢🐢", t("открывается очень медленно")],
+};
+const fmtSec = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
+const secs = (ms) => t("{0} с", fmtSec.format(ms / 1000));
+
+function openChip(o) {
+  if (!o) return "";
+  const [icon, label] = OPEN_GRADES[o.grade] || ["", ""];
+  return html`<span class="chip open ${o.grade}" title="${t("{0}: обычно {1} (запусков: {2})", label, secs(o.ms), o.n)}">${icon} ${secs(o.ms)}</span>`;
+}
+
+const OPEN_SOURCES = { ha: "Home Assistant", agent: t("агент"), device: t("плеер") };
+
+function openBlock(ch) {
+  const hist = ch.open_history || [];
+  if (!hist.length) return html`<h2>${t("Скорость открытия на ТВ")}</h2>
+    <p class="small muted">${t("Ещё не замерялась: время появится после запуска кнопкой «На ТВ».")}</p>`;
+  const o = ch.open;
+  return html`<h2>${t("Скорость открытия на ТВ")}</h2>
+    <p>${openChip(o)} <span class="small muted">${t("{0}; порог медленного: {1} (Настройки)", OPEN_GRADES[o.grade][1], secs(ch.open_slow_s * 1000))}</span></p>
+    <ol class="schedule small">${hist.map((h) => html`<li><time datetime="${h.at}">${fmtDay.format(new Date(h.at))} ${time(h.at)}</time>
+      <div><span class="chip open ${h.grade}">${OPEN_GRADES[h.grade][0]} ${h.outcome === "slow" ? t("больше {0}", secs(h.open_ms)) : secs(h.open_ms)}</span>
+      <span class="muted">${OPEN_SOURCES[h.source] || h.source}</span></div></li>`)}</ol>`;
+}
+
+function recentCard(r) {
+  return html`<article class="card">
+    ${logo(r.channel_id, r.channel_name, false, r.logo_url)}
+    <div class="body">
+      <a class="stretch title" href="#/channel/${enc(r.channel_id)}">${r.channel_name}</a>
+      <div class="small muted">${fmtDay.format(new Date(r.at))} ${time(r.at)}${r.times > 1 ? t(" · запусков: {0}", r.times) : ""}</div>
+      <div class="chips">${openChip(r.open)}</div>
+    </div>
+    <div class="actions">${star("channel", r.channel_id)}${tvButton(r.channel_id)}</div>
+  </article>`;
+}
+
 // ---------- Cards ----------
 
 function nowCard(item) {
@@ -431,6 +474,7 @@ function nowCard(item) {
         <div class="small muted">${time(cur.start)}–${time(cur.stop)}</div>`
         : html`<div class="muted small">${t("Сейчас нет данных о программе")}</div>`}
       ${nxt ? html`<div class="small muted line">${t("Далее {0} · {1}", time(nxt.start), nxt.title)}</div>` : ""}
+      ${item.open ? html`<div class="chips">${openChip(item.open)}</div>` : ""}
     </div>
     <div class="actions">${star("channel", item.channel_id)}${tvButton(item.channel_id, item.feed_id)}</div>
   </article>`;
@@ -468,6 +512,7 @@ function channelCard(c) {
     <div class="body">
       <a class="stretch title" href="#/channel/${enc(id)}">${name}</a>
       <div class="small muted">${facts.join(" · ")}</div>
+      ${c.open ? html`<div class="chips">${openChip(c.open)}</div>` : ""}
     </div>
     <div class="actions">${star("channel", id)}${tvButton(id)}</div>
   </article>`;
@@ -481,8 +526,9 @@ async function viewHome() {
   render(html`<h1>${t("Сейчас в эфире")}</h1>${skeleton()}`);
   const size = prefs.nowSize();
   const playable = prefs.playableOnly() ? "&playable_only=true" : "";
-  const [, data, soon] = await Promise.all([loadFavorites(),
-    api(`/now?on_air=true&limit=${size}${playable}`), api(`/now?soon=45&limit=12${playable}`)]);
+  const [, data, soon, recent] = await Promise.all([loadFavorites(),
+    api(`/now?on_air=true&limit=${size}${playable}`), api(`/now?soon=45&limit=12${playable}`),
+    api("/recent?limit=8").catch(() => ({ items: [] }))]);
   if (!data.channels) {
     return html`<h1>${t("Сейчас в эфире")}</h1>
       <div class="empty"><p>${t("Каталог пока пуст.")}</p>
@@ -498,6 +544,9 @@ async function viewHome() {
     ${heading(t("Сейчас в эфире"))}
     <p class="muted small">${t("{0} в эфире · {1} каналов в каталоге{2}", nf.format(data.total), nf.format(data.channels), noGuide > 0 ? t(" · без программы: {0}", nf.format(noGuide)) : "")}</p>
     ${favNow.length ? html`<h2>${t("Избранное")}</h2><div class="grid">${favNow.map(nowCard)}</div>` : ""}
+    ${recent.items.length ? html`<div class="head"><h2>${t("Недавно открытые")}</h2>
+      <button class="btn" type="button" id="recent-clear">${t("Очистить")}</button></div>
+      <div class="grid">${recent.items.map(recentCard)}</div>` : ""}
     ${soon.items.length ? html`<h2>${t("Скоро начнётся")}</h2><div class="grid">${soon.items.map((i) => airingCard({
       ...i.next, channel_name: i.channel_name, logo_url: i.logo_url }))}</div>` : ""}
     <h2>${t("Все каналы в эфире{0}", data.total ? ` · ${nf.format(data.total)}` : "")}</h2>
@@ -785,6 +834,7 @@ async function viewChannel(id, params) {
           ${cls === "now" ? progress(a) : ""}</a></li>`;
       })}</ol>` : html`<div class="empty">${t("На этот день программы нет.")}</div>`}`
       : html`<div class="empty">${t("Для этого канала нет программы передач. Её можно привязать в очереди EPG.")}</div>`}
+    ${openBlock(ch)}
     ${categoryBlock(id, ch)}
     ${ch.aliases.length ? html`<h2>${t("Другие названия")}</h2><div class="chips">${[...new Set(ch.aliases.map((a) => a.display).filter(Boolean))]
       .map((n) => html`<span class="chip">${n}</span>`)}</div>` : ""}`;
@@ -958,8 +1008,9 @@ async function viewSettings() {
   const current = playAdapter() || adapters?.default || "agent";
   if (adapters?.available.includes("ha")) queueMicrotask(fillHaStatus);
   const hasToken = Boolean(store.get("mih.token"));
-  let adult = null;
+  let adult = null, speed = null;
   try { adult = await api("/settings/adult"); } catch { /* an older server */ }
+  try { speed = await api("/settings/open-speed"); } catch { /* an older server */ }
   return html`<h1>${t("Настройки")}</h1>
     ${err ? errorBox(err) : ""}
     <div class="field">
@@ -1033,6 +1084,13 @@ async function viewSettings() {
         <span class="small" id="ha-status">${t("Проверяю Home Assistant…")}</span></div>` : ""}
       <span class="small muted">${t("Выбор хранится в этом браузере. Home Assistant получает адреса потоков и название канала и запускает свой скрипт, агент не участвует.")}</span>
     </div>` : ""}
+    ${speed ? html`<form id="open-speed-form" class="field">
+      <label for="open-slow">${t("Порог медленного открытия, секунд")}</label>
+      <div class="row"><input id="open-slow" name="slow_s" type="number" inputmode="decimal" step="0.5"
+        min="${speed.min_s}" max="${speed.max_s}" value="${speed.slow_s}" style="max-width: 7em">
+        <button class="btn tv" type="submit">${t("Сохранить")}</button></div>
+      <span class="small muted">${t("Канал, который обычно открывается на ТВ дольше порога, считается плохим для просмотра и уходит в конец списков. По умолчанию {0}. Время замеряется при каждом запуске кнопкой «На ТВ».", secs(speed.default_s * 1000))}</span>
+    </form>` : ""}
     <h2>${t("Качество при запуске")}</h2>
     <div class="field">
       ${[["720", t("До 720p: быстрее старт, меньше буферизации (по умолчанию)")],
@@ -1570,6 +1628,13 @@ document.addEventListener("click", (e) => {
       .finally(() => { e.target.disabled = false; });
     return;
   }
+  if (e.target.id === "recent-clear") {
+    e.target.disabled = true;
+    api("/recent", { method: "DELETE" })
+      .then(() => { toast(t("Список недавних очищен; скорость каналов сохранена")); return route(); })
+      .catch((err) => { e.target.disabled = false; toast(errorText(err), 5000); });
+    return;
+  }
   if (e.target.id === "tips-reset") { resetTips(); toast(t("Подсказки снова появятся на страницах")); return; }
   const tipOk = e.target.closest("[data-tip-ok]");
   if (tipOk) { store.set("mih.tips." + tipOk.dataset.tipOk, "1"); tipOk.closest(".tip").remove(); return; }
@@ -1607,6 +1672,13 @@ document.addEventListener("submit", (e) => {
     if (body.mode === "pin" && !body.pin && !f.current_pin) { toast(t("Задайте PIN из 4–8 цифр")); return; }
     api("/settings/adult", { method: "PUT", body })
       .then(() => { adultLock.set(null); return adultChanged(t("Настройка 18+ сохранена")); })
+      .catch((err) => toast(errorText(err), 5000));
+    return;
+  }
+  if (e.target.id === "open-speed-form") {
+    e.preventDefault();
+    api("/settings/open-speed", { method: "PUT", body: { slow_s: Number(e.target.slow_s.value) } })
+      .then((r) => { state.channelsLoaded = false; state.channels.clear(); forgetKept(); toast(t("Порог сохранён: {0}", secs(r.slow_s * 1000))); })
       .catch((err) => toast(errorText(err), 5000));
     return;
   }

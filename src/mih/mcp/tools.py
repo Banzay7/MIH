@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from mih import openspeed
 from mih.alerts import GRACE, best_streams, find_matches, load_rules, play_url
 from mih.config import Settings
 from mih.epg import guide
@@ -122,14 +123,19 @@ TOOLS = [
         "screen at once (error: http_403, player_error, no_video), still loading after "
         "30 s as error 'timeout' (HD streams can take 20 s; a timeout is only a hint and "
         "the server re-checks the stream). Report each stream that failed, then try the "
-        "next one; leave the last one playing. Silence means it plays: no "
-        "report is needed for success (ok=true is accepted and closes a command at "
-        "once). Pass cmd for a command from 'queue'.",
+        "next one; leave the last one playing. When the picture starts, report once "
+        "ok=true with ms (milliseconds from your launch to the picture) and cmd: it rates "
+        "how fast the channel opens. Silence still means it plays. Pass cmd for a "
+        "command from 'queue'.",
         _obj(
             {
                 "stream_id": {"type": "string"},
                 "ok": {"type": "boolean"},
-                "ms": {"type": "integer", "minimum": 0, "description": "start-up time"},
+                "ms": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "ms from launch to the picture",
+                },
                 "error": {"type": "string", "maxLength": 64},
                 "cmd": {"type": "string", "description": "command id from 'queue'"},
             },
@@ -202,7 +208,9 @@ class Toolbox:
         picks = best_streams(conn, ids, now)
         names = self._index[2] if self._index else {}
         rank = {c: (LEVELS.index(picks[c][0].level) if c in picks else len(LEVELS)) for c in ids}
-        order = sorted(ids, key=lambda c: (rank[c], ids[c], names.get(c, "").casefold()))
+        slow = openspeed.slow_ids(conn)
+        order = sorted(ids, key=lambda c: (rank[c], ids[c], c in slow,
+                                           names.get(c, "").casefold()))  # fmt: skip
         chosen = order[:limit]
         on_air = self._on_air(conn, now, chosen)
         items = []
@@ -242,6 +250,7 @@ class Toolbox:
         on_air = self._on_air(conn, now, ids)
         rows = [{"id": c, "name": names.get(c), **on_air[c]} for c in ids if c in on_air]
         rows.sort(key=lambda r: (r["name"] or "").casefold())
+        rows = openspeed.slow_last(rows, lambda r: r["id"], openspeed.slow_ids(conn))
         res = _page(rows[:limit], len(rows))
         res["tz"] = self.settings.timezone
         return res
@@ -304,9 +313,13 @@ class Toolbox:
         out = {"stream_id": stream_id, "status": d.state.status}
         if cmd:
             try:
-                out["cmd"] = finish_command(conn, cmd, bool(ok), stream_id, error, now)["state"]
+                out["cmd"] = finish_command(conn, cmd, bool(ok), stream_id, error, now,
+                                            ms=ms)["state"]  # fmt: skip
             except PlaybackError as exc:
                 raise ToolError("no such command; use a cmd from 'queue'") from exc
+        elif ok and ms is not None:
+            openspeed.record(conn, openspeed.channel_of_stream(conn, stream_id), ms,
+                             source="agent", stream_id=stream_id, now=now)  # fmt: skip
         return out
 
     def _queue(self, conn, now, wait: int = 0) -> dict:

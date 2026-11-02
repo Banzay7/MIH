@@ -76,6 +76,12 @@ def test_search_play_report_round_trip(conn, settings):
                      " AND kind = 'playback'", (best["stream_id"],)).fetchone()[0]  # fmt: skip
     assert n == 1
 
+    # A success with its start-up time rates how fast the channel opens.
+    box.call(conn, "report", {"stream_id": best["stream_id"], "ok": True, "ms": 2100}, NOW)
+    from mih import openspeed
+
+    assert openspeed.summary(conn)[item["cid"]]["ms"] == 2100
+
 
 def test_headers_are_handed_to_the_player(conn, settings):
     box = Toolbox(settings)
