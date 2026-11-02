@@ -333,8 +333,10 @@ def create_app(settings: Settings, health_policy: HealthPolicy | None = None) ->
             with contextlib.suppress(sqlite3.Error, OSError, ValueError, KeyError):
                 write_report(conn, report_path(settings.data_dir))
         known = read_countries(settings.data_dir)
+        cats = _all_categories(conn)
         items = [{**dict(r), "has_epg": bool(r["has_epg"]),
                   "countries": known.get(r["id"]) or ([r["country"]] if r["country"] else []),
+                  "categories": cats.get(r["id"], []),
                   **({"open": speed[r["id"]]} if r["id"] in speed else {})}
                  for r in rows]  # fmt: skip
         return {"items": items, "limit": limit, "offset": offset}
@@ -869,6 +871,19 @@ def _slow(speed: dict[str, dict]) -> set[str]:
 
 def _now_s() -> str:
     return iso(datetime.now(UTC))
+
+
+def _all_categories(conn: sqlite3.Connection) -> dict[str, list[str]]:
+    """Every channel's categories, primary first, for the «Каналы» topic filter."""
+    out: dict[str, list[str]] = {}
+    for r in conn.execute(
+        "SELECT channel_id, value FROM channel_tags WHERE kind IN ('primary', 'category')"
+        " ORDER BY channel_id, kind = 'category', value"
+    ):
+        cats = out.setdefault(r["channel_id"], [])
+        if r["value"] not in cats:
+            cats.append(r["value"])
+    return out
 
 
 def _channel_categories(conn: sqlite3.Connection, channel_id: str) -> dict:

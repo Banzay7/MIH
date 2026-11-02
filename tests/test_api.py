@@ -371,3 +371,14 @@ def test_adult_review_list(client):
     # the owner moves it: the review is over
     client.put(f"/api/v1/channels/{cid}/categories", json={"categories": ["news"]})
     assert client.get("/api/v1/categories/review").json()["items"] == []
+
+
+def test_the_channel_list_carries_categories_primary_first(client):
+    src = client.post("/api/v1/sources", json={"name": "a"}).json()
+    files = {"file": ("a.m3u", fixture_bytes("provider_a.m3u"), "audio/x-mpegurl")}
+    client.post(f"/api/v1/sources/{src['id']}/upload", files=files)
+    cid = _channel_id(client, "первый")
+    client.put(f"/api/v1/channels/{cid}/categories", json={"categories": ["news", "general"]})
+    items = client.get("/api/v1/channels?limit=10000").json()["items"]
+    assert next(i for i in items if i["id"] == cid)["categories"] == ["news", "general"]
+    assert all(isinstance(i["categories"], list) for i in items)
