@@ -1,0 +1,5209 @@
+# Countries and their subdivisions, from iptv-org/database (data/countries.csv and
+# data/subdivisions.csv, The Unlicense). kind: c country, s subdivision.
+kind,country,name
+c,AD,Andorra
+c,AE,United Arab Emirates
+c,AF,Afghanistan
+c,AG,Antigua and Barbuda
+c,AI,Anguilla
+c,AL,Albania
+c,AM,Armenia
+c,AO,Angola
+c,AQ,Antarctica
+c,AR,Argentina
+c,AS,American Samoa
+c,AT,Austria
+c,AU,Australia
+c,AW,Aruba
+c,AX,Aland
+c,AZ,Azerbaijan
+c,BA,Bosnia and Herzegovina
+c,BB,Barbados
+c,BD,Bangladesh
+c,BE,Belgium
+c,BF,Burkina Faso
+c,BG,Bulgaria
+c,BH,Bahrain
+c,BI,Burundi
+c,BJ,Benin
+c,BL,Saint Barthélemy
+c,BM,Bermuda
+c,BN,Brunei
+c,BO,Bolivia
+c,BQ,Bonaire
+c,BR,Brazil
+c,BS,Bahamas
+c,BT,Bhutan
+c,BV,Bouvet Island
+c,BW,Botswana
+c,BY,Belarus
+c,BZ,Belize
+c,CA,Canada
+c,CC,Cocos (Keeling) Islands
+c,CD,Democratic Republic of the Congo
+c,CF,Central African Republic
+c,CG,Republic of the Congo
+c,CH,Switzerland
+c,CI,Ivory Coast
+c,CK,Cook Islands
+c,CL,Chile
+c,CM,Cameroon
+c,CN,China
+c,CO,Colombia
+c,CR,Costa Rica
+c,CU,Cuba
+c,CV,Cape Verde
+c,CW,Curacao
+c,CX,Christmas Island
+c,CY,Cyprus
+c,CZ,Czech Republic
+c,DE,Germany
+c,DJ,Djibouti
+c,DK,Denmark
+c,DM,Dominica
+c,DO,Dominican Republic
+c,DZ,Algeria
+c,EC,Ecuador
+c,EE,Estonia
+c,EG,Egypt
+c,EH,Western Sahara
+c,ER,Eritrea
+c,ES,Spain
+c,ET,Ethiopia
+c,FI,Finland
+c,FJ,Fiji
+c,FK,Falkland Islands
+c,FM,Micronesia
+c,FO,Faroe Islands
+c,FR,France
+c,GA,Gabon
+c,GB,United Kingdom
+c,GD,Grenada
+c,GE,Georgia
+c,GF,French Guiana
+c,GG,Guernsey
+c,GH,Ghana
+c,GI,Gibraltar
+c,GL,Greenland
+c,GM,Gambia
+c,GN,Guinea
+c,GP,Guadeloupe
+c,GQ,Equatorial Guinea
+c,GR,Greece
+c,GS,South Georgia and the South Sandwich Islands
+c,GT,Guatemala
+c,GU,Guam
+c,GW,Guinea-Bissau
+c,GY,Guyana
+c,HK,Hong Kong
+c,HM,Heard Island and McDonald Islands
+c,HN,Honduras
+c,HR,Croatia
+c,HT,Haiti
+c,HU,Hungary
+c,ID,Indonesia
+c,IE,Ireland
+c,IL,Israel
+c,IM,Isle of Man
+c,IN,India
+c,IO,British Indian Ocean Territory
+c,IQ,Iraq
+c,IR,Iran
+c,IS,Iceland
+c,IT,Italy
+c,JE,Jersey
+c,JM,Jamaica
+c,JO,Jordan
+c,JP,Japan
+c,KE,Kenya
+c,KG,Kyrgyzstan
+c,KH,Cambodia
+c,KI,Kiribati
+c,KM,Comoros
+c,KN,Saint Kitts and Nevis
+c,KP,North Korea
+c,KR,South Korea
+c,KW,Kuwait
+c,KY,Cayman Islands
+c,KZ,Kazakhstan
+c,LA,Laos
+c,LB,Lebanon
+c,LC,Saint Lucia
+c,LI,Liechtenstein
+c,LK,Sri Lanka
+c,LR,Liberia
+c,LS,Lesotho
+c,LT,Lithuania
+c,LU,Luxembourg
+c,LV,Latvia
+c,LY,Libya
+c,MA,Morocco
+c,MC,Monaco
+c,MD,Moldova
+c,ME,Montenegro
+c,MF,Saint Martin
+c,MG,Madagascar
+c,MH,Marshall Islands
+c,MK,North Macedonia
+c,ML,Mali
+c,MM,Myanmar
+c,MN,Mongolia
+c,MO,Macao
+c,MP,Northern Mariana Islands
+c,MQ,Martinique
+c,MR,Mauritania
+c,MS,Montserrat
+c,MT,Malta
+c,MU,Mauritius
+c,MV,Maldives
+c,MW,Malawi
+c,MX,Mexico
+c,MY,Malaysia
+c,MZ,Mozambique
+c,NA,Namibia
+c,NC,New Caledonia
+c,NE,Niger
+c,NF,Norfolk Island
+c,NG,Nigeria
+c,NI,Nicaragua
+c,NL,Netherlands
+c,NO,Norway
+c,NP,Nepal
+c,NR,Nauru
+c,NU,Niue
+c,NZ,New Zealand
+c,OM,Oman
+c,PA,Panama
+c,PE,Peru
+c,PF,French Polynesia
+c,PG,Papua New Guinea
+c,PH,Philippines
+c,PK,Pakistan
+c,PL,Poland
+c,PM,Saint Pierre and Miquelon
+c,PN,Pitcairn Islands
+c,PR,Puerto Rico
+c,PS,Palestine
+c,PT,Portugal
+c,PW,Palau
+c,PY,Paraguay
+c,QA,Qatar
+c,RE,Reunion
+c,RO,Romania
+c,RS,Serbia
+c,RU,Russia
+c,RW,Rwanda
+c,SA,Saudi Arabia
+c,SB,Solomon Islands
+c,SC,Seychelles
+c,SD,Sudan
+c,SE,Sweden
+c,SG,Singapore
+c,SH,Saint Helena
+c,SI,Slovenia
+c,SJ,Svalbard and Jan Mayen
+c,SK,Slovakia
+c,SL,Sierra Leone
+c,SM,San Marino
+c,SN,Senegal
+c,SO,Somalia
+c,SR,Suriname
+c,SS,South Sudan
+c,ST,Sao Tome and Principe
+c,SV,El Salvador
+c,SX,Sint Maarten
+c,SY,Syria
+c,SZ,Swaziland
+c,TC,Turks and Caicos Islands
+c,TD,Chad
+c,TF,French Southern Territories
+c,TG,Togo
+c,TH,Thailand
+c,TJ,Tajikistan
+c,TK,Tokelau
+c,TL,East Timor
+c,TM,Turkmenistan
+c,TN,Tunisia
+c,TO,Tonga
+c,TR,Turkiye
+c,TT,Trinidad and Tobago
+c,TV,Tuvalu
+c,TW,Taiwan
+c,TZ,Tanzania
+c,UA,Ukraine
+c,UG,Uganda
+c,UM,U.S. Minor Outlying Islands
+c,US,United States
+c,UY,Uruguay
+c,UZ,Uzbekistan
+c,VA,Vatican City
+c,VC,Saint Vincent and the Grenadines
+c,VE,Venezuela
+c,VG,British Virgin Islands
+c,VI,U.S. Virgin Islands
+c,VN,Vietnam
+c,VU,Vanuatu
+c,WF,Wallis and Futuna
+c,WS,Samoa
+c,XK,Kosovo
+c,YE,Yemen
+c,YT,Mayotte
+c,ZA,South Africa
+c,ZM,Zambia
+c,ZW,Zimbabwe
+s,AD,Andorra la Vella
+s,AD,Canillo
+s,AD,Encamp
+s,AD,Escaldes-Engordany
+s,AD,La Massana
+s,AD,Ordino
+s,AD,Sant Julia de Loria
+s,AE,'Ajman
+s,AE,Abu Zaby
+s,AE,Al Fujayrah
+s,AE,Ash Shariqah
+s,AE,Dubayy
+s,AE,Ra's al Khaymah
+s,AE,Umm al Qaywayn
+s,AF,Badakhshan
+s,AF,Badghis
+s,AF,Baghlan
+s,AF,Balkh
+s,AF,Bamyan
+s,AF,Daykundi
+s,AF,Farah
+s,AF,Faryab
+s,AF,Ghazni
+s,AF,Ghor
+s,AF,Helmand
+s,AF,Herat
+s,AF,Jowzjan
+s,AF,Kabul
+s,AF,Kandahar
+s,AF,Kapisa
+s,AF,Khost
+s,AF,Kunduz
+s,AF,Laghman
+s,AF,Logar
+s,AF,Maidan Wardak
+s,AF,Nangarhar
+s,AF,Nimroz
+s,AF,Nuristan
+s,AF,Paktika
+s,AF,Paktiya
+s,AF,Panjshayr
+s,AF,Parwan
+s,AF,Samangan
+s,AF,Sar-e Pul
+s,AF,Takhar
+s,AF,Uruzgan
+s,AF,Zabul
+s,AG,Barbuda
+s,AG,Redonda
+s,AG,Saint George
+s,AG,Saint John
+s,AG,Saint Paul
+s,AG,Saint Peter
+s,AG,Saint Philip
+s,AL,Berat
+s,AL,Diber
+s,AL,Durres
+s,AL,Elbasan
+s,AL,Fier
+s,AL,Gjirokaster
+s,AL,Korce
+s,AL,Kukes
+s,AL,Lezhe
+s,AL,Shkoder
+s,AL,Tirane
+s,AL,Vlore
+s,AM,Aragacotn
+s,AM,Ararat
+s,AM,Armavir
+s,AM,Erevan
+s,AM,Gegark'unik'
+s,AM,Kotayk'
+s,AM,Lori
+s,AM,Sirak
+s,AM,Syunik'
+s,AM,Tavus
+s,AM,Vayoc Jor
+s,AO,Bengo
+s,AO,Benguela
+s,AO,Bie
+s,AO,Cabinda
+s,AO,Cuando Cubango
+s,AO,Cuanza-Norte
+s,AO,Cuanza-Sul
+s,AO,Cunene
+s,AO,Huambo
+s,AO,Huila
+s,AO,Luanda
+s,AO,Lunda-Norte
+s,AO,Lunda-Sul
+s,AO,Malange
+s,AO,Moxico
+s,AO,Namibe
+s,AO,Uige
+s,AO,Zaire
+s,AR,Buenos Aires
+s,AR,Catamarca
+s,AR,Chaco
+s,AR,Chubut
+s,AR,Ciudad Autonoma de Buenos Aires
+s,AR,Cordoba
+s,AR,Corrientes
+s,AR,Entre Rios
+s,AR,Formosa
+s,AR,Jujuy
+s,AR,La Pampa
+s,AR,La Rioja
+s,AR,Mendoza
+s,AR,Misiones
+s,AR,Neuquén
+s,AR,Rio Negro
+s,AR,Salta
+s,AR,San Juan
+s,AR,San Luis
+s,AR,Santa Cruz
+s,AR,Santa Fe
+s,AR,Santiago del Estero
+s,AR,Tierra del Fuego
+s,AR,Tucuman
+s,AT,Burgenland
+s,AT,Kärnten
+s,AT,Niederosterreich
+s,AT,Oberosterreich
+s,AT,Salzburg
+s,AT,Steiermark
+s,AT,Tirol
+s,AT,Vorarlberg
+s,AT,Wien
+s,AU,Australian Capital Territory
+s,AU,New South Wales
+s,AU,Northern Territory
+s,AU,Queensland
+s,AU,South Australia
+s,AU,Tasmania
+s,AU,Victoria
+s,AU,Western Australia
+s,AZ,Abşeron
+s,AZ,Astara
+s,AZ,Ağcabədi
+s,AZ,Ağdam
+s,AZ,Ağdaş
+s,AZ,Ağstafa
+s,AZ,Ağsu
+s,AZ,Babək
+s,AZ,Bakı
+s,AZ,Balakən
+s,AZ,Beyləqan
+s,AZ,Biləsuvar
+s,AZ,Bərdə
+s,AZ,Culfa
+s,AZ,Cəbrayıl
+s,AZ,Cəlilabad
+s,AZ,Daşkəsən
+s,AZ,Füzuli
+s,AZ,Goranboy
+s,AZ,Göygöl
+s,AZ,Göyçay
+s,AZ,Gədəbəy
+s,AZ,Gəncə
+s,AZ,Hacıqabul
+s,AZ,Kürdəmir
+s,AZ,Kǝngǝrli
+s,AZ,Kəlbəcər
+s,AZ,Laçın
+s,AZ,Lerik
+s,AZ,Lənkəran
+s,AZ,Masallı
+s,AZ,Mingəçevir
+s,AZ,Naftalan
+s,AZ,Naxçıvan
+s,AZ,Neftçala
+s,AZ,Ordubad
+s,AZ,Oğuz
+s,AZ,Qax
+s,AZ,Qazax
+s,AZ,Qobustan
+s,AZ,Quba
+s,AZ,Qubadlı
+s,AZ,Qusar
+s,AZ,Qəbələ
+s,AZ,Saatlı
+s,AZ,Sabirabad
+s,AZ,Salyan
+s,AZ,Samux
+s,AZ,Siyəzən
+s,AZ,Sumqayıt
+s,AZ,Sədərək
+s,AZ,Tovuz
+s,AZ,Tərtər
+s,AZ,Ucar
+s,AZ,Xankəndi
+s,AZ,Xaçmaz
+s,AZ,Xocalı
+s,AZ,Xocavənd
+s,AZ,Xızı
+s,AZ,Yardımlı
+s,AZ,Yevlax
+s,AZ,Zaqatala
+s,AZ,Zəngilan
+s,AZ,Zərdab
+s,AZ,İmişli
+s,AZ,İsmayıllı
+s,AZ,Şabran
+s,AZ,Şahbuz
+s,AZ,Şamaxı
+s,AZ,Şirvan
+s,AZ,Şuşa
+s,AZ,Şəki
+s,AZ,Şəmkir
+s,AZ,Şərur
+s,BA,Brcko distrikt
+s,BA,Federacija Bosne i Hercegovine
+s,BA,Republika Srpska
+s,BB,Christ Church
+s,BB,Saint Andrew
+s,BB,Saint George
+s,BB,Saint James
+s,BB,Saint John
+s,BB,Saint Lucy
+s,BB,Saint Michael
+s,BB,Saint Peter
+s,BB,Saint Philip
+s,BB,Saint Thomas
+s,BD,Bagerhat
+s,BD,Bandarban
+s,BD,Barguna
+s,BD,Barishal
+s,BD,Bhola
+s,BD,Bogura
+s,BD,Brahmanbaria
+s,BD,Chandpur
+s,BD,Chapai Nawabganj
+s,BD,Chattogram
+s,BD,Chuadanga
+s,BD,Cox's Bazar
+s,BD,Cumilla
+s,BD,Dhaka
+s,BD,Dinajpur
+s,BD,Faridpur
+s,BD,Feni
+s,BD,Gaibandha
+s,BD,Gazipur
+s,BD,Gopalganj
+s,BD,Habiganj
+s,BD,Jamalpur
+s,BD,Jashore
+s,BD,Jhalakathi
+s,BD,Jhenaidah
+s,BD,Joypurhat
+s,BD,Khagrachhari
+s,BD,Khulna
+s,BD,Kishoreganj
+s,BD,Kurigram
+s,BD,Kushtia
+s,BD,Lakshmipur
+s,BD,Lalmonirhat
+s,BD,Madaripur
+s,BD,Magura
+s,BD,Manikganj
+s,BD,Meherpur
+s,BD,Moulvibazar
+s,BD,Munshiganj
+s,BD,Mymensingh
+s,BD,Naogaon
+s,BD,Narail
+s,BD,Narayanganj
+s,BD,Narsingdi
+s,BD,Natore
+s,BD,Netrakona
+s,BD,Nilphamari
+s,BD,Noakhali
+s,BD,Pabna
+s,BD,Panchagarh
+s,BD,Patuakhali
+s,BD,Pirojpur
+s,BD,Rajbari
+s,BD,Rajshahi
+s,BD,Rangamati
+s,BD,Rangpur
+s,BD,Satkhira
+s,BD,Shariatpur
+s,BD,Sherpur
+s,BD,Sirajganj
+s,BD,Sunamganj
+s,BD,Sylhet
+s,BD,Tangail
+s,BD,Thakurgaon
+s,BE,Antwerpen
+s,BE,Brabant wallon
+s,BE,Brussels Hoofdstedelijk Gewest
+s,BE,Hainaut
+s,BE,Limburg
+s,BE,Liège
+s,BE,Luxembourg
+s,BE,Namur
+s,BE,Oost-Vlaanderen
+s,BE,Vlaams Gewest
+s,BE,Vlaams-Brabant
+s,BE,Waals Gewest
+s,BE,West-Vlaanderen
+s,BF,Balé
+s,BF,Bam
+s,BF,Banwa
+s,BF,Bazèga
+s,BF,Boucle du Mouhoun
+s,BF,Bougouriba
+s,BF,Boulgou
+s,BF,Boulkiemdé
+s,BF,Cascades
+s,BF,Centre
+s,BF,Centre-Est
+s,BF,Centre-Nord
+s,BF,Centre-Ouest
+s,BF,Centre-Sud
+s,BF,Comoé
+s,BF,Est
+s,BF,Ganzourgou
+s,BF,Gnagna
+s,BF,Gourma
+s,BF,Hauts-Bassins
+s,BF,Houet
+s,BF,Ioba
+s,BF,Kadiogo
+s,BF,Komondjari
+s,BF,Kompienga
+s,BF,Kossi
+s,BF,Koulpélogo
+s,BF,Kouritenga
+s,BF,Kourwéogo
+s,BF,Kénédougou
+s,BF,Loroum
+s,BF,Léraba
+s,BF,Mouhoun
+s,BF,Nahouri
+s,BF,Namentenga
+s,BF,Nayala
+s,BF,Nord
+s,BF,Noumbiel
+s,BF,Oubritenga
+s,BF,Oudalan
+s,BF,Passoré
+s,BF,Plateau-Central
+s,BF,Poni
+s,BF,Sahel
+s,BF,Sanguié
+s,BF,Sanmatenga
+s,BF,Sissili
+s,BF,Soum
+s,BF,Sourou
+s,BF,Sud-Ouest
+s,BF,Séno
+s,BF,Tapoa
+s,BF,Tuy
+s,BF,Yagha
+s,BF,Yatenga
+s,BF,Ziro
+s,BF,Zondoma
+s,BF,Zoundwéogo
+s,BG,Blagoevgrad
+s,BG,Burgas
+s,BG,Dobrich
+s,BG,Gabrovo
+s,BG,Haskovo
+s,BG,Kardzhali
+s,BG,Kyustendil
+s,BG,Lovech
+s,BG,Montana
+s,BG,Pazardzhik
+s,BG,Pernik
+s,BG,Pleven
+s,BG,Plovdiv
+s,BG,Razgrad
+s,BG,Ruse
+s,BG,Shumen
+s,BG,Silistra
+s,BG,Sliven
+s,BG,Smolyan
+s,BG,Sofia
+s,BG,Sofia (stolitsa)
+s,BG,Stara Zagora
+s,BG,Targovishte
+s,BG,Varna
+s,BG,Veliko Tarnovo
+s,BG,Vidin
+s,BG,Vratsa
+s,BG,Yambol
+s,BH,Al 'Asimah
+s,BH,Al Janubiyah
+s,BH,Al Muharraq
+s,BH,Ash Shamaliyah
+s,BI,Bubanza
+s,BI,Bujumbura Mairie
+s,BI,Bujumbura Rural
+s,BI,Bururi
+s,BI,Cankuzo
+s,BI,Cibitoke
+s,BI,Gitega
+s,BI,Karuzi
+s,BI,Kayanza
+s,BI,Kirundo
+s,BI,Makamba
+s,BI,Muramvya
+s,BI,Muyinga
+s,BI,Mwaro
+s,BI,Ngozi
+s,BI,Rumonge
+s,BI,Rutana
+s,BI,Ruyigi
+s,BJ,Atacora
+s,BJ,Atlantique
+s,BJ,Borgou
+s,BJ,Collines
+s,BJ,Donga
+s,BJ,Littoral
+s,BJ,Mono
+s,BJ,Oueme
+s,BJ,Plateau
+s,BJ,Zou
+s,BN,Belait
+s,BN,Brunei-Muara
+s,BN,Temburong
+s,BN,Tutong
+s,BO,Chuquisaca
+s,BO,Cochabamba
+s,BO,El Beni
+s,BO,La Paz
+s,BO,Oruro
+s,BO,Pando
+s,BO,Potosi
+s,BO,Santa Cruz
+s,BO,Tarija
+s,BQ,Bonaire
+s,BQ,Saba
+s,BQ,Sint Eustatius
+s,BR,Acre
+s,BR,Alagoas
+s,BR,Amapa
+s,BR,Amazonas
+s,BR,Bahia
+s,BR,Ceara
+s,BR,Distrito Federal
+s,BR,Espirito Santo
+s,BR,Goias
+s,BR,Maranhao
+s,BR,Mato Grosso
+s,BR,Mato Grosso do Sul
+s,BR,Minas Gerais
+s,BR,Para
+s,BR,Paraiba
+s,BR,Parana
+s,BR,Pernambuco
+s,BR,Piaui
+s,BR,Rio Grande do Norte
+s,BR,Rio Grande do Sul
+s,BR,Rio de Janeiro
+s,BR,Rondonia
+s,BR,Roraima
+s,BR,Santa Catarina
+s,BR,Sao Paulo
+s,BR,Sergipe
+s,BR,Tocantins
+s,BS,Acklins
+s,BS,Berry Islands
+s,BS,Bimini
+s,BS,Black Point
+s,BS,Cat Island
+s,BS,Central Abaco
+s,BS,Central Andros
+s,BS,Central Eleuthera
+s,BS,City of Freeport
+s,BS,Crooked Island and Long Cay
+s,BS,East Grand Bahama
+s,BS,Exuma
+s,BS,Grand Cay
+s,BS,Harbour Island
+s,BS,Hope Town
+s,BS,Inagua
+s,BS,Long Island
+s,BS,Mangrove Cay
+s,BS,Mayaguana
+s,BS,Moore's Island
+s,BS,New Providence
+s,BS,North Abaco
+s,BS,North Andros
+s,BS,North Eleuthera
+s,BS,Ragged Island
+s,BS,Rum Cay
+s,BS,San Salvador
+s,BS,South Abaco
+s,BS,South Andros
+s,BS,South Eleuthera
+s,BS,Spanish Wells
+s,BS,West Grand Bahama
+s,BT,Bumthang
+s,BT,Chhukha
+s,BT,Dagana
+s,BT,Gasa
+s,BT,Lhuentse
+s,BT,Monggar
+s,BT,Paro
+s,BT,Pema Gatshel
+s,BT,Punakha
+s,BT,Samdrup Jongkhar
+s,BT,Samtse
+s,BT,Sarpang
+s,BT,Thimphu
+s,BT,Trashigang
+s,BT,Trongsa
+s,BT,Tsirang
+s,BT,Wangdue Phodrang
+s,BW,Central
+s,BW,Chobe
+s,BW,Ghanzi
+s,BW,Kgalagadi
+s,BW,Kgatleng
+s,BW,Kweneng
+s,BW,North East
+s,BW,North West
+s,BW,South East
+s,BW,Southern
+s,BY,Brestskaya voblasts'
+s,BY,Homyel'skaya voblasts'
+s,BY,Horad Minsk
+s,BY,Hrodzyenskaya voblasts'
+s,BY,Mahilyowskaya voblasts'
+s,BY,Minskaya voblasts'
+s,BY,Vitsyebskaya voblasts'
+s,BZ,Belize
+s,BZ,Cayo
+s,BZ,Corozal
+s,BZ,Orange Walk
+s,BZ,Stann Creek
+s,BZ,Toledo
+s,CA,Alberta
+s,CA,British Columbia
+s,CA,Manitoba
+s,CA,New Brunswick
+s,CA,Newfoundland and Labrador
+s,CA,Northwest Territories
+s,CA,Nova Scotia
+s,CA,Nunavut
+s,CA,Ontario
+s,CA,Prince Edward Island
+s,CA,Quebec
+s,CA,Saskatchewan
+s,CA,Yukon
+s,CD,Bas-Uélé
+s,CD,Haut-Katanga
+s,CD,Haut-Lomami
+s,CD,Haut-Uélé
+s,CD,Ituri
+s,CD,Kasaï
+s,CD,Kasaï Central
+s,CD,Kasaï Oriental
+s,CD,Kinshasa
+s,CD,Kongo Central
+s,CD,Kwango
+s,CD,Kwilu
+s,CD,Lomami
+s,CD,Lualaba
+s,CD,Mai-Ndombe
+s,CD,Maniema
+s,CD,Mongala
+s,CD,Nord-Kivu
+s,CD,Nord-Ubangi
+s,CD,Sankuru
+s,CD,Sud-Kivu
+s,CD,Sud-Ubangi
+s,CD,Tanganyika
+s,CD,Tshopo
+s,CD,Tshuapa
+s,CD,Équateur
+s,CF,Bamingui-Bangoran
+s,CF,Bangui
+s,CF,Basse-Kotto
+s,CF,Gribingui
+s,CF,Haut-Mbomou
+s,CF,Haute-Kotto
+s,CF,Haute-Sangha/Mambéré-Kadéï
+s,CF,Kémo-Gribingui
+s,CF,Lobaye
+s,CF,Mbomou
+s,CF,Nana-Mambéré
+s,CF,Ombella-Mpoko
+s,CF,Ouaka
+s,CF,Ouham
+s,CF,Ouham-Pendé
+s,CF,Sangha
+s,CF,Vakaga
+s,CG,Bouenza
+s,CG,Brazzaville
+s,CG,Cuvette
+s,CG,Cuvette-Ouest
+s,CG,Kouilou
+s,CG,Likouala
+s,CG,Lékoumou
+s,CG,Niari
+s,CG,Plateaux
+s,CG,Pointe-Noire
+s,CG,Pool
+s,CG,Sangha
+s,CH,Aargau
+s,CH,Appenzell Ausserrhoden
+s,CH,Appenzell Innerrhoden
+s,CH,Basel-Landschaft
+s,CH,Basel-Stadt
+s,CH,Bern
+s,CH,Fribourg
+s,CH,Geneve
+s,CH,Glarus
+s,CH,Graubünden
+s,CH,Jura
+s,CH,Luzern
+s,CH,Neuchatel
+s,CH,Nidwalden
+s,CH,Obwalden
+s,CH,Sankt Gallen
+s,CH,Schaffhausen
+s,CH,Schwyz
+s,CH,Solothurn
+s,CH,Thurgau
+s,CH,Ticino
+s,CH,Uri
+s,CH,Valais
+s,CH,Vaud
+s,CH,Zug
+s,CH,Zurich
+s,CI,Abidjan
+s,CI,Bas-Sassandra
+s,CI,Comoe
+s,CI,Denguele
+s,CI,Goh-Djiboua
+s,CI,Lacs
+s,CI,Lagunes
+s,CI,Montagnes
+s,CI,Sassandra-Marahoue
+s,CI,Savanes
+s,CI,Vallee du Bandama
+s,CI,Woroba
+s,CI,Yamoussoukro
+s,CI,Zanzan
+s,CL,Aisen del General Carlos Ibanez del Campo
+s,CL,Antofagasta
+s,CL,Arica y Parinacota
+s,CL,Atacama
+s,CL,Biobio
+s,CL,Coquimbo
+s,CL,La Araucania
+s,CL,Libertador General Bernardo O'Higgins
+s,CL,Los Lagos
+s,CL,Los Rios
+s,CL,Magallanes
+s,CL,Maule
+s,CL,Nuble
+s,CL,Region Metropolitana de Santiago
+s,CL,Tarapaca
+s,CL,Valparaiso
+s,CM,Adamaoua
+s,CM,Centre
+s,CM,Est
+s,CM,Extreme-Nord
+s,CM,Littoral
+s,CM,Nord
+s,CM,Nord-Ouest
+s,CM,Ouest
+s,CM,Sud
+s,CM,Sud-Ouest
+s,CN,Anhui
+s,CN,Beijing
+s,CN,Chongqing
+s,CN,Fujian
+s,CN,Gansu
+s,CN,Guangdong
+s,CN,Guangxi Zhuangzu
+s,CN,Guizhou
+s,CN,Hainan
+s,CN,Hebei
+s,CN,Heilongjiang
+s,CN,Henan
+s,CN,Hong Kong
+s,CN,Hubei
+s,CN,Hunan
+s,CN,Jiangsu
+s,CN,Jiangxi
+s,CN,Jilin
+s,CN,Liaoning
+s,CN,Nei Mongol
+s,CN,Ningxia Huizu
+s,CN,Qinghai
+s,CN,Shaanxi
+s,CN,Shandong
+s,CN,Shanghai
+s,CN,Shanxi
+s,CN,Sichuan
+s,CN,Taiwan
+s,CN,Tianjin
+s,CN,Xinjiang Uygur
+s,CN,Xizang
+s,CN,Yunnan
+s,CN,Zhejiang
+s,CO,Amazonas
+s,CO,Antioquia
+s,CO,Arauca
+s,CO,Atlantico
+s,CO,Bolivar
+s,CO,Boyaca
+s,CO,Caldas
+s,CO,Caqueta
+s,CO,Casanare
+s,CO,Cauca
+s,CO,Cesar
+s,CO,Choco
+s,CO,Cordoba
+s,CO,Cundinamarca
+s,CO,Distrito Capital de Bogota
+s,CO,Guainia
+s,CO,Guaviare
+s,CO,Huila
+s,CO,La Guajira
+s,CO,Magdalena
+s,CO,Meta
+s,CO,Narino
+s,CO,Norte de Santander
+s,CO,Putumayo
+s,CO,Quindio
+s,CO,Risaralda
+s,CO,San Andres
+s,CO,Santander
+s,CO,Sucre
+s,CO,Tolima
+s,CO,Valle del Cauca
+s,CO,Vaupés
+s,CO,Vichada
+s,CR,Alajuela
+s,CR,Cartago
+s,CR,Guanacaste
+s,CR,Heredia
+s,CR,Limon
+s,CR,Puntarenas
+s,CR,San Jose
+s,CU,Artemisa
+s,CU,Camaguey
+s,CU,Ciego de Avila
+s,CU,Cienfuegos
+s,CU,Granma
+s,CU,Guantanamo
+s,CU,Holguin
+s,CU,Isla de la Juventud
+s,CU,La Habana
+s,CU,Las Tunas
+s,CU,Matanzas
+s,CU,Mayabeque
+s,CU,Pinar del Rio
+s,CU,Sancti Spiritus
+s,CU,Santiago de Cuba
+s,CU,Villa Clara
+s,CV,Boa Vista
+s,CV,Brava
+s,CV,Ilhas de Barlavento
+s,CV,Ilhas de Sotavento
+s,CV,Maio
+s,CV,Mosteiros
+s,CV,Paul
+s,CV,Porto Novo
+s,CV,Praia
+s,CV,Ribeira Brava
+s,CV,Ribeira Grande
+s,CV,Ribeira Grande de Santiago
+s,CV,Sal
+s,CV,Santa Catarina
+s,CV,Santa Catarina do Fogo
+s,CV,Santa Cruz
+s,CV,São Domingos
+s,CV,São Filipe
+s,CV,São Lourenço dos Órgãos
+s,CV,São Miguel
+s,CV,São Salvador do Mundo
+s,CV,São Vicente
+s,CV,Tarrafal
+s,CV,Tarrafal de São Nicolau
+s,CY,Ammochostos
+s,CY,Keryneia
+s,CY,Larnaka
+s,CY,Lefkosia
+s,CY,Lemesos
+s,CY,Pafos
+s,CZ,Benešov
+s,CZ,Beroun
+s,CZ,Blansko
+s,CZ,Brno-město
+s,CZ,Brno-venkov
+s,CZ,Bruntál
+s,CZ,Břeclav
+s,CZ,Cheb
+s,CZ,Chomutov
+s,CZ,Chrudim
+s,CZ,Domažlice
+s,CZ,Děčín
+s,CZ,Frýdek-Místek
+s,CZ,Havlíčkův Brod
+s,CZ,Hodonín
+s,CZ,Hradec Králové
+s,CZ,Jablonec nad Nisou
+s,CZ,Jeseník
+s,CZ,Jihlava
+s,CZ,Jihomoravský kraj
+s,CZ,Jihočeský kraj
+s,CZ,Jindřichův Hradec
+s,CZ,Jičín
+s,CZ,Karlovarský kraj
+s,CZ,Karlovy Vary
+s,CZ,Karviná
+s,CZ,Kladno
+s,CZ,Klatovy
+s,CZ,Kolín
+s,CZ,Kraj Vysočina
+s,CZ,Kroměříž
+s,CZ,Královéhradecký kraj
+s,CZ,Kutná Hora
+s,CZ,Liberec
+s,CZ,Liberecký kraj
+s,CZ,Litoměřice
+s,CZ,Louny
+s,CZ,Mladá Boleslav
+s,CZ,Moravskoslezský kraj
+s,CZ,Most
+s,CZ,Mělník
+s,CZ,Nový Jičín
+s,CZ,Nymburk
+s,CZ,Náchod
+s,CZ,Olomouc
+s,CZ,Olomoucký kraj
+s,CZ,Opava
+s,CZ,Ostrava-město
+s,CZ,Pardubice
+s,CZ,Pardubický kraj
+s,CZ,Pelhřimov
+s,CZ,Plzeň-jih
+s,CZ,Plzeň-město
+s,CZ,Plzeň-sever
+s,CZ,Plzeňský kraj
+s,CZ,Prachatice
+s,CZ,Praha
+s,CZ,Praha-východ
+s,CZ,Praha-západ
+s,CZ,Prostějov
+s,CZ,Písek
+s,CZ,Přerov
+s,CZ,Příbram
+s,CZ,Rakovník
+s,CZ,Rokycany
+s,CZ,Rychnov nad Kněžnou
+s,CZ,Semily
+s,CZ,Sokolov
+s,CZ,Strakonice
+s,CZ,Středočeský kraj
+s,CZ,Svitavy
+s,CZ,Tachov
+s,CZ,Teplice
+s,CZ,Trutnov
+s,CZ,Tábor
+s,CZ,Třebíč
+s,CZ,Uherské Hradiště
+s,CZ,Vsetín
+s,CZ,Vyškov
+s,CZ,Zlín
+s,CZ,Zlínský kraj
+s,CZ,Znojmo
+s,CZ,Ústecký kraj
+s,CZ,Ústí nad Labem
+s,CZ,Ústí nad Orlicí
+s,CZ,Česká Lípa
+s,CZ,České Budějovice
+s,CZ,Český Krumlov
+s,CZ,Šumperk
+s,CZ,Žďár nad Sázavou
+s,DE,Baden-Wurttemberg
+s,DE,Bayern
+s,DE,Berlin
+s,DE,Brandenburg
+s,DE,Bremen
+s,DE,Hamburg
+s,DE,Hessen
+s,DE,Mecklenburg-Vorpommern
+s,DE,Niedersachsen
+s,DE,Nordrhein-Westfalen
+s,DE,Rheinland-Pfalz
+s,DE,Saarland
+s,DE,Sachsen
+s,DE,Sachsen-Anhalt
+s,DE,Schleswig-Holstein
+s,DE,Thüringen
+s,DJ,Ali Sabieh
+s,DJ,Arta
+s,DJ,Dikhil
+s,DJ,Djibouti
+s,DJ,Obock
+s,DJ,Tadjourah
+s,DK,Hovedstaden
+s,DK,Midtjylland
+s,DK,Nordjylland
+s,DK,Sjaelland
+s,DK,Syddanmark
+s,DM,Saint Andrew
+s,DM,Saint George
+s,DM,Saint John
+s,DM,Saint Luke
+s,DM,Saint Patrick
+s,DM,Saint Paul
+s,DO,Azua
+s,DO,Baoruco
+s,DO,Barahona
+s,DO,Cibao Nordeste
+s,DO,Cibao Noroeste
+s,DO,Cibao Norte
+s,DO,Cibao Sur
+s,DO,Dajabón
+s,DO,Distrito Nacional
+s,DO,Duarte
+s,DO,El Seibo
+s,DO,El Valle
+s,DO,Elías Piña
+s,DO,Enriquillo
+s,DO,Espaillat
+s,DO,Hato Mayor
+s,DO,Hermanas Mirabal
+s,DO,Higuamo
+s,DO,Independencia
+s,DO,La Altagracia
+s,DO,La Romana
+s,DO,La Vega
+s,DO,María Trinidad Sánchez
+s,DO,Monseñor Nouel
+s,DO,Monte Cristi
+s,DO,Monte Plata
+s,DO,Ozama
+s,DO,Pedernales
+s,DO,Peravia
+s,DO,Puerto Plata
+s,DO,Samaná
+s,DO,San Cristóbal
+s,DO,San José de Ocoa
+s,DO,San Juan
+s,DO,San Pedro de Macorís
+s,DO,Santiago
+s,DO,Santiago Rodríguez
+s,DO,Santo Domingo
+s,DO,Sánchez Ramírez
+s,DO,Valdesia
+s,DO,Valverde
+s,DO,Yuma
+s,DZ,Adrar
+s,DZ,Ain Defla
+s,DZ,Ain Temouchent
+s,DZ,Alger
+s,DZ,Annaba
+s,DZ,Batna
+s,DZ,Bechar
+s,DZ,Bejaia
+s,DZ,Biskra
+s,DZ,Blida
+s,DZ,Bordj Badji Mokhtar
+s,DZ,Bordj Bou Arreridj
+s,DZ,Bouira
+s,DZ,Boumerdes
+s,DZ,Béni Abbès
+s,DZ,Chlef
+s,DZ,Constantine
+s,DZ,Djanet
+s,DZ,Djelfa
+s,DZ,El Bayadh
+s,DZ,El Meghaier
+s,DZ,El Meniaa
+s,DZ,El Oued
+s,DZ,El Tarf
+s,DZ,Ghardaia
+s,DZ,Guelma
+s,DZ,Illizi
+s,DZ,In Guezzam
+s,DZ,In Salah
+s,DZ,Jijel
+s,DZ,Khenchela
+s,DZ,Laghouat
+s,DZ,M'sila
+s,DZ,Mascara
+s,DZ,Medea
+s,DZ,Mila
+s,DZ,Mostaganem
+s,DZ,Naama
+s,DZ,Oran
+s,DZ,Ouargla
+s,DZ,Ouled Djellal
+s,DZ,Oum el Bouaghi
+s,DZ,Relizane
+s,DZ,Saida
+s,DZ,Setif
+s,DZ,Sidi Bel Abbes
+s,DZ,Skikda
+s,DZ,Souk Ahras
+s,DZ,Tamanrasset
+s,DZ,Tebessa
+s,DZ,Tiaret
+s,DZ,Timimoun
+s,DZ,Tindouf
+s,DZ,Tipaza
+s,DZ,Tissemsilt
+s,DZ,Tizi Ouzou
+s,DZ,Tlemcen
+s,DZ,Touggourt
+s,EC,Azuay
+s,EC,Bolivar
+s,EC,Canar
+s,EC,Carchi
+s,EC,Chimborazo
+s,EC,Cotopaxi
+s,EC,El Oro
+s,EC,Esmeraldas
+s,EC,Galapagos
+s,EC,Guayas
+s,EC,Imbabura
+s,EC,Loja
+s,EC,Los Rios
+s,EC,Manabi
+s,EC,Morona Santiago
+s,EC,Napo
+s,EC,Orellana
+s,EC,Pastaza
+s,EC,Pichincha
+s,EC,Santa Elena
+s,EC,Santo Domingo de los Tsachilas
+s,EC,Sucumbios
+s,EC,Tungurahua
+s,EC,Zamora Chinchipe
+s,EE,Alutaguse
+s,EE,Anija
+s,EE,Antsla
+s,EE,Elva
+s,EE,Haapsalu
+s,EE,Haljala
+s,EE,Harjumaa
+s,EE,Harku
+s,EE,Hiiumaa
+s,EE,Häädemeeste
+s,EE,Ida-Virumaa
+s,EE,Järva
+s,EE,Järvamaa
+s,EE,Jõelähtme
+s,EE,Jõgeva
+s,EE,Jõgevamaa
+s,EE,Jõhvi
+s,EE,Kadrina
+s,EE,Kambja
+s,EE,Kanepi
+s,EE,Kastre
+s,EE,Kehtna
+s,EE,Keila
+s,EE,Kihnu
+s,EE,Kiili
+s,EE,Kohila
+s,EE,Kohtla-Järve
+s,EE,Kose
+s,EE,Kuusalu
+s,EE,Loksa
+s,EE,Luunja
+s,EE,Lääne-Harju
+s,EE,Lääne-Nigula
+s,EE,Lääne-Virumaa
+s,EE,Läänemaa
+s,EE,Lääneranna
+s,EE,Lüganuse
+s,EE,Maardu
+s,EE,Muhu
+s,EE,Mulgi
+s,EE,Mustvee
+s,EE,Märjamaa
+s,EE,Narva
+s,EE,Narva-Jõesuu
+s,EE,Nõo
+s,EE,Otepää
+s,EE,Paide
+s,EE,Peipsiääre
+s,EE,Pärnu
+s,EE,Pärnumaa
+s,EE,Põhja-Pärnumaa
+s,EE,Põhja-Sakala
+s,EE,Põltsamaa
+s,EE,Põlva
+s,EE,Põlvamaa
+s,EE,Raasiku
+s,EE,Rae
+s,EE,Rakvere
+s,EE,Rapla
+s,EE,Raplamaa
+s,EE,Ruhnu
+s,EE,Räpina
+s,EE,Rõuge
+s,EE,Saarde
+s,EE,Saaremaa
+s,EE,Saku
+s,EE,Saue
+s,EE,Setomaa
+s,EE,Sillamäe
+s,EE,Tallinn
+s,EE,Tapa
+s,EE,Tartu
+s,EE,Tartumaa
+s,EE,Toila
+s,EE,Tori
+s,EE,Tõrva
+s,EE,Türi
+s,EE,Valga
+s,EE,Valgamaa
+s,EE,Viimsi
+s,EE,Viljandi
+s,EE,Viljandimaa
+s,EE,Vinni
+s,EE,Viru-Nigula
+s,EE,Vormsi
+s,EE,Väike-Maarja
+s,EE,Võru
+s,EE,Võrumaa
+s,EG,Ad Daqahliyah
+s,EG,Al Bahr al Ahmar
+s,EG,Al Buhayrah
+s,EG,Al Fayyum
+s,EG,Al Gharbiyah
+s,EG,Al Iskandariyah
+s,EG,Al Isma'iliyah
+s,EG,Al Jizah
+s,EG,Al Minufiyah
+s,EG,Al Minya
+s,EG,Al Qahirah
+s,EG,Al Qalyubiyah
+s,EG,Al Uqsur
+s,EG,Al Wadi al Jadid
+s,EG,As Suways
+s,EG,Ash Sharqiyah
+s,EG,Aswan
+s,EG,Asyut
+s,EG,Bani Suwayf
+s,EG,Bur Sa'id
+s,EG,Dumyat
+s,EG,Janub Sina'
+s,EG,Kafr ash Shaykh
+s,EG,Matruh
+s,EG,Qina
+s,EG,Shamal Sina'
+s,EG,Suhaj
+s,ER,Al Awsaţ
+s,ER,Al Janūbī
+s,ER,Ansabā
+s,ER,Janūbī al Baḩrī al Aḩmar
+s,ER,Qāsh-Barkah
+s,ER,Shimālī al Baḩrī al Aḩmar
+s,ES,A Coruña
+s,ES,Albacete
+s,ES,Alicante
+s,ES,Almería
+s,ES,Andalucía
+s,ES,Aragón
+s,ES,Asturias
+s,ES,Badajoz
+s,ES,Barcelona
+s,ES,Bizkaia
+s,ES,Burgos
+s,ES,Canarias
+s,ES,Cantabria
+s,ES,Castellón
+s,ES,Castilla y León
+s,ES,Castilla-La Mancha
+s,ES,Catalunya
+s,ES,Ceuta
+s,ES,Ciudad Real
+s,ES,Cuenca
+s,ES,Cáceres
+s,ES,Cádiz
+s,ES,Córdoba
+s,ES,Extremadura
+s,ES,Galicia
+s,ES,Gipuzkoa
+s,ES,Girona
+s,ES,Granada
+s,ES,Guadalajara
+s,ES,Huelva
+s,ES,Huesca
+s,ES,Illes Balears
+s,ES,Jaén
+s,ES,La Rioja
+s,ES,Las Palmas
+s,ES,León
+s,ES,Lleida
+s,ES,Lugo
+s,ES,Madrid
+s,ES,Melilla
+s,ES,Murcia
+s,ES,Málaga
+s,ES,Navarra
+s,ES,Ourense
+s,ES,Palencia
+s,ES,País Vasco
+s,ES,Pontevedra
+s,ES,Salamanca
+s,ES,Santa Cruz de Tenerife
+s,ES,Segovia
+s,ES,Sevilla
+s,ES,Soria
+s,ES,Tarragona
+s,ES,Teruel
+s,ES,Toledo
+s,ES,Valencia
+s,ES,Valenciana
+s,ES,Valladolid
+s,ES,Zamora
+s,ES,Zaragoza
+s,ES,Álava
+s,ES,Ávila
+s,ET,Adis Abeba
+s,ET,Afar
+s,ET,Amara
+s,ET,Binshangul Gumuz
+s,ET,Dire Dawa
+s,ET,Gambela Hizboch
+s,ET,Hareri Hizb
+s,ET,Oromiya
+s,ET,Sumale
+s,ET,Tigray
+s,ET,YeDebub Biheroch Bihereseboch na Hizboch
+s,FI,Ahvenanmaan maakunta
+s,FI,Etela-Karjala
+s,FI,Etela-Pohjanmaa
+s,FI,Etela-Savo
+s,FI,Kainuu
+s,FI,Kanta-Hame
+s,FI,Keski-Pohjanmaa
+s,FI,Keski-Suomi
+s,FI,Kymenlaakso
+s,FI,Lappi
+s,FI,Paijat-Hame
+s,FI,Pirkanmaa
+s,FI,Pohjanmaa
+s,FI,Pohjois-Karjala
+s,FI,Pohjois-Pohjanmaa
+s,FI,Pohjois-Savo
+s,FI,Satakunta
+s,FI,Uusimaa
+s,FI,Varsinais-Suomi
+s,FJ,Ba
+s,FJ,Bua
+s,FJ,Cakaudrove
+s,FJ,Central
+s,FJ,Eastern
+s,FJ,Kadavu
+s,FJ,Lau
+s,FJ,Lomaiviti
+s,FJ,Macuata
+s,FJ,Nadroga and Navosa
+s,FJ,Naitasiri
+s,FJ,Namosi
+s,FJ,Northern
+s,FJ,Ra
+s,FJ,Rewa
+s,FJ,Rotuma
+s,FJ,Serua
+s,FJ,Tailevu
+s,FJ,Western
+s,FM,Chuuk
+s,FM,Kosrae
+s,FM,Pohnpei
+s,FM,Yap
+s,FR,Ain
+s,FR,Aisne
+s,FR,Allier
+s,FR,Alpes-Maritimes
+s,FR,Alpes-de-Haute-Provence
+s,FR,Alsace
+s,FR,Ardennes
+s,FR,Ardèche
+s,FR,Ariège
+s,FR,Aube
+s,FR,Aude
+s,FR,Auvergne-Rhône-Alpes
+s,FR,Aveyron
+s,FR,Bas-Rhin
+s,FR,Bouches-du-Rhône
+s,FR,Bourgogne-Franche-Comté
+s,FR,Bretagne
+s,FR,Calvados
+s,FR,Cantal
+s,FR,Centre-Val de Loire
+s,FR,Charente
+s,FR,Charente-Maritime
+s,FR,Cher
+s,FR,Clipperton
+s,FR,Corrèze
+s,FR,Corse
+s,FR,Corse-du-Sud
+s,FR,Creuse
+s,FR,Côte-d'Or
+s,FR,Côtes-d'Armor
+s,FR,Deux-Sèvres
+s,FR,Dordogne
+s,FR,Doubs
+s,FR,Drôme
+s,FR,Essonne
+s,FR,Eure
+s,FR,Eure-et-Loir
+s,FR,Finistère
+s,FR,Gard
+s,FR,Gers
+s,FR,Gironde
+s,FR,Grand-Est
+s,FR,Guadeloupe
+s,FR,Guyane
+s,FR,Haut-Rhin
+s,FR,Haute-Corse
+s,FR,Haute-Garonne
+s,FR,Haute-Loire
+s,FR,Haute-Marne
+s,FR,Haute-Savoie
+s,FR,Haute-Saône
+s,FR,Haute-Vienne
+s,FR,Hautes-Alpes
+s,FR,Hautes-Pyrénées
+s,FR,Hauts-de-France
+s,FR,Hauts-de-Seine
+s,FR,Hérault
+s,FR,Ille-et-Vilaine
+s,FR,Indre
+s,FR,Indre-et-Loire
+s,FR,Isère
+s,FR,Jura
+s,FR,La Réunion
+s,FR,Landes
+s,FR,Loir-et-Cher
+s,FR,Loire
+s,FR,Loire-Atlantique
+s,FR,Loiret
+s,FR,Lot
+s,FR,Lot-et-Garonne
+s,FR,Lozère
+s,FR,Maine-et-Loire
+s,FR,Manche
+s,FR,Marne
+s,FR,Martinique
+s,FR,Mayenne
+s,FR,Mayotte
+s,FR,Meurthe-et-Moselle
+s,FR,Meuse
+s,FR,Morbihan
+s,FR,Moselle
+s,FR,Métropole de Lyon
+s,FR,Nièvre
+s,FR,Nord
+s,FR,Normandie
+s,FR,Nouvelle-Aquitaine
+s,FR,Nouvelle-Calédonie
+s,FR,Occitanie
+s,FR,Oise
+s,FR,Orne
+s,FR,Paris
+s,FR,Pas-de-Calais
+s,FR,Pays-de-la-Loire
+s,FR,Polynésie française
+s,FR,Provence-Alpes-Côte-d’Azur
+s,FR,Puy-de-Dôme
+s,FR,Pyrénées-Atlantiques
+s,FR,Pyrénées-Orientales
+s,FR,Rhône
+s,FR,Saint-Barthélemy
+s,FR,Saint-Martin
+s,FR,Saint-Pierre-et-Miquelon
+s,FR,Sarthe
+s,FR,Savoie
+s,FR,Saône-et-Loire
+s,FR,Seine-Maritime
+s,FR,Seine-Saint-Denis
+s,FR,Seine-et-Marne
+s,FR,Somme
+s,FR,Tarn
+s,FR,Tarn-et-Garonne
+s,FR,Terres australes françaises
+s,FR,Territoire de Belfort
+s,FR,Val-d'Oise
+s,FR,Val-de-Marne
+s,FR,Var
+s,FR,Vaucluse
+s,FR,Vendée
+s,FR,Vienne
+s,FR,Vosges
+s,FR,Wallis-et-Futuna
+s,FR,Yonne
+s,FR,Yvelines
+s,FR,Île-de-France
+s,GA,Estuaire
+s,GA,Haut-Ogooue
+s,GA,Moyen-Ogooué
+s,GA,Ngounie
+s,GA,Nyanga
+s,GA,Ogooue-Maritime
+s,GA,Ogooué-Ivindo
+s,GA,Ogooué-Lolo
+s,GA,Woleu-Ntem
+s,GB,Aberdeen City
+s,GB,Aberdeenshire
+s,GB,Angus
+s,GB,Antrim and Newtownabbey
+s,GB,Ards and North Down
+s,GB,Argyll and Bute
+s,GB,Armagh City
+s,GB,Barking and Dagenham
+s,GB,Barnet
+s,GB,Barnsley
+s,GB,Bath and North East Somerset
+s,GB,Bedford
+s,GB,Belfast City
+s,GB,Bexley
+s,GB,Birmingham
+s,GB,Blackburn with Darwen
+s,GB,Blackpool
+s,GB,Blaenau Gwent
+s,GB,Bolton
+s,GB,Bournemouth
+s,GB,Bracknell Forest
+s,GB,Bradford
+s,GB,Brent
+s,GB,Bridgend
+s,GB,Brighton and Hove
+s,GB,Bristol
+s,GB,Bromley
+s,GB,Buckinghamshire
+s,GB,Bury
+s,GB,Caerphilly
+s,GB,Calderdale
+s,GB,Cambridgeshire
+s,GB,Camden
+s,GB,Cardiff
+s,GB,Carmarthenshire
+s,GB,Causeway Coast and Glens
+s,GB,Central Bedfordshire
+s,GB,Ceredigion
+s,GB,Cheshire East
+s,GB,Cheshire West and Chester
+s,GB,Clackmannanshire
+s,GB,Conwy
+s,GB,Cornwall
+s,GB,Coventry
+s,GB,Croydon
+s,GB,Cumbria
+s,GB,Darlington
+s,GB,Denbighshire
+s,GB,Derby
+s,GB,Derbyshire
+s,GB,Derry and Strabane
+s,GB,Devon
+s,GB,Doncaster
+s,GB,Dorset
+s,GB,Dudley
+s,GB,Dumfries and Galloway
+s,GB,Dundee City
+s,GB,Durham
+s,GB,Ealing
+s,GB,East Ayrshire
+s,GB,East Dunbartonshire
+s,GB,East Lothian
+s,GB,East Renfrewshire
+s,GB,East Riding of Yorkshire
+s,GB,East Sussex
+s,GB,Edinburgh
+s,GB,Eilean Siar
+s,GB,Enfield
+s,GB,England
+s,GB,Essex
+s,GB,Falkirk
+s,GB,Fermanagh and Omagh
+s,GB,Fife
+s,GB,Flintshire
+s,GB,Gateshead
+s,GB,Glasgow City
+s,GB,Gloucestershire
+s,GB,Greenwich
+s,GB,Gwynedd
+s,GB,Hackney
+s,GB,Halton
+s,GB,Hammersmith and Fulham
+s,GB,Hampshire
+s,GB,Haringey
+s,GB,Harrow
+s,GB,Hartlepool
+s,GB,Havering
+s,GB,Herefordshire
+s,GB,Hertfordshire
+s,GB,Highland
+s,GB,Hillingdon
+s,GB,Hounslow
+s,GB,Inverclyde
+s,GB,Isle of Anglesey
+s,GB,Isle of Wight
+s,GB,Isles of Scilly
+s,GB,Islington
+s,GB,Kensington and Chelsea
+s,GB,Kent
+s,GB,Kingston upon Hull
+s,GB,Kingston upon Thames
+s,GB,Kirklees
+s,GB,Knowsley
+s,GB,Lambeth
+s,GB,Lancashire
+s,GB,Leeds
+s,GB,Leicester
+s,GB,Leicestershire
+s,GB,Lewisham
+s,GB,Lincolnshire
+s,GB,Lisburn and Castlereagh
+s,GB,Liverpool
+s,GB,London
+s,GB,Luton
+s,GB,Manchester
+s,GB,Medway
+s,GB,Merthyr Tydfil
+s,GB,Merton
+s,GB,Mid and East Antrim
+s,GB,Mid-Ulster
+s,GB,Middlesbrough
+s,GB,Midlothian
+s,GB,Milton Keynes
+s,GB,Monmouthshire
+s,GB,Moray
+s,GB,Neath Port Talbot
+s,GB,Newcastle upon Tyne
+s,GB,Newham
+s,GB,Newport
+s,GB,Newry
+s,GB,Norfolk
+s,GB,North Ayrshire
+s,GB,North East Lincolnshire
+s,GB,North Lanarkshire
+s,GB,North Lincolnshire
+s,GB,North Northamptonshire
+s,GB,North Somerset
+s,GB,North Tyneside
+s,GB,North Yorkshire
+s,GB,Northern Ireland
+s,GB,Northumberland
+s,GB,Nottingham
+s,GB,Nottinghamshire
+s,GB,Oldham
+s,GB,Orkney Islands
+s,GB,Oxfordshire
+s,GB,Pembrokeshire
+s,GB,Perth and Kinross
+s,GB,Peterborough
+s,GB,Plymouth
+s,GB,Portsmouth
+s,GB,Powys
+s,GB,Reading
+s,GB,Redbridge
+s,GB,Redcar and Cleveland
+s,GB,Renfrewshire
+s,GB,Rhondda Cynon Taff
+s,GB,Richmond upon Thames
+s,GB,Rochdale
+s,GB,Rotherham
+s,GB,Rutland
+s,GB,Salford
+s,GB,Sandwell
+s,GB,Scotland
+s,GB,Scottish Borders
+s,GB,Sefton
+s,GB,Sheffield
+s,GB,Shetland Islands
+s,GB,Shropshire
+s,GB,Slough
+s,GB,Solihull
+s,GB,Somerset
+s,GB,South Ayrshire
+s,GB,South Gloucestershire
+s,GB,South Lanarkshire
+s,GB,South Tyneside
+s,GB,Southampton
+s,GB,Southend-on-Sea
+s,GB,Southwark
+s,GB,St. Helens
+s,GB,Staffordshire
+s,GB,Stirling
+s,GB,Stockport
+s,GB,Stockton-on-Tees
+s,GB,Stoke-on-Trent
+s,GB,Suffolk
+s,GB,Sunderland
+s,GB,Surrey
+s,GB,Sutton
+s,GB,Swansea
+s,GB,Swindon
+s,GB,Tameside
+s,GB,Telford and Wrekin
+s,GB,Thurrock
+s,GB,Torbay
+s,GB,Torfaen
+s,GB,Tower Hamlets
+s,GB,Trafford
+s,GB,Vale of Glamorgan
+s,GB,Wakefield
+s,GB,Wales
+s,GB,Walsall
+s,GB,Waltham Forest
+s,GB,Wandsworth
+s,GB,Warrington
+s,GB,Warwickshire
+s,GB,West Berkshire
+s,GB,West Dunbartonshire
+s,GB,West Lothian
+s,GB,West Northamptonshire
+s,GB,West Sussex
+s,GB,Westminster
+s,GB,Wigan
+s,GB,Wiltshire
+s,GB,Windsor and Maidenhead
+s,GB,Wirral
+s,GB,Wokingham
+s,GB,Wolverhampton
+s,GB,Worcestershire
+s,GB,Wrexham
+s,GB,York
+s,GD,Saint Andrew
+s,GD,Saint David
+s,GD,Saint George
+s,GD,Saint John
+s,GD,Saint Mark
+s,GD,Saint Patrick
+s,GD,Southern Grenadine Islands
+s,GE,Abkhazia
+s,GE,Ajaria
+s,GE,Guria
+s,GE,Imereti
+s,GE,K'akheti
+s,GE,Kvemo Kartli
+s,GE,Mtskheta-Mtianeti
+s,GE,Rach'a-Lechkhumi-Kvemo Svaneti
+s,GE,Samegrelo-Zemo Svaneti
+s,GE,Samtskhe-Javakheti
+s,GE,Shida Kartli
+s,GE,Tbilisi
+s,GH,Ahafo
+s,GH,Ashanti
+s,GH,Bono
+s,GH,Bono East
+s,GH,Central
+s,GH,Eastern
+s,GH,Greater Accra
+s,GH,Northern
+s,GH,Upper East
+s,GH,Upper West
+s,GH,Volta
+s,GH,Western
+s,GL,Avannaata Kommunia
+s,GL,Kommune Kujalleq
+s,GL,Kommune Qeqertalik
+s,GL,Kommuneqarfik Sermersooq
+s,GL,Qeqqata Kommunia
+s,GM,Banjul
+s,GM,Central River
+s,GM,Lower River
+s,GM,North Bank
+s,GM,Upper River
+s,GM,Western
+s,GN,Beyla
+s,GN,Boffa
+s,GN,Boké
+s,GN,Conakry
+s,GN,Coyah
+s,GN,Dabola
+s,GN,Dalaba
+s,GN,Dinguiraye
+s,GN,Dubréka
+s,GN,Faranah
+s,GN,Forécariah
+s,GN,Fria
+s,GN,Gaoual
+s,GN,Guékédou
+s,GN,Kankan
+s,GN,Kindia
+s,GN,Kissidougou
+s,GN,Koubia
+s,GN,Koundara
+s,GN,Kouroussa
+s,GN,Kérouané
+s,GN,Labé
+s,GN,Lola
+s,GN,Lélouma
+s,GN,Macenta
+s,GN,Mali
+s,GN,Mamou
+s,GN,Mandiana
+s,GN,Nzérékoré
+s,GN,Pita
+s,GN,Siguiri
+s,GN,Tougué
+s,GN,Télimélé
+s,GN,Yomou
+s,GQ,Annobón
+s,GQ,Bioko Norte
+s,GQ,Bioko Sur
+s,GQ,Centro Sur
+s,GQ,Djibloho
+s,GQ,Kié-Ntem
+s,GQ,Litoral
+s,GQ,Región Continental
+s,GQ,Región Insular
+s,GQ,Wele-Nzas
+s,GR,Anatoliki Makedonia kai Thraki
+s,GR,Attiki
+s,GR,Dytiki Ellada
+s,GR,Dytiki Makedonia
+s,GR,Ionia Nisia
+s,GR,Ipeiros
+s,GR,Kentriki Makedonia
+s,GR,Kriti
+s,GR,Notio Aigaio
+s,GR,Peloponnisos
+s,GR,Sterea Ellada
+s,GR,Thessalia
+s,GR,Voreio Aigaio
+s,GR,Ágion Óros
+s,GT,Alta Verapaz
+s,GT,Baja Verapaz
+s,GT,Chimaltenango
+s,GT,Chiquimula
+s,GT,El Progreso
+s,GT,Escuintla
+s,GT,Guatemala
+s,GT,Huehuetenango
+s,GT,Izabal
+s,GT,Jalapa
+s,GT,Jutiapa
+s,GT,Petén
+s,GT,Quetzaltenango
+s,GT,Quiche
+s,GT,Retalhuleu
+s,GT,Sacatepequez
+s,GT,San Marcos
+s,GT,Santa Rosa
+s,GT,Solola
+s,GT,Suchitepequez
+s,GT,Totonicapan
+s,GT,Zacapa
+s,GW,Bafatá
+s,GW,Biombo
+s,GW,Bissau
+s,GW,Bolama/Bijagós
+s,GW,Cacheu
+s,GW,Gabú
+s,GW,Leste
+s,GW,Norte
+s,GW,Oio
+s,GW,Quinara
+s,GW,Sul
+s,GW,Tombali
+s,GY,Barima-Waini
+s,GY,Cuyuni-Mazaruni
+s,GY,Demerara-Mahaica
+s,GY,East Berbice-Corentyne
+s,GY,Essequibo Islands-West Demerara
+s,GY,Mahaica-Berbice
+s,GY,Pomeroon-Supenaam
+s,GY,Potaro-Siparuni
+s,GY,Upper Demerara-Berbice
+s,GY,Upper Takutu-Upper Essequibo
+s,HN,Atlantida
+s,HN,Choluteca
+s,HN,Colon
+s,HN,Comayagua
+s,HN,Copan
+s,HN,Cortes
+s,HN,El Paraiso
+s,HN,Francisco Morazan
+s,HN,Gracias a Dios
+s,HN,Intibuca
+s,HN,Islas de la Bahia
+s,HN,La Paz
+s,HN,Lempira
+s,HN,Ocotepeque
+s,HN,Olancho
+s,HN,Santa Barbara
+s,HN,Valle
+s,HN,Yoro
+s,HR,Bjelovarsko-bilogorska zupanija
+s,HR,Brodsko-posavska zupanija
+s,HR,Dubrovacko-neretvanska zupanija
+s,HR,Grad Zagreb
+s,HR,Istarska zupanija
+s,HR,Karlovacka zupanija
+s,HR,Koprivnicko-krizevacka zupanija
+s,HR,Krapinsko-zagorska zupanija
+s,HR,Licko-senjska zupanija
+s,HR,Medimurska zupanija
+s,HR,Osjecko-baranjska zupanija
+s,HR,Pozesko-slavonska zupanija
+s,HR,Primorsko-goranska zupanija
+s,HR,Sibensko-kninska zupanija
+s,HR,Sisacko-moslavacka zupanija
+s,HR,Splitsko-dalmatinska zupanija
+s,HR,Varazdinska zupanija
+s,HR,Viroviticko-podravska zupanija
+s,HR,Vukovarsko-srijemska zupanija
+s,HR,Zadarska zupanija
+s,HR,Zagrebacka zupanija
+s,HT,Artibonite
+s,HT,Centre
+s,HT,Grande'Anse
+s,HT,Nippes
+s,HT,Nord
+s,HT,Nord-Est
+s,HT,Nord-Ouest
+s,HT,Ouest
+s,HT,Sud
+s,HT,Sud-Est
+s,HU,Baranya
+s,HU,Borsod-Abaúj-Zemplén
+s,HU,Budapest
+s,HU,Bács-Kiskun
+s,HU,Békés
+s,HU,Békéscsaba
+s,HU,Csongrád-Csanád
+s,HU,Debrecen
+s,HU,Dunaújváros
+s,HU,Eger
+s,HU,Fejér
+s,HU,Győr
+s,HU,Győr-Moson-Sopron
+s,HU,Hajdú-Bihar
+s,HU,Heves
+s,HU,Hódmezővásárhely
+s,HU,Jász-Nagykun-Szolnok
+s,HU,Kaposvár
+s,HU,Kecskemét
+s,HU,Komárom-Esztergom
+s,HU,Miskolc
+s,HU,Nagykanizsa
+s,HU,Nyíregyháza
+s,HU,Nógrád
+s,HU,Pest
+s,HU,Pécs
+s,HU,Salgótarján
+s,HU,Somogy
+s,HU,Sopron
+s,HU,Szabolcs-Szatmár-Bereg
+s,HU,Szeged
+s,HU,Szekszárd
+s,HU,Szolnok
+s,HU,Szombathely
+s,HU,Székesfehérvár
+s,HU,Tatabánya
+s,HU,Tolna
+s,HU,Vas
+s,HU,Veszprém
+s,HU,Zala
+s,HU,Zalaegerszeg
+s,HU,Érd
+s,ID,Aceh
+s,ID,Bali
+s,ID,Bengkulu
+s,ID,Gorontalo
+s,ID,Jakarta Raya
+s,ID,Jambi
+s,ID,Jawa
+s,ID,Jawa Barat
+s,ID,Jawa Tengah
+s,ID,Jawa Timur
+s,ID,Kalimantan
+s,ID,Kalimantan Barat
+s,ID,Kalimantan Selatan
+s,ID,Kalimantan Tengah
+s,ID,Kalimantan Timur
+s,ID,Kalimantan Utara
+s,ID,Kepulauan Bangka Belitung
+s,ID,Kepulauan Riau
+s,ID,Lampung
+s,ID,Maluku
+s,ID,Maluku Utara
+s,ID,Nusa Tenggara
+s,ID,Nusa Tenggara Barat
+s,ID,Nusa Tenggara Timur
+s,ID,Papua
+s,ID,Papua Barat
+s,ID,Papua Barat Daya
+s,ID,Papua Pengunungan
+s,ID,Papua Selatan
+s,ID,Papua Tengah
+s,ID,Riau
+s,ID,Sulawesi
+s,ID,Sulawesi Barat
+s,ID,Sulawesi Selatan
+s,ID,Sulawesi Tengah
+s,ID,Sulawesi Tenggara
+s,ID,Sulawesi Utara
+s,ID,Sumatera
+s,ID,Sumatera Barat
+s,ID,Sumatera Selatan
+s,ID,Sumatera Utara
+s,ID,Yogyakarta
+s,IE,Carlow
+s,IE,Cavan
+s,IE,Clare
+s,IE,Connaught
+s,IE,Cork
+s,IE,Donegal
+s,IE,Dublin
+s,IE,Galway
+s,IE,Kerry
+s,IE,Kildare
+s,IE,Kilkenny
+s,IE,Laois
+s,IE,Leinster
+s,IE,Leitrim
+s,IE,Limerick
+s,IE,Longford
+s,IE,Louth
+s,IE,Mayo
+s,IE,Meath
+s,IE,Monaghan
+s,IE,Munster
+s,IE,Offaly
+s,IE,Roscommon
+s,IE,Sligo
+s,IE,Tipperary
+s,IE,Ulster
+s,IE,Waterford
+s,IE,Westmeath
+s,IE,Wexford
+s,IE,Wicklow
+s,IL,HaDarom
+s,IL,HaMerkaz
+s,IL,HaTsafon
+s,IL,Hefa
+s,IL,Tel Aviv
+s,IL,Yerushalayim
+s,IN,Andaman and Nicobar Islands
+s,IN,Andhra Pradesh
+s,IN,Arunachal Pradesh
+s,IN,Assam
+s,IN,Bihar
+s,IN,Chandigarh
+s,IN,Chhattisgarh
+s,IN,Dadra and Nagar Haveli and Daman and Diu
+s,IN,Delhi
+s,IN,Goa
+s,IN,Gujarat
+s,IN,Haryana
+s,IN,Himachal Pradesh
+s,IN,Jammu and Kashmir
+s,IN,Jharkhand
+s,IN,Karnataka
+s,IN,Kerala
+s,IN,Ladākh
+s,IN,Lakshadweep
+s,IN,Madhya Pradesh
+s,IN,Maharashtra
+s,IN,Manipur
+s,IN,Meghalaya
+s,IN,Mizoram
+s,IN,Nagaland
+s,IN,Odisha
+s,IN,Puducherry
+s,IN,Punjab
+s,IN,Rajasthan
+s,IN,Sikkim
+s,IN,Tamil Nadu
+s,IN,Telangāna
+s,IN,Tripura
+s,IN,Uttar Pradesh
+s,IN,Uttarākhand
+s,IN,West Bengal
+s,IQ,Al Anbar
+s,IQ,Al Basrah
+s,IQ,Al Muthanna
+s,IQ,Al Qadisiyah
+s,IQ,An Najaf
+s,IQ,Arbil
+s,IQ,As Sulaymaniyah
+s,IQ,Babil
+s,IQ,Baghdad
+s,IQ,Dahuk
+s,IQ,Dhi Qar
+s,IQ,Diyala
+s,IQ,Karbala'
+s,IQ,Kirkuk
+s,IQ,Maysan
+s,IQ,Ninawa
+s,IQ,Salah ad Din
+s,IQ,Wasit
+s,IR,Alborz
+s,IR,Ardabil
+s,IR,Azarbayjan-e Gharbi
+s,IR,Azarbayjan-e Sharqi
+s,IR,Bushehr
+s,IR,Chahar Mahal va Bakhtiari
+s,IR,Esfahan
+s,IR,Fars
+s,IR,Gilan
+s,IR,Golestan
+s,IR,Hamadan
+s,IR,Hormozgan
+s,IR,Ilam
+s,IR,Kerman
+s,IR,Kermanshah
+s,IR,Khorasan-e Jonubi
+s,IR,Khorasan-e Razavi
+s,IR,Khorasan-e Shomali
+s,IR,Khuzestan
+s,IR,Kohgiluyeh va Bowyer Ahmad
+s,IR,Kordestan
+s,IR,Lorestan
+s,IR,Markazi
+s,IR,Mazandaran
+s,IR,Qazvin
+s,IR,Qom
+s,IR,Semnan
+s,IR,Sistan va Baluchestan
+s,IR,Tehran
+s,IR,Yazd
+s,IR,Zanjan
+s,IS,Akraneskaupstaður
+s,IS,Akureyrarbær
+s,IS,Austurland
+s,IS,Bláskógabyggð
+s,IS,Bolungarvíkurkaupstaður
+s,IS,Borgarbyggð
+s,IS,Dalabyggð
+s,IS,Dalvíkurbyggð
+s,IS,Eyja- og Miklaholtshreppur
+s,IS,Eyjafjarðarsveit
+s,IS,Fjallabyggð
+s,IS,Fjarðabyggð
+s,IS,Fljótsdalshreppur
+s,IS,Flóahreppur
+s,IS,Garðabær
+s,IS,Grindavíkurbær
+s,IS,Grundarfjarðarbær
+s,IS,Grímsnes- og Grafningshreppur
+s,IS,Grýtubakkahreppur
+s,IS,Hafnarfjarðarkaupstaður
+s,IS,Hrunamannahreppur
+s,IS,Hvalfjarðarsveit
+s,IS,Hveragerðisbær
+s,IS,Höfuðborgarsvæði
+s,IS,Hörgársveit
+s,IS,Húnabyggð
+s,IS,Húnaþing vestra
+s,IS,Kaldrananeshreppur
+s,IS,Kjósarhreppur
+s,IS,Kópavogsbær
+s,IS,Langanesbyggð
+s,IS,Mosfellsbær
+s,IS,Múlaþing
+s,IS,Mýrdalshreppur
+s,IS,Norðurland eystra
+s,IS,Norðurland vestra
+s,IS,Norðurþing
+s,IS,Rangárþing eystra
+s,IS,Rangárþing ytra
+s,IS,Reykhólahreppur
+s,IS,Reykjanesbær
+s,IS,Reykjavíkurborg
+s,IS,Seltjarnarnesbær
+s,IS,Skaftárhreppur
+s,IS,Skagabyggð
+s,IS,Skagafjörður
+s,IS,Skeiða- og Gnúpverjahreppur
+s,IS,Skorradalshreppur
+s,IS,Snæfellsbær
+s,IS,Strandabyggð
+s,IS,Stykkishólmsbær
+s,IS,Suðurland
+s,IS,Suðurnes
+s,IS,Suðurnesjabær
+s,IS,Svalbarðsstrandarhreppur
+s,IS,Sveitarfélagið Hornafjörður
+s,IS,Sveitarfélagið Skagaströnd
+s,IS,Sveitarfélagið Vogar
+s,IS,Sveitarfélagið Árborg
+s,IS,Sveitarfélagið Ölfus
+s,IS,Súðavíkurhreppur
+s,IS,Tjörneshreppur
+s,IS,Tálknafjarðarhreppur
+s,IS,Vestfirðir
+s,IS,Vestmannaeyjabær
+s,IS,Vesturbyggð
+s,IS,Vesturland
+s,IS,Vopnafjarðarhreppur
+s,IS,Árneshreppur
+s,IS,Ásahreppur
+s,IS,Ísafjarðarbær
+s,IS,Þingeyjarsveit
+s,IT,Abruzzo
+s,IT,Agrigento
+s,IT,Alessandria
+s,IT,Ancona
+s,IT,Arezzo
+s,IT,Ascoli Piceno
+s,IT,Asti
+s,IT,Avellino
+s,IT,Bari
+s,IT,Barletta-Andria-Trani
+s,IT,Basilicata
+s,IT,Belluno
+s,IT,Benevento
+s,IT,Bergamo
+s,IT,Biella
+s,IT,Bologna
+s,IT,Bolzano
+s,IT,Brescia
+s,IT,Brindisi
+s,IT,Cagliari
+s,IT,Calabria
+s,IT,Caltanissetta
+s,IT,Campania
+s,IT,Campobasso
+s,IT,Caserta
+s,IT,Catania
+s,IT,Catanzaro
+s,IT,Chieti
+s,IT,Como
+s,IT,Cosenza
+s,IT,Cremona
+s,IT,Crotone
+s,IT,Cuneo
+s,IT,Emilia-Romagna
+s,IT,Enna
+s,IT,Fermo
+s,IT,Ferrara
+s,IT,Firenze
+s,IT,Foggia
+s,IT,Forlì-Cesena
+s,IT,Friuli Venezia Giulia
+s,IT,Frosinone
+s,IT,Genova
+s,IT,Gorizia
+s,IT,Grosseto
+s,IT,Imperia
+s,IT,Isernia
+s,IT,L'Aquila
+s,IT,La Spezia
+s,IT,Latina
+s,IT,Lazio
+s,IT,Lecce
+s,IT,Lecco
+s,IT,Liguria
+s,IT,Livorno
+s,IT,Lodi
+s,IT,Lombardia
+s,IT,Lucca
+s,IT,Macerata
+s,IT,Mantova
+s,IT,Marche
+s,IT,Massa-Carrara
+s,IT,Matera
+s,IT,Messina
+s,IT,Milano
+s,IT,Modena
+s,IT,Molise
+s,IT,Monza e Brianza
+s,IT,Napoli
+s,IT,Novara
+s,IT,Nuoro
+s,IT,Oristano
+s,IT,Padova
+s,IT,Palermo
+s,IT,Parma
+s,IT,Pavia
+s,IT,Perugia
+s,IT,Pesaro e Urbino
+s,IT,Pescara
+s,IT,Piacenza
+s,IT,Piemonte
+s,IT,Pisa
+s,IT,Pistoia
+s,IT,Pordenone
+s,IT,Potenza
+s,IT,Prato
+s,IT,Puglia
+s,IT,Ragusa
+s,IT,Ravenna
+s,IT,Reggio Calabria
+s,IT,Reggio Emilia
+s,IT,Rieti
+s,IT,Rimini
+s,IT,Roma
+s,IT,Rovigo
+s,IT,Salerno
+s,IT,Sardegna
+s,IT,Sassari
+s,IT,Savona
+s,IT,Sicilia
+s,IT,Siena
+s,IT,Siracusa
+s,IT,Sondrio
+s,IT,Sud Sardegna
+s,IT,Taranto
+s,IT,Teramo
+s,IT,Terni
+s,IT,Torino
+s,IT,Toscana
+s,IT,Trapani
+s,IT,Trentino-Alto Adige
+s,IT,Trento
+s,IT,Treviso
+s,IT,Trieste
+s,IT,Udine
+s,IT,Umbria
+s,IT,Valle d'Aosta
+s,IT,Varese
+s,IT,Veneto
+s,IT,Venezia
+s,IT,Verbano-Cusio-Ossola
+s,IT,Vercelli
+s,IT,Verona
+s,IT,Vibo Valentia
+s,IT,Vicenza
+s,IT,Viterbo
+s,JM,Clarendon
+s,JM,Hanover
+s,JM,Kingston
+s,JM,Manchester
+s,JM,Portland
+s,JM,Saint Andrew
+s,JM,Saint Ann
+s,JM,Saint Catherine
+s,JM,Saint Elizabeth
+s,JM,Saint James
+s,JM,Saint Mary
+s,JM,Saint Thomas
+s,JM,Trelawny
+s,JM,Westmoreland
+s,JO,'Ajlun
+s,JO,Al 'Aqabah
+s,JO,Al 'Asimah
+s,JO,Al Balqa'
+s,JO,Al Karak
+s,JO,Al Mafraq
+s,JO,At Tafilah
+s,JO,Az Zarqa'
+s,JO,Irbid
+s,JO,Jarash
+s,JO,Ma'an
+s,JO,Madaba
+s,JP,Aichi
+s,JP,Akita
+s,JP,Aomori
+s,JP,Chiba
+s,JP,Ehime
+s,JP,Fukui
+s,JP,Fukuoka
+s,JP,Fukushima
+s,JP,Gifu
+s,JP,Gunma
+s,JP,Hiroshima
+s,JP,Hokkaido
+s,JP,Hyogo
+s,JP,Ibaraki
+s,JP,Ishikawa
+s,JP,Iwate
+s,JP,Kagawa
+s,JP,Kagoshima
+s,JP,Kanagawa
+s,JP,Kochi
+s,JP,Kumamoto
+s,JP,Kyoto
+s,JP,Mie
+s,JP,Miyagi
+s,JP,Miyazaki
+s,JP,Nagano
+s,JP,Nagasaki
+s,JP,Nara
+s,JP,Niigata
+s,JP,Oita
+s,JP,Okayama
+s,JP,Okinawa
+s,JP,Osaka
+s,JP,Saga
+s,JP,Saitama
+s,JP,Shiga
+s,JP,Shimane
+s,JP,Shizuoka
+s,JP,Tochigi
+s,JP,Tokushima
+s,JP,Tokyo
+s,JP,Tottori
+s,JP,Toyama
+s,JP,Wakayama
+s,JP,Yamagata
+s,JP,Yamaguchi
+s,JP,Yamanashi
+s,KE,Baringo
+s,KE,Bomet
+s,KE,Bungoma
+s,KE,Busia
+s,KE,Elgeyo/Marakwet
+s,KE,Embu
+s,KE,Garissa
+s,KE,Homa Bay
+s,KE,Isiolo
+s,KE,Kajiado
+s,KE,Kakamega
+s,KE,Kericho
+s,KE,Kiambu
+s,KE,Kilifi
+s,KE,Kirinyaga
+s,KE,Kisii
+s,KE,Kisumu
+s,KE,Kitui
+s,KE,Kwale
+s,KE,Laikipia
+s,KE,Lamu
+s,KE,Machakos
+s,KE,Makueni
+s,KE,Mandera
+s,KE,Marsabit
+s,KE,Meru
+s,KE,Migori
+s,KE,Mombasa
+s,KE,Murang'a
+s,KE,Nairobi City
+s,KE,Nakuru
+s,KE,Nandi
+s,KE,Narok
+s,KE,Nyamira
+s,KE,Nyandarua
+s,KE,Nyeri
+s,KE,Samburu
+s,KE,Siaya
+s,KE,Taita/Taveta
+s,KE,Tana River
+s,KE,Tharaka-Nithi
+s,KE,Trans Nzoia
+s,KE,Turkana
+s,KE,Uasin Gishu
+s,KE,Vihiga
+s,KE,Wajir
+s,KE,West Pokot
+s,KG,Bishkek Shaary
+s,KG,Chuy
+s,KG,Jalal-Abad
+s,KG,Naryn
+s,KG,Osh
+s,KG,Osh Shaary
+s,KG,Talas
+s,KG,Ysyk-Kol
+s,KH,Baat Dambang
+s,KH,Banteay Mean Choay
+s,KH,Kaeb
+s,KH,Kampong Chaam
+s,KH,Kampong Chhnang
+s,KH,Kampong Spueu
+s,KH,Kampong Thum
+s,KH,Kampot
+s,KH,Kandaal
+s,KH,Kaoh Kong
+s,KH,Kracheh
+s,KH,Mondol Kiri
+s,KH,Otdar Mean Chey
+s,KH,Pailin
+s,KH,Phnom Penh
+s,KH,Pousaat
+s,KH,Preah Sihanouk
+s,KH,Preah Vihear
+s,KH,Prey Veaeng
+s,KH,Rotanak Kiri
+s,KH,Siem Reab
+s,KH,Stueng Traeng
+s,KH,Svaay Rieng
+s,KH,Taakaev
+s,KH,Tbong Khmum
+s,KI,Gilbert Islands
+s,KI,Line Islands
+s,KI,Phoenix Islands
+s,KM,Anjouan
+s,KM,Grande Comore
+s,KM,Mohéli
+s,KN,Christ Church Nichola Town
+s,KN,Nevis
+s,KN,Saint Anne Sandy Point
+s,KN,Saint George Basseterre
+s,KN,Saint George Gingerland
+s,KN,Saint James Windward
+s,KN,Saint John Capisterre
+s,KN,Saint John Figtree
+s,KN,Saint Kitts
+s,KN,Saint Mary Cayon
+s,KN,Saint Paul Capisterre
+s,KN,Saint Paul Charlestown
+s,KN,Saint Peter Basseterre
+s,KN,Saint Thomas Lowland
+s,KN,Saint Thomas Middle Island
+s,KN,Trinity Palmetto Point
+s,KP,Hamkyeongnamto
+s,KP,Hamkyeongpukto
+s,KP,Hwanghainamto
+s,KP,Hwanghaipukto
+s,KP,Jakangto
+s,KP,Kaeseong
+s,KP,Kangweonto
+s,KP,Nampho
+s,KP,Phyeongannamto
+s,KP,Phyeonganpukto
+s,KP,Phyeongyang
+s,KP,Raseon
+s,KP,Ryangkangto
+s,KR,Busan-gwangyeoksi
+s,KR,Chungcheongbuk-do
+s,KR,Chungcheongnam-do
+s,KR,Daegu-gwangyeoksi
+s,KR,Daejeon-gwangyeoksi
+s,KR,Gangwon-do
+s,KR,Gwangju-gwangyeoksi
+s,KR,Gyeonggi-do
+s,KR,Gyeongsangbuk-do
+s,KR,Gyeongsangnam-do
+s,KR,Incheon-gwangyeoksi
+s,KR,Jeju-teukbyeoljachido
+s,KR,Jeollabuk-do
+s,KR,Jeollanam-do
+s,KR,Sejong
+s,KR,Seoul-teukbyeolsi
+s,KR,Ulsan-gwangyeoksi
+s,KW,Al 'Asimah
+s,KW,Al Ahmadi
+s,KW,Al Farwaniyah
+s,KW,Al Jahra'
+s,KW,Hawalli
+s,KW,Mubarak al Kabir
+s,KZ,Abai
+s,KZ,Akmola
+s,KZ,Aktobe
+s,KZ,Almaty
+s,KZ,Almaty City
+s,KZ,Astana
+s,KZ,Atyrau
+s,KZ,East Kazakhstan
+s,KZ,Jambyl
+s,KZ,Jetisu
+s,KZ,Karaganda
+s,KZ,Kostanay
+s,KZ,Kyzylorda
+s,KZ,Mangystau
+s,KZ,North Kazakhstan
+s,KZ,Pavlodar
+s,KZ,Shymkent
+s,KZ,Turkistan
+s,KZ,Ulytau
+s,KZ,West Kazakhstan
+s,LA,Attapu
+s,LA,Bokèo
+s,LA,Bolikhamxai
+s,LA,Champasak
+s,LA,Houaphan
+s,LA,Khammouan
+s,LA,Louang Namtha
+s,LA,Louangphabang
+s,LA,Oudomxai
+s,LA,Phongsali
+s,LA,Salavan
+s,LA,Savannakhet
+s,LA,Viangchan
+s,LA,Xaignabouli
+s,LA,Xaisômboun
+s,LA,Xekong
+s,LA,Xiangkhouang
+s,LB,Aakkar
+s,LB,Baalbek-Hermel
+s,LB,Beqaa
+s,LB,Beyrouth
+s,LB,Liban-Nord
+s,LB,Liban-Sud
+s,LB,Mont-Liban
+s,LB,Nabatiye
+s,LC,Anse la Raye
+s,LC,Castries
+s,LC,Choiseul
+s,LC,Dennery
+s,LC,Gros Islet
+s,LC,Laborie
+s,LC,Micoud
+s,LC,Soufriere
+s,LC,Vieux Fort
+s,LI,Balzers
+s,LI,Eschen
+s,LI,Gamprin
+s,LI,Mauren
+s,LI,Planken
+s,LI,Ruggell
+s,LI,Schaan
+s,LI,Schellenberg
+s,LI,Triesen
+s,LI,Triesenberg
+s,LI,Vaduz
+s,LK,Ampāra
+s,LK,Anurādhapura
+s,LK,Badulla
+s,LK,Basnāhira paḷāta
+s,LK,Dakuṇu paḷāta
+s,LK,Gampaha
+s,LK,Gālla
+s,LK,Hambantŏṭa
+s,LK,Kaḷutara
+s,LK,Kilinŏchchi
+s,LK,Kuruṇægala
+s,LK,Kægalla
+s,LK,Kŏḷamba
+s,LK,Madhyama paḷāta
+s,LK,Mahanuvara
+s,LK,Mannārama
+s,LK,Maḍakalapuva
+s,LK,Mulativ
+s,LK,Mātale
+s,LK,Mātara
+s,LK,Mŏṇarāgala
+s,LK,Nuvara Ĕliya
+s,LK,Næ̆gĕnahira paḷāta
+s,LK,Puttalama
+s,LK,Pŏḷŏnnaruva
+s,LK,Ratnapura
+s,LK,Sabaragamuva paḷāta
+s,LK,Trikuṇāmalaya
+s,LK,Uturu paḷāta
+s,LK,Uturumæ̆da paḷāta
+s,LK,Vavuniyāva
+s,LK,Vayamba paḷāta
+s,LK,Yāpanaya
+s,LK,Ūva paḷāta
+s,LR,Bomi
+s,LR,Bong
+s,LR,Gbarpolu
+s,LR,Grand Bassa
+s,LR,Grand Cape Mount
+s,LR,Grand Gedeh
+s,LR,Grand Kru
+s,LR,Lofa
+s,LR,Margibi
+s,LR,Maryland
+s,LR,Montserrado
+s,LR,Nimba
+s,LR,River Cess
+s,LR,River Gee
+s,LR,Sinoe
+s,LS,Berea
+s,LS,Botha-Bothe
+s,LS,Leribe
+s,LS,Mafeteng
+s,LS,Maseru
+s,LS,Mohale's Hoek
+s,LS,Mokhotlong
+s,LS,Qacha's Nek
+s,LS,Quthing
+s,LS,Thaba-Tseka
+s,LT,Akmenė
+s,LT,Alytaus apskritis
+s,LT,Alytaus miestas
+s,LT,Alytus
+s,LT,Anykščiai
+s,LT,Birštonas
+s,LT,Biržai
+s,LT,Druskininkai
+s,LT,Elektrėnai
+s,LT,Ignalina
+s,LT,Jonava
+s,LT,Joniškis
+s,LT,Jurbarkas
+s,LT,Kaišiadorys
+s,LT,Kalvarija
+s,LT,Kaunas
+s,LT,Kauno apskritis
+s,LT,Kauno miestas
+s,LT,Kazlų Rūdos
+s,LT,Kelmė
+s,LT,Klaipėda
+s,LT,Klaipėdos apskritis
+s,LT,Klaipėdos miestas
+s,LT,Kretinga
+s,LT,Kupiškis
+s,LT,Kėdainiai
+s,LT,Lazdijai
+s,LT,Marijampolė
+s,LT,Marijampolės apskritis
+s,LT,Mažeikiai
+s,LT,Molėtai
+s,LT,Neringa
+s,LT,Pagėgiai
+s,LT,Pakruojis
+s,LT,Palangos miestas
+s,LT,Panevėžio apskritis
+s,LT,Panevėžio miestas
+s,LT,Panevėžys
+s,LT,Pasvalys
+s,LT,Plungė
+s,LT,Prienai
+s,LT,Radviliškis
+s,LT,Raseiniai
+s,LT,Rietavas
+s,LT,Rokiškis
+s,LT,Skuodas
+s,LT,Tauragė
+s,LT,Tauragės apskritis
+s,LT,Telšiai
+s,LT,Telšių apskritis
+s,LT,Trakai
+s,LT,Ukmergė
+s,LT,Utena
+s,LT,Utenos apskritis
+s,LT,Varėna
+s,LT,Vilkaviškis
+s,LT,Vilniaus apskritis
+s,LT,Vilniaus miestas
+s,LT,Vilnius
+s,LT,Visaginas
+s,LT,Zarasai
+s,LT,Šakiai
+s,LT,Šalčininkai
+s,LT,Šiauliai
+s,LT,Šiaulių apskritis
+s,LT,Šiaulių miestas
+s,LT,Šilalė
+s,LT,Šilutė
+s,LT,Širvintos
+s,LT,Švenčionys
+s,LU,Capellen
+s,LU,Clervaux
+s,LU,Diekirch
+s,LU,Echternach
+s,LU,Esch-sur-Alzette
+s,LU,Grevenmacher
+s,LU,Luxembourg
+s,LU,Mersch
+s,LU,Redange
+s,LU,Remich
+s,LU,Vianden
+s,LU,Wiltz
+s,LV,Adazu novads
+s,LV,Aizkraukles novads
+s,LV,Aluksnes novads
+s,LV,Augsdaugavas novads
+s,LV,Balvu novads
+s,LV,Bauskas novads
+s,LV,Cesu novads
+s,LV,Daugavpils
+s,LV,Dienvidkurzemes novads
+s,LV,Dobeles novads
+s,LV,Gulbenes novads
+s,LV,Jekabpils novads
+s,LV,Jelgava
+s,LV,Jelgavas novads
+s,LV,Jurmala
+s,LV,Kekavas novads
+s,LV,Kraslavas novads
+s,LV,Kuldigas novads
+s,LV,Liepaja
+s,LV,Limbazu novads
+s,LV,Livanu novads
+s,LV,Ludzas novads
+s,LV,Madonas novads
+s,LV,Marupes novads
+s,LV,Ogres novads
+s,LV,Olaines novads
+s,LV,Preilu novads
+s,LV,Rezeknes novads
+s,LV,Riga
+s,LV,Ropazu novads
+s,LV,Rēzekne
+s,LV,Salaspils novads
+s,LV,Saldus novads
+s,LV,Saulkrastu novads
+s,LV,Siguldas novads
+s,LV,Smiltenes novads
+s,LV,Talsu novads
+s,LV,Tukuma novads
+s,LV,Valkas novads
+s,LV,Valmieras novads
+s,LV,Varaklanu novads
+s,LV,Ventspils
+s,LV,Ventspils novads
+s,LY,Al Butnan
+s,LY,Al Jabal al Akhdar
+s,LY,Al Jabal al Gharbi
+s,LY,Al Jafarah
+s,LY,Al Jufrah
+s,LY,Al Kufrah
+s,LY,Al Marj
+s,LY,Al Marqab
+s,LY,Al Wahat
+s,LY,An Nuqat al Khams
+s,LY,Az Zawiyah
+s,LY,Banghazi
+s,LY,Darnah
+s,LY,Ghat
+s,LY,Misratah
+s,LY,Murzuq
+s,LY,Nalut
+s,LY,Sabha
+s,LY,Surt
+s,LY,Tarabulus
+s,LY,Wadi al Hayaa
+s,LY,Wadi ash Shati'
+s,MA,Agadir-Ida-Ou-Tanane
+s,MA,Al Haouz
+s,MA,Al Hoceïma
+s,MA,Aousserd
+s,MA,Assa-Zag
+s,MA,Azilal
+s,MA,Benslimane
+s,MA,Berkane
+s,MA,Berrechid
+s,MA,Boujdour
+s,MA,Boulemane
+s,MA,Béni Mellal
+s,MA,Béni Mellal-Khénifra
+s,MA,Casablanca
+s,MA,Casablanca-Settat
+s,MA,Chichaoua
+s,MA,Chtouka-Ait Baha
+s,MA,Dakhla-Oued Ed-Dahab
+s,MA,Driouch
+s,MA,Drâa-Tafilalet
+s,MA,El Hajeb
+s,MA,El Jadida
+s,MA,El Kelâa des Sraghna
+s,MA,Errachidia
+s,MA,Es-Semara
+s,MA,Essaouira
+s,MA,Fahs-Anjra
+s,MA,Figuig
+s,MA,Fquih Ben Salah
+s,MA,Fès
+s,MA,Fès-Meknès
+s,MA,Guelmim
+s,MA,Guelmim-Oued Noun
+s,MA,Guercif
+s,MA,Ifrane
+s,MA,Inezgane-Ait Melloul
+s,MA,Jerada
+s,MA,Khouribga
+s,MA,Khémisset
+s,MA,Khénifra
+s,MA,Kénitra
+s,MA,L'Oriental
+s,MA,Larache
+s,MA,Laâyoune
+s,MA,Laâyoune-Sakia El Hamra
+s,MA,Marrakech
+s,MA,Marrakech-Safi
+s,MA,Meknès
+s,MA,Midelt
+s,MA,Mohammadia
+s,MA,Moulay Yacoub
+s,MA,Médiouna
+s,MA,M’diq-Fnideq
+s,MA,Nador
+s,MA,Nouaceur
+s,MA,Ouarzazate
+s,MA,Oued Ed-Dahab
+s,MA,Ouezzane
+s,MA,Oujda-Angad
+s,MA,Rabat
+s,MA,Rabat-Salé-Kénitra
+s,MA,Rehamna
+s,MA,Safi
+s,MA,Salé
+s,MA,Sefrou
+s,MA,Settat
+s,MA,Sidi Bennour
+s,MA,Sidi Ifni
+s,MA,Sidi Kacem
+s,MA,Sidi Slimane
+s,MA,Skhirate-Témara
+s,MA,Souss-Massa
+s,MA,Tan-Tan
+s,MA,Tanger-Assilah
+s,MA,Tanger-Tétouan-Al Hoceïma
+s,MA,Taounate
+s,MA,Taourirt
+s,MA,Tarfaya
+s,MA,Taroudannt
+s,MA,Tata
+s,MA,Taza
+s,MA,Tinghir
+s,MA,Tiznit
+s,MA,Tétouan
+s,MA,Youssoufia
+s,MA,Zagora
+s,MC,Fontvieille
+s,MC,Jardin Exotique
+s,MC,La Colle
+s,MC,La Condamine
+s,MC,La Gare
+s,MC,La Source
+s,MC,Larvotto
+s,MC,Malbousquet
+s,MC,Monaco-Ville
+s,MC,Moneghetti
+s,MC,Monte-Carlo
+s,MC,Moulins
+s,MC,Port-Hercule
+s,MC,Saint-Roman
+s,MC,Sainte-Dévote
+s,MC,Spélugues
+s,MC,Vallon de la Rousse
+s,MD,Anenii Noi
+s,MD,Balti
+s,MD,Basarabeasca
+s,MD,Bender
+s,MD,Briceni
+s,MD,Cahul
+s,MD,Calarasi
+s,MD,Cantemir
+s,MD,Causeni
+s,MD,Chisinau
+s,MD,Cimislia
+s,MD,Criuleni
+s,MD,Donduseni
+s,MD,Drochia
+s,MD,Dubasari
+s,MD,Edinet
+s,MD,Falesti
+s,MD,Floresti
+s,MD,"Gagauzia, Unitatea teritoriala autonoma"
+s,MD,Glodeni
+s,MD,Hincesti
+s,MD,Ialoveni
+s,MD,Leova
+s,MD,Nisporeni
+s,MD,Ocnita
+s,MD,Orhei
+s,MD,Rezina
+s,MD,Riscani
+s,MD,Singerei
+s,MD,Soldanesti
+s,MD,Soroca
+s,MD,Stefan Voda
+s,MD,"Stinga Nistrului, unitatea teritoriala din"
+s,MD,Straseni
+s,MD,Taraclia
+s,MD,Telenesti
+s,MD,Ungheni
+s,ME,Andrijevica
+s,ME,Bar
+s,ME,Berane
+s,ME,Bijelo Polje
+s,ME,Budva
+s,ME,Cetinje
+s,ME,Danilovgrad
+s,ME,Gusinje
+s,ME,Herceg-Novi
+s,ME,Kolašin
+s,ME,Kotor
+s,ME,Mojkovac
+s,ME,Niksic
+s,ME,Petnjica
+s,ME,Plav
+s,ME,Pljevlja
+s,ME,Pluzine
+s,ME,Podgorica
+s,ME,Rozaje
+s,ME,Tivat
+s,ME,Tuzi
+s,ME,Ulcinj
+s,ME,Zabljak
+s,ME,Zeta
+s,ME,Šavnik
+s,MG,Antananarivo
+s,MG,Antsiranana
+s,MG,Fianarantsoa
+s,MG,Mahajanga
+s,MG,Toamasina
+s,MG,Toliara
+s,MH,Ailinglaplap
+s,MH,Ailuk
+s,MH,Arno
+s,MH,Aur
+s,MH,Bikini & Kili
+s,MH,Ebon
+s,MH,Enewetak & Ujelang
+s,MH,Jabat
+s,MH,Jaluit
+s,MH,Kwajalein
+s,MH,Lae
+s,MH,Lib
+s,MH,Likiep
+s,MH,Majuro
+s,MH,Maloelap
+s,MH,Mejit
+s,MH,Mili
+s,MH,Namdrik
+s,MH,Namu
+s,MH,Ralik chain
+s,MH,Ratak chain
+s,MH,Rongelap
+s,MH,Ujae
+s,MH,Utrik
+s,MH,Wotho
+s,MH,Wotje
+s,MK,Aerodrom
+s,MK,Aracinovo
+s,MK,Berovo
+s,MK,Bitola
+s,MK,Bogdanci
+s,MK,Bogovinje
+s,MK,Bosilovo
+s,MK,Brvenica
+s,MK,Butel
+s,MK,Caska
+s,MK,Centar
+s,MK,Centar Župa
+s,MK,Cesinovo-Oblesevo
+s,MK,Cucer Sandevo
+s,MK,Debar
+s,MK,Debrca
+s,MK,Delcevo
+s,MK,Demir Hisar
+s,MK,Demir Kapija
+s,MK,Dojran
+s,MK,Dolneni
+s,MK,Gazi Baba
+s,MK,Gevgelija
+s,MK,Gjorče Petrov
+s,MK,Gostivar
+s,MK,Gradsko
+s,MK,Ilinden
+s,MK,Jegunovce
+s,MK,Karbinci
+s,MK,Karpoš
+s,MK,Kavadarci
+s,MK,Kicevo
+s,MK,Kisela Voda
+s,MK,Kocani
+s,MK,Konče
+s,MK,Kratovo
+s,MK,Kriva Palanka
+s,MK,Krivogaštani
+s,MK,Krusevo
+s,MK,Kumanovo
+s,MK,Lipkovo
+s,MK,Lozovo
+s,MK,Makedonska Kamenica
+s,MK,Makedonski Brod
+s,MK,Mavrovo i Rostusa
+s,MK,Mogila
+s,MK,Negotino
+s,MK,Novaci
+s,MK,Novo Selo
+s,MK,Ohrid
+s,MK,Pehcevo
+s,MK,Petrovec
+s,MK,Plasnica
+s,MK,Prilep
+s,MK,Probistip
+s,MK,Radovis
+s,MK,Rankovce
+s,MK,Resen
+s,MK,Rosoman
+s,MK,Saraj
+s,MK,Sopiste
+s,MK,Staro Nagoričane
+s,MK,Stip
+s,MK,Struga
+s,MK,Strumica
+s,MK,Studenicani
+s,MK,Sveti Nikole
+s,MK,Tearce
+s,MK,Tetovo
+s,MK,Valandovo
+s,MK,Vasilevo
+s,MK,Veles
+s,MK,Vevcani
+s,MK,Vinica
+s,MK,Vrapciste
+s,MK,Zelenikovo
+s,MK,Zelino
+s,MK,Zrnovci
+s,MK,Čair
+s,MK,Šuto Orizari
+s,ML,Bamako
+s,ML,Gao
+s,ML,Kayes
+s,ML,Kidal
+s,ML,Koulikoro
+s,ML,Mopti
+s,ML,Ménaka
+s,ML,Sikasso
+s,ML,Ségou
+s,ML,Taoudénit
+s,ML,Tombouctou
+s,MM,Ayeyarwady
+s,MM,Bago
+s,MM,Chin
+s,MM,Kachin
+s,MM,Kayah
+s,MM,Kayin
+s,MM,Magway
+s,MM,Mandalay
+s,MM,Mon
+s,MM,Nay Pyi Taw
+s,MM,Rakhine
+s,MM,Sagaing
+s,MM,Shan
+s,MM,Tanintharyi
+s,MM,Yangon
+s,MN,Arhangay
+s,MN,Bayan-Ölgiy
+s,MN,Bayanhongor
+s,MN,Bulgan
+s,MN,Darhan uul
+s,MN,Dornod
+s,MN,Dornogovi
+s,MN,Dundgovĭ
+s,MN,Dzavhan
+s,MN,Govi-Altay
+s,MN,Govi-Sumber
+s,MN,Hentiy
+s,MN,Hovd
+s,MN,Hövsgöl
+s,MN,Orhon
+s,MN,Selenge
+s,MN,Sühbaatar
+s,MN,Tov
+s,MN,Ulaanbaatar
+s,MN,Uvs
+s,MN,Ömnögovĭ
+s,MN,Övörhangay
+s,MR,Adrar
+s,MR,Assaba
+s,MR,Brakna
+s,MR,Dakhlet Nouadhibou
+s,MR,Gorgol
+s,MR,Guidimaka
+s,MR,Hodh ech Chargui
+s,MR,Hodh el Gharbi
+s,MR,Inchiri
+s,MR,North Nouakchott
+s,MR,South Nouakchott
+s,MR,Tagant
+s,MR,Tiris Zemmour
+s,MR,Trarza
+s,MR,West Nouakchott
+s,MT,Attard
+s,MT,Balzan
+s,MT,Birgu
+s,MT,Birkirkara
+s,MT,Birzebbuga
+s,MT,Bormla
+s,MT,Dingli
+s,MT,Fgura
+s,MT,Floriana
+s,MT,Fontana
+s,MT,Gharb
+s,MT,Gharghur
+s,MT,Ghasri
+s,MT,Ghaxaq
+s,MT,Gudja
+s,MT,Gzira
+s,MT,Għajnsielem
+s,MT,Hamrun
+s,MT,Iklin
+s,MT,Isla
+s,MT,Kalkara
+s,MT,Kercem
+s,MT,Kirkop
+s,MT,Lija
+s,MT,Luqa
+s,MT,Marsa
+s,MT,Marsaskala
+s,MT,Marsaxlokk
+s,MT,Mdina
+s,MT,Mellieha
+s,MT,Mgarr
+s,MT,Mosta
+s,MT,Mqabba
+s,MT,Msida
+s,MT,Mtarfa
+s,MT,Munxar
+s,MT,Nadur
+s,MT,Naxxar
+s,MT,Paola
+s,MT,Pembroke
+s,MT,Pieta
+s,MT,Qala
+s,MT,Qormi
+s,MT,Qrendi
+s,MT,Rabat Gozo
+s,MT,Rabat Malta
+s,MT,Safi
+s,MT,Saint John
+s,MT,Saint Julian's
+s,MT,Saint Lawrence
+s,MT,Saint Lucia's
+s,MT,Saint Paul's Bay
+s,MT,Sannat
+s,MT,Santa Venera
+s,MT,Siggiewi
+s,MT,Sliema
+s,MT,Swieqi
+s,MT,Ta' Xbiex
+s,MT,Tarxien
+s,MT,Valletta
+s,MT,Xaghra
+s,MT,Xewkija
+s,MT,Xghajra
+s,MT,Zabbar
+s,MT,Zebbug Gozo
+s,MT,Zejtun
+s,MT,Zurrieq
+s,MT,Żebbuġ Malta
+s,MU,Black River
+s,MU,Flacq
+s,MU,Grand Port
+s,MU,Moka
+s,MU,Pamplemousses
+s,MU,Plaines Wilhems
+s,MU,Port Louis
+s,MU,Riviere du Rempart
+s,MU,Rodrigues Islands
+s,MU,Savanne
+s,MV,Addu City
+s,MV,Faadhippolhu
+s,MV,Felidhu Atoll
+s,MV,Fuvammulah
+s,MV,Hahdhunmathi
+s,MV,Kolhumadulu
+s,MV,Male
+s,MV,Male Atoll
+s,MV,Mulaku Atoll
+s,MV,North Ari Atoll
+s,MV,North Huvadhu Atoll
+s,MV,North Maalhosmadulu
+s,MV,North Miladhunmadulu
+s,MV,North Nilandhe Atoll
+s,MV,North Thiladhunmathi
+s,MV,South Ari Atoll
+s,MV,South Huvadhu Atoll
+s,MV,South Maalhosmadulu
+s,MV,South Miladhunmadulu
+s,MV,South Nilandhe Atoll
+s,MV,South Thiladhunmathi
+s,MW,Balaka
+s,MW,Blantyre
+s,MW,Central Region
+s,MW,Chikwawa
+s,MW,Chiradzulu
+s,MW,Chitipa
+s,MW,Dedza
+s,MW,Dowa
+s,MW,Karonga
+s,MW,Kasungu
+s,MW,Likoma
+s,MW,Lilongwe
+s,MW,Machinga
+s,MW,Mangochi
+s,MW,Mchinji
+s,MW,Mulanje
+s,MW,Mwanza
+s,MW,Mzimba
+s,MW,Neno
+s,MW,Nkhata Bay
+s,MW,Nkhotakota
+s,MW,Northern Region
+s,MW,Nsanje
+s,MW,Ntcheu
+s,MW,Ntchisi
+s,MW,Phalombe
+s,MW,Rumphi
+s,MW,Salima
+s,MW,Southern Region
+s,MW,Thyolo
+s,MW,Zomba
+s,MX,Aguascalientes
+s,MX,Baja California
+s,MX,Baja California Sur
+s,MX,Campeche
+s,MX,Chiapas
+s,MX,Chihuahua
+s,MX,Ciudad de Mexico
+s,MX,Coahuila de Zaragoza
+s,MX,Colima
+s,MX,Durango
+s,MX,Guanajuato
+s,MX,Guerrero
+s,MX,Hidalgo
+s,MX,Jalisco
+s,MX,Mexico
+s,MX,Michoacan de Ocampo
+s,MX,Morelos
+s,MX,Nayarit
+s,MX,Nuevo Leon
+s,MX,Oaxaca
+s,MX,Puebla
+s,MX,Queretaro
+s,MX,Quintana Roo
+s,MX,San Luis Potosi
+s,MX,Sinaloa
+s,MX,Sonora
+s,MX,Tabasco
+s,MX,Tamaulipas
+s,MX,Tlaxcala
+s,MX,Veracruz de Ignacio de la Llave
+s,MX,Yucatan
+s,MX,Zacatecas
+s,MY,Johor
+s,MY,Kedah
+s,MY,Kelantan
+s,MY,Melaka
+s,MY,Negeri Sembilan
+s,MY,Pahang
+s,MY,Perak
+s,MY,Perlis
+s,MY,Pulau Pinang
+s,MY,Sabah
+s,MY,Sarawak
+s,MY,Selangor
+s,MY,Terengganu
+s,MY,Wilayah Persekutuan Kuala Lumpur
+s,MY,Wilayah Persekutuan Labuan
+s,MY,Wilayah Persekutuan Putrajaya
+s,MZ,Cabo Delgado
+s,MZ,Gaza
+s,MZ,Inhambane
+s,MZ,Manica
+s,MZ,Maputo
+s,MZ,Nampula
+s,MZ,Niassa
+s,MZ,Sofala
+s,MZ,Tete
+s,MZ,Zambezia
+s,NA,Erongo
+s,NA,Hardap
+s,NA,Karas
+s,NA,Kavango East
+s,NA,Khomas
+s,NA,Kunene
+s,NA,Ohangwena
+s,NA,Omaheke
+s,NA,Omusati
+s,NA,Oshana
+s,NA,Oshikoto
+s,NA,Otjozondjupa
+s,NA,Zambezi
+s,NE,Agadez
+s,NE,Diffa
+s,NE,Dosso
+s,NE,Maradi
+s,NE,Niamey
+s,NE,Tahoua
+s,NE,Tillaberi
+s,NE,Zinder
+s,NG,Abia
+s,NG,Abuja Federal Capital Territory
+s,NG,Adamawa
+s,NG,Akwa Ibom
+s,NG,Anambra
+s,NG,Bauchi
+s,NG,Bayelsa
+s,NG,Benue
+s,NG,Borno
+s,NG,Cross River
+s,NG,Delta
+s,NG,Ebonyi
+s,NG,Edo
+s,NG,Ekiti
+s,NG,Enugu
+s,NG,Gombe
+s,NG,Imo
+s,NG,Jigawa
+s,NG,Kaduna
+s,NG,Kano
+s,NG,Katsina
+s,NG,Kebbi
+s,NG,Kogi
+s,NG,Kwara
+s,NG,Lagos
+s,NG,Nasarawa
+s,NG,Niger
+s,NG,Ogun
+s,NG,Ondo
+s,NG,Osun
+s,NG,Oyo
+s,NG,Plateau
+s,NG,Rivers
+s,NG,Sokoto
+s,NG,Taraba
+s,NG,Yobe
+s,NG,Zamfara
+s,NI,Boaco
+s,NI,Carazo
+s,NI,Chinandega
+s,NI,Chontales
+s,NI,Costa Caribe Norte
+s,NI,Costa Caribe Sur
+s,NI,Esteli
+s,NI,Granada
+s,NI,Jinotega
+s,NI,Leon
+s,NI,Madriz
+s,NI,Managua
+s,NI,Masaya
+s,NI,Matagalpa
+s,NI,Nueva Segovia
+s,NI,Rio San Juan
+s,NI,Rivas
+s,NL,Aruba
+s,NL,Bonaire
+s,NL,Curaçao
+s,NL,Drenthe
+s,NL,Flevoland
+s,NL,Fryslân
+s,NL,Gelderland
+s,NL,Groningen
+s,NL,Limburg
+s,NL,Noord-Brabant
+s,NL,Noord-Holland
+s,NL,Overijssel
+s,NL,Saba
+s,NL,Sint Eustatius
+s,NL,Sint Maarten
+s,NL,Utrecht
+s,NL,Zeeland
+s,NL,Zuid-Holland
+s,NO,Agder
+s,NO,Innlandet
+s,NO,Jan Mayen
+s,NO,More og Romsdal
+s,NO,Nordland
+s,NO,Oslo
+s,NO,Rogaland
+s,NO,Svalbard
+s,NO,Troms og Finnmark
+s,NO,Trondelag
+s,NO,Vestfold og Telemark
+s,NO,Vestland
+s,NO,Viken
+s,NP,Bagmati
+s,NP,Gandaki
+s,NP,Karnali
+s,NP,Koshi
+s,NP,Lumbini
+s,NP,Madhesh
+s,NP,Sudurpashchim
+s,NR,Aiwo
+s,NR,Anabar
+s,NR,Anetan
+s,NR,Anibare
+s,NR,Baitsi
+s,NR,Boe
+s,NR,Buada
+s,NR,Denigomodu
+s,NR,Ewa
+s,NR,Ijuw
+s,NR,Meneng
+s,NR,Nibok
+s,NR,Uaboe
+s,NR,Yaren
+s,NZ,Auckland
+s,NZ,Bay of Plenty
+s,NZ,Canterbury
+s,NZ,Chatham Islands Territory
+s,NZ,Gisborne
+s,NZ,Hawke's Bay
+s,NZ,Manawatu-Wanganui
+s,NZ,Marlborough
+s,NZ,Nelson
+s,NZ,Northland
+s,NZ,Otago
+s,NZ,Southland
+s,NZ,Taranaki
+s,NZ,Tasman
+s,NZ,Waikato
+s,NZ,Wellington
+s,NZ,West Coast
+s,OM,Ad Dakhiliyah
+s,OM,Al Buraymi
+s,OM,Al Wusta
+s,OM,Az Zahirah
+s,OM,Janub al Batinah
+s,OM,Janub ash Sharqiyah
+s,OM,Masqat
+s,OM,Musandam
+s,OM,Shamal al Batinah
+s,OM,Shamal ash Sharqiyah
+s,OM,Zufar
+s,PA,Bocas del Toro
+s,PA,Chiriqui
+s,PA,Cocle
+s,PA,Colon
+s,PA,Embera
+s,PA,Guna Yala
+s,PA,Herrera
+s,PA,Los Santos
+s,PA,Naso Tjer Di
+s,PA,Ngobe-Bugle
+s,PA,Panama
+s,PA,Veraguas
+s,PA,West Panama
+s,PE,Amazonas
+s,PE,Ancash
+s,PE,Apurimac
+s,PE,Arequipa
+s,PE,Ayacucho
+s,PE,Cajamarca
+s,PE,Cusco
+s,PE,El Callao
+s,PE,Huancavelica
+s,PE,Huanuco
+s,PE,Ica
+s,PE,Junin
+s,PE,La Libertad
+s,PE,Lambayeque
+s,PE,Lima
+s,PE,Loreto
+s,PE,Madre de Dios
+s,PE,Moquegua
+s,PE,Pasco
+s,PE,Piura
+s,PE,Puno
+s,PE,San Martin
+s,PE,Tacna
+s,PE,Tumbes
+s,PE,Ucayali
+s,PG,Bougainville
+s,PG,Central
+s,PG,Chimbu
+s,PG,East New Britain
+s,PG,East Sepik
+s,PG,Eastern Highlands
+s,PG,Enga
+s,PG,Gulf
+s,PG,Hela
+s,PG,Jiwaka
+s,PG,Madang
+s,PG,Manus
+s,PG,Milne Bay
+s,PG,Morobe
+s,PG,National Capital District (Port Moresby)
+s,PG,New Ireland
+s,PG,Northern
+s,PG,Southern Highlands
+s,PG,West New Britain
+s,PG,West Sepik
+s,PG,Western
+s,PG,Western Highlands
+s,PH,Abra
+s,PH,Agusan del Norte
+s,PH,Agusan del Sur
+s,PH,Aklan
+s,PH,Albay
+s,PH,Antique
+s,PH,Apayao
+s,PH,Aurora
+s,PH,Autonomous Region in Muslim Mindanao
+s,PH,Basilan
+s,PH,Bataan
+s,PH,Batanes
+s,PH,Batangas
+s,PH,Benguet
+s,PH,Bicol
+s,PH,Biliran
+s,PH,Bohol
+s,PH,Bukidnon
+s,PH,Bulacan
+s,PH,Cagayan
+s,PH,Cagayan Valley
+s,PH,Calabarzon
+s,PH,Camarines Norte
+s,PH,Camarines Sur
+s,PH,Camiguin
+s,PH,Capiz
+s,PH,Caraga
+s,PH,Catanduanes
+s,PH,Cavite
+s,PH,Cebu
+s,PH,Central Luzon
+s,PH,Central Visayas
+s,PH,Cordillera Administrative Region
+s,PH,Cotabato
+s,PH,Davao
+s,PH,Davao Occidental
+s,PH,Davao Oriental
+s,PH,Davao de Oro
+s,PH,Davao del Norte
+s,PH,Davao del Sur
+s,PH,Dinagat Islands
+s,PH,Eastern Samar
+s,PH,Eastern Visayas
+s,PH,Guimaras
+s,PH,Ifugao
+s,PH,Ilocos
+s,PH,Ilocos Norte
+s,PH,Ilocos Sur
+s,PH,Iloilo
+s,PH,Isabela
+s,PH,Kalinga
+s,PH,La Union
+s,PH,Laguna
+s,PH,Lanao del Norte
+s,PH,Lanao del Sur
+s,PH,Leyte
+s,PH,Maguindanao del Norte
+s,PH,Maguindanao del Sur
+s,PH,Marinduque
+s,PH,Masbate
+s,PH,Mimaropa
+s,PH,Mindoro Occidental
+s,PH,Mindoro Oriental
+s,PH,Misamis Occidental
+s,PH,Misamis Oriental
+s,PH,Mountain Province
+s,PH,National Capital Region
+s,PH,Negros Occidental
+s,PH,Negros Oriental
+s,PH,Northern Mindanao
+s,PH,Northern Samar
+s,PH,Nueva Ecija
+s,PH,Nueva Vizcaya
+s,PH,Palawan
+s,PH,Pampanga
+s,PH,Pangasinan
+s,PH,Quezon
+s,PH,Quirino
+s,PH,Rizal
+s,PH,Romblon
+s,PH,Samar
+s,PH,Sarangani
+s,PH,Siquijor
+s,PH,Soccsksargen
+s,PH,Sorsogon
+s,PH,South Cotabato
+s,PH,Southern Leyte
+s,PH,Sultan Kudarat
+s,PH,Sulu
+s,PH,Surigao del Norte
+s,PH,Surigao del Sur
+s,PH,Tarlac
+s,PH,Tawi-Tawi
+s,PH,Western Visayas
+s,PH,Zambales
+s,PH,Zamboanga Peninsula
+s,PH,Zamboanga Sibugay
+s,PH,Zamboanga del Norte
+s,PH,Zamboanga del Sur
+s,PK,Azad Jammu and Kashmir
+s,PK,Balochistan
+s,PK,Gilgit-Baltistan
+s,PK,Islamabad
+s,PK,Khyber Pakhtunkhwa
+s,PK,Punjab
+s,PK,Sindh
+s,PL,Dolnoslaskie
+s,PL,Kujawsko-pomorskie
+s,PL,Lodzkie
+s,PL,Lubelskie
+s,PL,Lubuskie
+s,PL,Malopolskie
+s,PL,Mazowieckie
+s,PL,Opolskie
+s,PL,Podkarpackie
+s,PL,Podlaskie
+s,PL,Pomorskie
+s,PL,Slaskie
+s,PL,Swietokrzyskie
+s,PL,Warminsko-mazurskie
+s,PL,Wielkopolskie
+s,PL,Zachodniopomorskie
+s,PS,Bethlehem
+s,PS,Deir El Balah
+s,PS,Gaza
+s,PS,Hebron
+s,PS,Jenin
+s,PS,Jericho and Al Aghwar
+s,PS,Jerusalem
+s,PS,Khan Yunis
+s,PS,Nablus
+s,PS,Qalqilya
+s,PS,Rafah
+s,PS,Ramallah
+s,PS,Salfit
+s,PS,Tubas
+s,PS,Tulkarm
+s,PT,Aveiro
+s,PT,Beja
+s,PT,Braga
+s,PT,Braganca
+s,PT,Castelo Branco
+s,PT,Coimbra
+s,PT,Evora
+s,PT,Faro
+s,PT,Guarda
+s,PT,Leiria
+s,PT,Lisboa
+s,PT,Portalegre
+s,PT,Porto
+s,PT,Regiao Autonoma da Madeira
+s,PT,Regiao Autonoma dos Acores
+s,PT,Santarem
+s,PT,Setubal
+s,PT,Viana do Castelo
+s,PT,Vila Real
+s,PT,Viseu
+s,PW,Aimeliik
+s,PW,Airai
+s,PW,Angaur
+s,PW,Hatohobei
+s,PW,Kayangel
+s,PW,Koror
+s,PW,Melekeok
+s,PW,Ngaraard
+s,PW,Ngarchelong
+s,PW,Ngardmau
+s,PW,Ngatpang
+s,PW,Ngchesar
+s,PW,Ngeremlengui
+s,PW,Ngiwal
+s,PW,Peleliu
+s,PW,Sonsorol
+s,PY,Alto Paraguay
+s,PY,Alto Parana
+s,PY,Amambay
+s,PY,Asuncion
+s,PY,Boqueron
+s,PY,Caaguazu
+s,PY,Caazapa
+s,PY,Canindeyu
+s,PY,Central
+s,PY,Concepcion
+s,PY,Cordillera
+s,PY,Guaira
+s,PY,Itapua
+s,PY,Misiones
+s,PY,Neembucu
+s,PY,Paraguari
+s,PY,Presidente Hayes
+s,PY,San Pedro
+s,QA,Az̧ Z̧a‘āyin
+s,QA,Doha
+s,QA,Khor
+s,QA,North
+s,QA,Rayyan
+s,QA,Shahaniya
+s,QA,Umm Salal
+s,QA,Wakra
+s,RO,Alba
+s,RO,Arad
+s,RO,Arges
+s,RO,Bacau
+s,RO,Bihor
+s,RO,Bistrita-Nasaud
+s,RO,Botosani
+s,RO,Braila
+s,RO,Brasov
+s,RO,Bucuresti
+s,RO,Buzau
+s,RO,Calarasi
+s,RO,Caras-Severin
+s,RO,Cluj
+s,RO,Constanta
+s,RO,Covasna
+s,RO,Dambovita
+s,RO,Dolj
+s,RO,Galati
+s,RO,Giurgiu
+s,RO,Gorj
+s,RO,Harghita
+s,RO,Hunedoara
+s,RO,Ialomita
+s,RO,Iasi
+s,RO,Ilfov
+s,RO,Maramures
+s,RO,Mehedinti
+s,RO,Mures
+s,RO,Neamt
+s,RO,Olt
+s,RO,Prahova
+s,RO,Salaj
+s,RO,Satu Mare
+s,RO,Sibiu
+s,RO,Suceava
+s,RO,Teleorman
+s,RO,Timis
+s,RO,Tulcea
+s,RO,Valcea
+s,RO,Vaslui
+s,RO,Vrancea
+s,RS,Beograd
+s,RS,Borski okrug
+s,RS,Braničevski okrug
+s,RS,Jablanički okrug
+s,RS,Južnobanatski okrug
+s,RS,Južnobački okrug
+s,RS,Kolubarski okrug
+s,RS,Kosovo-Metohija
+s,RS,Kosovski okrug
+s,RS,Kosovsko-Mitrovački okrug
+s,RS,Kosovsko-Pomoravski okrug
+s,RS,Mačvanski okrug
+s,RS,Moravički okrug
+s,RS,Nišavski okrug
+s,RS,Pećki okrug
+s,RS,Pirotski okrug
+s,RS,Podunavski okrug
+s,RS,Pomoravski okrug
+s,RS,Prizrenski okrug
+s,RS,Pčinjski okrug
+s,RS,Rasinski okrug
+s,RS,Raški okrug
+s,RS,Severnobanatski okrug
+s,RS,Severnobački okrug
+s,RS,Srednjebanatski okrug
+s,RS,Sremski okrug
+s,RS,Toplički okrug
+s,RS,Vojvodina
+s,RS,Zaječarski okrug
+s,RS,Zapadnobački okrug
+s,RS,Zlatiborski okrug
+s,RS,Šumadijski okrug
+s,RU,"Adygeya, Respublika"
+s,RU,"Altay, Respublika"
+s,RU,Altayskiy kray
+s,RU,Amurskaya oblast'
+s,RU,Arkhangel'skaya oblast'
+s,RU,Astrakhanskaya oblast'
+s,RU,"Bashkortostan, Respublika"
+s,RU,Belgorodskaya oblast'
+s,RU,Bryanskaya oblast'
+s,RU,"Buryatiya, Respublika"
+s,RU,Chechenskaya Respublika
+s,RU,Chelyabinskaya oblast'
+s,RU,Chukotskiy avtonomnyy okrug
+s,RU,Chuvashskaya Respublika
+s,RU,"Dagestan, Respublika"
+s,RU,"Ingushetiya, Respublika"
+s,RU,Irkutskaya oblast'
+s,RU,Ivanovskaya oblast'
+s,RU,Kabardino-Balkarskaya Respublika
+s,RU,Kaliningradskaya oblast'
+s,RU,"Kalmykiya, Respublika"
+s,RU,Kaluzhskaya oblast'
+s,RU,Kamchatskiy kray
+s,RU,Karachayevo-Cherkesskaya Respublika
+s,RU,"Kareliya, Respublika"
+s,RU,Kemerovskaya oblast'
+s,RU,Khabarovskiy kray
+s,RU,"Khakasiya, Respublika"
+s,RU,Khanty-Mansiyskiy avtonomnyy okrug
+s,RU,Kirovskaya oblast'
+s,RU,"Komi, Respublika"
+s,RU,Kostromskaya oblast'
+s,RU,Krasnodarskiy kray
+s,RU,Krasnoyarskiy kray
+s,RU,Kurganskaya oblast'
+s,RU,Kurskaya oblast'
+s,RU,Leningradskaya oblast'
+s,RU,Lipetskaya oblast'
+s,RU,Magadanskaya oblast'
+s,RU,"Mariy El, Respublika"
+s,RU,"Mordoviya, Respublika"
+s,RU,Moskovskaya oblast'
+s,RU,Moskva
+s,RU,Murmanskaya oblast'
+s,RU,Nenetskiy avtonomnyy okrug
+s,RU,Nizhegorodskaya oblast'
+s,RU,Novgorodskaya oblast'
+s,RU,Novosibirskaya oblast'
+s,RU,Omskaya oblast'
+s,RU,Orenburgskaya oblast'
+s,RU,Orlovskaya oblast'
+s,RU,Penzenskaya oblast'
+s,RU,Permskiy kray
+s,RU,Primorskiy kray
+s,RU,Pskovskaya oblast'
+s,RU,Rostovskaya oblast'
+s,RU,Ryazanskaya oblast'
+s,RU,"Saha, Respublika"
+s,RU,Sakhalinskaya oblast'
+s,RU,Samarskaya oblast'
+s,RU,Sankt-Peterburg
+s,RU,Saratovskaya oblast'
+s,RU,"Severnaya Osetiya, Respublika"
+s,RU,Smolenskaya oblast'
+s,RU,Stavropol'skiy kray
+s,RU,Sverdlovskaya oblast'
+s,RU,Tambovskaya oblast'
+s,RU,"Tatarstan, Respublika"
+s,RU,Tomskaya oblast'
+s,RU,Tul'skaya oblast'
+s,RU,Tverskaya oblast'
+s,RU,Tyumenskaya oblast'
+s,RU,"Tyva, Respublika"
+s,RU,Udmurtskaya Respublika
+s,RU,Ul'yanovskaya oblast'
+s,RU,Vladimirskaya oblast'
+s,RU,Volgogradskaya oblast'
+s,RU,Vologodskaya oblast'
+s,RU,Voronezhskaya oblast'
+s,RU,Yamalo-Nenetskiy avtonomnyy okrug
+s,RU,Yaroslavskaya oblast'
+s,RU,Yevreyskaya avtonomnaya oblast'
+s,RU,Zabaykal'skiy kray
+s,RW,Est
+s,RW,Nord
+s,RW,Ouest
+s,RW,Sud
+s,RW,Ville de Kigali
+s,SA,'Asir
+s,SA,Al Bahah
+s,SA,Al Hudud ash Shamaliyah
+s,SA,Al Jawf
+s,SA,Al Madinah al Munawwarah
+s,SA,Al Qasim
+s,SA,Ar Riyad
+s,SA,Ash Sharqiyah
+s,SA,Ha'il
+s,SA,Jazan
+s,SA,Makkah al Mukarramah
+s,SA,Najran
+s,SA,Tabuk
+s,SB,Capital Territory
+s,SB,Central
+s,SB,Choiseul
+s,SB,Guadalcanal
+s,SB,Isabel
+s,SB,Makira-Ulawa
+s,SB,Malaita
+s,SB,Rennell and Bellona
+s,SB,Temotu
+s,SB,Western
+s,SC,Anse Boileau
+s,SC,Anse Etoile
+s,SC,Anse Royale
+s,SC,Anse aux Pins
+s,SC,Au Cap
+s,SC,Baie Lazare
+s,SC,Baie Sainte Anne
+s,SC,Beau Vallon
+s,SC,Bel Air
+s,SC,Bel Ombre
+s,SC,Cascade
+s,SC,English River
+s,SC,Glacis
+s,SC,Grand Anse Mahe
+s,SC,Grand Anse Praslin
+s,SC,Ile Perseverance I
+s,SC,Ile Perseverance II
+s,SC,La Digue
+s,SC,Les Mamelles
+s,SC,Mont Buxton
+s,SC,Mont Fleuri
+s,SC,Plaisance
+s,SC,Pointe Larue
+s,SC,Port Glaud
+s,SC,Roche Caiman
+s,SC,Saint Louis
+s,SC,Takamaka
+s,SD,Blue Nile
+s,SD,Central Darfur
+s,SD,Gedaref
+s,SD,Gezira
+s,SD,Kassala
+s,SD,Khartoum
+s,SD,North Darfur
+s,SD,North Kordofan
+s,SD,Northern
+s,SD,Red Sea
+s,SD,River Nile
+s,SD,Sennar
+s,SD,South Darfur
+s,SD,South Kordofan
+s,SD,West Darfur
+s,SD,West Kordofan
+s,SD,White Nile
+s,SE,Blekinge lan
+s,SE,Dalarnas lan
+s,SE,Gavleborgs lan
+s,SE,Gotlands lan
+s,SE,Hallands lan
+s,SE,Jamtlands lan
+s,SE,Jonkopings lan
+s,SE,Kalmar lan
+s,SE,Kronobergs lan
+s,SE,Norrbottens lan
+s,SE,Orebro lan
+s,SE,Ostergotlands lan
+s,SE,Skane lan
+s,SE,Sodermanlands lan
+s,SE,Stockholms lan
+s,SE,Uppsala lan
+s,SE,Varmlands lan
+s,SE,Vasterbottens lan
+s,SE,Vasternorrlands lan
+s,SE,Vastmanlands lan
+s,SE,Vastra Gotalands lan
+s,SG,Central Singapore
+s,SG,North East
+s,SG,North West
+s,SG,South East
+s,SG,South West
+s,SH,Ascension
+s,SH,Saint Helena
+s,SH,Tristan da Cunha
+s,SI,Ajdovscina
+s,SI,Ankaran
+s,SI,Apace
+s,SI,Beltinci
+s,SI,Benedikt
+s,SI,Bistrica ob Sotli
+s,SI,Bled
+s,SI,Bloke
+s,SI,Bohinj
+s,SI,Borovnica
+s,SI,Bovec
+s,SI,Braslovce
+s,SI,Brda
+s,SI,Brezice
+s,SI,Brezovica
+s,SI,Cankova
+s,SI,Celje
+s,SI,Cerklje na Gorenjskem
+s,SI,Cerknica
+s,SI,Cerkno
+s,SI,Cerkvenjak
+s,SI,Cirkulane
+s,SI,Crensovci
+s,SI,Crnomelj
+s,SI,Destrnik
+s,SI,Divaca
+s,SI,Dobje
+s,SI,Dobrepolje
+s,SI,Dobrna
+s,SI,Dobrova-Polhov Gradec
+s,SI,Dobrovnik
+s,SI,Dol pri Ljubljani
+s,SI,Dolenjske Toplice
+s,SI,Domzale
+s,SI,Dornava
+s,SI,Dravograd
+s,SI,Duplek
+s,SI,Gorenja vas-Poljane
+s,SI,Gorišnica
+s,SI,Gorje
+s,SI,Gornja Radgona
+s,SI,Gornji Grad
+s,SI,Gornji Petrovci
+s,SI,Grad
+s,SI,Grosuplje
+s,SI,Hajdina
+s,SI,Hoce-Slivnica
+s,SI,Hodos
+s,SI,Horjul
+s,SI,Hrastnik
+s,SI,Hrpelje-Kozina
+s,SI,Idrija
+s,SI,Ig
+s,SI,Ilirska Bistrica
+s,SI,Ivancna Gorica
+s,SI,Izola
+s,SI,Jesenice
+s,SI,Jezersko
+s,SI,Jursinci
+s,SI,Kamnik
+s,SI,Kanal
+s,SI,Kidricevo
+s,SI,Kobarid
+s,SI,Kobilje
+s,SI,Kocevje
+s,SI,Komen
+s,SI,Komenda
+s,SI,Koper
+s,SI,Kosanjevica na Krki
+s,SI,Kostel
+s,SI,Kozje
+s,SI,Kranj
+s,SI,Kranjska Gora
+s,SI,Krizevci
+s,SI,Krsko
+s,SI,Kungota
+s,SI,Kuzma
+s,SI,Lasko
+s,SI,Lenart
+s,SI,Lendava
+s,SI,Litija
+s,SI,Ljubljana
+s,SI,Ljubno
+s,SI,Ljutomer
+s,SI,Log-Dragomer
+s,SI,Logatec
+s,SI,Loska dolina
+s,SI,Loski Potok
+s,SI,Lovrenc na Pohorju
+s,SI,Luce
+s,SI,Lukovica
+s,SI,Majsperk
+s,SI,Makole
+s,SI,Maribor
+s,SI,Markovci
+s,SI,Medvode
+s,SI,Menges
+s,SI,Metlika
+s,SI,Mezica
+s,SI,Miklavz na Dravskem polju
+s,SI,Miren-Kostanjevica
+s,SI,Mirna
+s,SI,Mirna Pec
+s,SI,Mislinja
+s,SI,Mokronog-Trebelno
+s,SI,Moravce
+s,SI,Moravske Toplice
+s,SI,Mozirje
+s,SI,Murska Sobota
+s,SI,Muta
+s,SI,Naklo
+s,SI,Nazarje
+s,SI,Nova Gorica
+s,SI,Novo Mesto
+s,SI,Odranci
+s,SI,Oplotnica
+s,SI,Ormoz
+s,SI,Osilnica
+s,SI,Pesnica
+s,SI,Piran
+s,SI,Pivka
+s,SI,Podcetrtek
+s,SI,Podlehnik
+s,SI,Podvelka
+s,SI,Poljcane
+s,SI,Polzela
+s,SI,Postojna
+s,SI,Prebold
+s,SI,Preddvor
+s,SI,Prevalje
+s,SI,Ptuj
+s,SI,Puconci
+s,SI,Race-Fram
+s,SI,Radece
+s,SI,Radenci
+s,SI,Radlje ob Dravi
+s,SI,Radovljica
+s,SI,Ravne na Koroskem
+s,SI,Razkrizje
+s,SI,Recica ob Savinji
+s,SI,Rence-Vogrsko
+s,SI,Ribnica
+s,SI,Ribnica na Pohorju
+s,SI,Rogaska Slatina
+s,SI,Rogasovci
+s,SI,Rogatec
+s,SI,Ruse
+s,SI,Salovci
+s,SI,Selnica ob Dravi
+s,SI,Semic
+s,SI,Sempeter-Vrtojba
+s,SI,Sencur
+s,SI,Sentilj
+s,SI,Sentjernej
+s,SI,Sentjur
+s,SI,Sentrupert
+s,SI,Sevnica
+s,SI,Sezana
+s,SI,Skocjan
+s,SI,Skofja Loka
+s,SI,Skofljica
+s,SI,Slovenj Gradec
+s,SI,Slovenska Bistrica
+s,SI,Slovenske Konjice
+s,SI,Smarje pri Jelsah
+s,SI,Smarjeske Toplice
+s,SI,Smartno ob Paki
+s,SI,Smartno pri Litiji
+s,SI,Sodrazica
+s,SI,Solcava
+s,SI,Sostanj
+s,SI,Središče ob Dravi
+s,SI,Starse
+s,SI,Store
+s,SI,Straza
+s,SI,Sveta Ana
+s,SI,Sveta Trojica v Slovenskih goricah
+s,SI,Sveti Andraz v Slovenskih Goricah
+s,SI,Sveti Jurij ob Scavnici
+s,SI,Sveti Jurij v Slovenskih goricah
+s,SI,Sveti Tomaz
+s,SI,Tabor
+s,SI,Tisina
+s,SI,Tolmin
+s,SI,Trbovlje
+s,SI,Trebnje
+s,SI,Trnovska Vas
+s,SI,Trzic
+s,SI,Trzin
+s,SI,Turnisce
+s,SI,Velenje
+s,SI,Velika Polana
+s,SI,Velike Lasce
+s,SI,Verzej
+s,SI,Videm
+s,SI,Vipava
+s,SI,Vitanje
+s,SI,Vodice
+s,SI,Vojnik
+s,SI,Vransko
+s,SI,Vrhnika
+s,SI,Vuzenica
+s,SI,Zagorje ob Savi
+s,SI,Zalec
+s,SI,Zavrc
+s,SI,Zelezniki
+s,SI,Zetale
+s,SI,Ziri
+s,SI,Zrece
+s,SI,Zuzemberk
+s,SI,Črna na Koroškem
+s,SI,Žirovnica
+s,SK,Banskobystricky kraj
+s,SK,Bratislavsky kraj
+s,SK,Kosicky kraj
+s,SK,Nitriansky kraj
+s,SK,Presovsky kraj
+s,SK,Trenciansky kraj
+s,SK,Trnavsky kraj
+s,SK,Zilinsky kraj
+s,SL,Eastern
+s,SL,North Western
+s,SL,Northern
+s,SL,Southern
+s,SL,Western Area
+s,SM,Acquaviva
+s,SM,Borgo Maggiore
+s,SM,Chiesanuova
+s,SM,Città di San Marino
+s,SM,Domagnano
+s,SM,Faetano
+s,SM,Fiorentino
+s,SM,Montegiardino
+s,SM,Serravalle
+s,SN,Dakar
+s,SN,Diourbel
+s,SN,Fatick
+s,SN,Kaffrine
+s,SN,Kaolack
+s,SN,Kolda
+s,SN,Kédougou
+s,SN,Louga
+s,SN,Matam
+s,SN,Saint-Louis
+s,SN,Sedhiou
+s,SN,Tambacounda
+s,SN,Thies
+s,SN,Ziguinchor
+s,SO,Awdal
+s,SO,Bakool
+s,SO,Banaadir
+s,SO,Bari
+s,SO,Bay
+s,SO,Galguduud
+s,SO,Gedo
+s,SO,Hiiraan
+s,SO,Lower Juba
+s,SO,Lower Shabelle
+s,SO,Middle Juba
+s,SO,Middle Shabelle
+s,SO,Mudug
+s,SO,Northwest
+s,SO,Nugaal
+s,SO,Sanaag
+s,SO,Sool
+s,SO,Togdheer
+s,SR,Brokopondo
+s,SR,Commewijne
+s,SR,Coronie
+s,SR,Marowijne
+s,SR,Nickerie
+s,SR,Para
+s,SR,Paramaribo
+s,SR,Saramacca
+s,SR,Sipaliwini
+s,SR,Wanica
+s,SS,Central Equatoria
+s,SS,Eastern Equatoria
+s,SS,Jonglei
+s,SS,Lakes
+s,SS,Northern Bahr el Ghazal
+s,SS,Unity
+s,SS,Upper Nile
+s,SS,Warrap
+s,SS,Western Bahr el Ghazal
+s,SS,Western Equatoria
+s,ST,Cantagalo
+s,ST,Caué
+s,ST,Lembá
+s,ST,Lobata
+s,ST,Mé-Zóchi
+s,ST,Príncipe
+s,ST,Água Grande
+s,SV,Ahuachapan
+s,SV,Cabanas
+s,SV,Chalatenango
+s,SV,Cuscatlan
+s,SV,La Libertad
+s,SV,La Paz
+s,SV,La Union
+s,SV,Morazan
+s,SV,San Miguel
+s,SV,San Salvador
+s,SV,San Vicente
+s,SV,Santa Ana
+s,SV,Sonsonate
+s,SV,Usulutan
+s,SY,Al Hasakah
+s,SY,Al Ladhiqiyah
+s,SY,Al Qunaytirah
+s,SY,Ar Raqqah
+s,SY,As Suwayda'
+s,SY,Dar'a
+s,SY,Dayr az Zawr
+s,SY,Dimashq
+s,SY,Halab
+s,SY,Hamah
+s,SY,Hims
+s,SY,Idlib
+s,SY,Rif Dimashq
+s,SY,Tartus
+s,SZ,Hhohho
+s,SZ,Lubombo
+s,SZ,Manzini
+s,SZ,Shiselweni
+s,TD,Bahr El Gazal
+s,TD,Batha
+s,TD,Borkou
+s,TD,Chari-Baguirmi
+s,TD,East Ennedi
+s,TD,East Mayo-Kebbi
+s,TD,Eastern Logone
+s,TD,Guera
+s,TD,Hadjer Lamis
+s,TD,Kanem
+s,TD,Lake
+s,TD,Mandoul
+s,TD,Middle Chari
+s,TD,N'Djamena City
+s,TD,Salamat
+s,TD,Sila
+s,TD,Tandjile
+s,TD,Tibesti
+s,TD,Wadai
+s,TD,Wadi Fira
+s,TD,West Ennedi
+s,TD,West Mayo-Kebbi
+s,TD,Western Logone
+s,TG,Centrale
+s,TG,Kara
+s,TG,Maritime
+s,TG,Plateaux
+s,TG,Savanes
+s,TH,Amnat Charoen
+s,TH,Ang Thong
+s,TH,Bueng Kan
+s,TH,Buri Ram
+s,TH,Chachoengsao
+s,TH,Chai Nat
+s,TH,Chaiyaphum
+s,TH,Chanthaburi
+s,TH,Chiang Mai
+s,TH,Chiang Rai
+s,TH,Chon Buri
+s,TH,Chumphon
+s,TH,Kalasin
+s,TH,Kamphaeng Phet
+s,TH,Kanchanaburi
+s,TH,Khon Kaen
+s,TH,Krabi
+s,TH,Krung Thep Maha Nakhon
+s,TH,Lampang
+s,TH,Lamphun
+s,TH,Loei
+s,TH,Lop Buri
+s,TH,Mae Hong Son
+s,TH,Maha Sarakham
+s,TH,Mukdahan
+s,TH,Nakhon Nayok
+s,TH,Nakhon Pathom
+s,TH,Nakhon Phanom
+s,TH,Nakhon Ratchasima
+s,TH,Nakhon Sawan
+s,TH,Nakhon Si Thammarat
+s,TH,Nan
+s,TH,Narathiwat
+s,TH,Nong Bua Lam Phu
+s,TH,Nong Khai
+s,TH,Nonthaburi
+s,TH,Pathum Thani
+s,TH,Pattani
+s,TH,Phangnga
+s,TH,Phatthalung
+s,TH,Phatthaya
+s,TH,Phayao
+s,TH,Phetchabun
+s,TH,Phetchaburi
+s,TH,Phichit
+s,TH,Phitsanulok
+s,TH,Phra Nakhon Si Ayutthaya
+s,TH,Phrae
+s,TH,Phuket
+s,TH,Prachin Buri
+s,TH,Prachuap Khiri Khan
+s,TH,Ranong
+s,TH,Ratchaburi
+s,TH,Rayong
+s,TH,Roi Et
+s,TH,Sa Kaeo
+s,TH,Sakon Nakhon
+s,TH,Samut Prakan
+s,TH,Samut Sakhon
+s,TH,Samut Songkhram
+s,TH,Saraburi
+s,TH,Satun
+s,TH,Si Sa Ket
+s,TH,Sing Buri
+s,TH,Songkhla
+s,TH,Sukhothai
+s,TH,Suphan Buri
+s,TH,Surat Thani
+s,TH,Surin
+s,TH,Tak
+s,TH,Trang
+s,TH,Trat
+s,TH,Ubon Ratchathani
+s,TH,Udon Thani
+s,TH,Uthai Thani
+s,TH,Uttaradit
+s,TH,Yala
+s,TH,Yasothon
+s,TJ,Dushanbe
+s,TJ,Khatlon
+s,TJ,Kuhistoni Badakhshon
+s,TJ,Nohiyahoi Tobei Jumhuri
+s,TJ,Sughd
+s,TL,Aileu
+s,TL,Ainaro
+s,TL,Baucau
+s,TL,Bobonaro
+s,TL,Cova Lima
+s,TL,Dili
+s,TL,Ermera
+s,TL,Lautém
+s,TL,Liquiça
+s,TL,Manatuto
+s,TL,Manufahi
+s,TL,Oé-Cusse Ambeno
+s,TL,Viqueque
+s,TM,Ahal
+s,TM,Aşgabat
+s,TM,Balkan
+s,TM,Dasoguz
+s,TM,Lebap
+s,TM,Mary
+s,TN,Beja
+s,TN,Ben Arous
+s,TN,Bizerte
+s,TN,Gabes
+s,TN,Gafsa
+s,TN,Jendouba
+s,TN,Kairouan
+s,TN,Kasserine
+s,TN,Kebili
+s,TN,L'Ariana
+s,TN,La Manouba
+s,TN,Le Kef
+s,TN,Mahdia
+s,TN,Medenine
+s,TN,Monastir
+s,TN,Nabeul
+s,TN,Sfax
+s,TN,Sidi Bouzid
+s,TN,Siliana
+s,TN,Sousse
+s,TN,Tataouine
+s,TN,Tozeur
+s,TN,Tunis
+s,TN,Zaghouan
+s,TO,'Eua
+s,TO,Ha'apai
+s,TO,Niuas
+s,TO,Tongatapu
+s,TO,Vava'u
+s,TR,Adana
+s,TR,Adiyaman
+s,TR,Afyonkarahisar
+s,TR,Agri
+s,TR,Aksaray
+s,TR,Amasya
+s,TR,Ankara
+s,TR,Antalya
+s,TR,Ardahan
+s,TR,Artvin
+s,TR,Aydin
+s,TR,Balikesir
+s,TR,Bartin
+s,TR,Batman
+s,TR,Bayburt
+s,TR,Bilecik
+s,TR,Bingol
+s,TR,Bitlis
+s,TR,Bolu
+s,TR,Burdur
+s,TR,Bursa
+s,TR,Canakkale
+s,TR,Cankiri
+s,TR,Corum
+s,TR,Denizli
+s,TR,Diyarbakir
+s,TR,Duzce
+s,TR,Edirne
+s,TR,Elazig
+s,TR,Erzincan
+s,TR,Erzurum
+s,TR,Eskisehir
+s,TR,Gaziantep
+s,TR,Giresun
+s,TR,Gumushane
+s,TR,Hakkari
+s,TR,Hatay
+s,TR,Igdir
+s,TR,Isparta
+s,TR,Istanbul
+s,TR,Izmir
+s,TR,Kahramanmaras
+s,TR,Karabuk
+s,TR,Karaman
+s,TR,Kars
+s,TR,Kastamonu
+s,TR,Kayseri
+s,TR,Kilis
+s,TR,Kirikkale
+s,TR,Kirklareli
+s,TR,Kirsehir
+s,TR,Kocaeli
+s,TR,Konya
+s,TR,Kutahya
+s,TR,Malatya
+s,TR,Manisa
+s,TR,Mardin
+s,TR,Mersin
+s,TR,Mugla
+s,TR,Mus
+s,TR,Nevsehir
+s,TR,Nigde
+s,TR,Ordu
+s,TR,Osmaniye
+s,TR,Rize
+s,TR,Sakarya
+s,TR,Samsun
+s,TR,Sanliurfa
+s,TR,Siirt
+s,TR,Sinop
+s,TR,Sirnak
+s,TR,Sivas
+s,TR,Tekirdag
+s,TR,Tokat
+s,TR,Trabzon
+s,TR,Tunceli
+s,TR,Usak
+s,TR,Van
+s,TR,Yalova
+s,TR,Yozgat
+s,TR,Zonguldak
+s,TT,Arima
+s,TT,Chaguanas
+s,TT,Couva-Tabaquite-Talparo
+s,TT,Diego Martin
+s,TT,Mayaro-Rio Claro
+s,TT,Penal-Debe
+s,TT,Point Fortin
+s,TT,Port of Spain
+s,TT,Princes Town
+s,TT,San Fernando
+s,TT,San Juan-Laventille
+s,TT,Sangre Grande
+s,TT,Siparia
+s,TT,Tobago
+s,TT,Tunapuna-Piarco
+s,TV,Funafuti
+s,TV,Nanumaga
+s,TV,Nanumea
+s,TV,Niutao
+s,TV,Nui
+s,TV,Nukufetau
+s,TV,Nukulaelae
+s,TV,Vaitupu
+s,TW,Changhua
+s,TW,Chiayi
+s,TW,Hsinchu
+s,TW,Hualien
+s,TW,Kaohsiung
+s,TW,Keelung
+s,TW,Lienchiang
+s,TW,Miaoli
+s,TW,Nantou
+s,TW,New Taipei
+s,TW,Penghu
+s,TW,Pingtung
+s,TW,Taichung
+s,TW,Tainan
+s,TW,Taipei
+s,TW,Taitung
+s,TW,Taoyuan
+s,TW,Yilan
+s,TW,Yunlin
+s,TZ,Arusha
+s,TZ,Dar es Salaam
+s,TZ,Dodoma
+s,TZ,Geita
+s,TZ,Iringa
+s,TZ,Kagera
+s,TZ,Kaskazini Pemba
+s,TZ,Kaskazini Unguja
+s,TZ,Katavi
+s,TZ,Kigoma
+s,TZ,Kilimanjaro
+s,TZ,Kusini Pemba
+s,TZ,Kusini Unguja
+s,TZ,Lindi
+s,TZ,Manyara
+s,TZ,Mara
+s,TZ,Mbeya
+s,TZ,Mjini Magharibi
+s,TZ,Morogoro
+s,TZ,Mtwara
+s,TZ,Mwanza
+s,TZ,Njombe
+s,TZ,Pwani
+s,TZ,Rukwa
+s,TZ,Ruvuma
+s,TZ,Shinyanga
+s,TZ,Simiyu
+s,TZ,Singida
+s,TZ,Songwe
+s,TZ,Tabora
+s,TZ,Tanga
+s,UA,Avtonomna Respublika Krym
+s,UA,Cherkaska oblast
+s,UA,Chernihivska oblast
+s,UA,Chernivetska oblast
+s,UA,Dnipropetrovska oblast
+s,UA,Donetska oblast
+s,UA,Ivano-Frankivska oblast
+s,UA,Kharkivska oblast
+s,UA,Khersonska oblast
+s,UA,Khmelnytska oblast
+s,UA,Kirovohradska oblast
+s,UA,Kyiv
+s,UA,Kyivska oblast
+s,UA,Luhanska oblast
+s,UA,Lvivska oblast
+s,UA,Mykolaivska oblast
+s,UA,Odeska oblast
+s,UA,Poltavska oblast
+s,UA,Rivnenska oblast
+s,UA,Sevastopol
+s,UA,Sumska oblast
+s,UA,Ternopilska oblast
+s,UA,Vinnytska oblast
+s,UA,Volynska oblast
+s,UA,Zakarpatska oblast
+s,UA,Zaporizka oblast
+s,UA,Zhytomyrska oblast
+s,UG,Abim
+s,UG,Adjumani
+s,UG,Agago
+s,UG,Alebtong
+s,UG,Amolatar
+s,UG,Amudat
+s,UG,Amuria
+s,UG,Amuru
+s,UG,Apac
+s,UG,Arua
+s,UG,Budaka
+s,UG,Bududa
+s,UG,Bugiri
+s,UG,Bugweri
+s,UG,Buhweju
+s,UG,Buikwe
+s,UG,Bukedea
+s,UG,Bukomansibi
+s,UG,Bukwo
+s,UG,Bulambuli
+s,UG,Buliisa
+s,UG,Bundibugyo
+s,UG,Bunyangabu
+s,UG,Bushenyi
+s,UG,Busia
+s,UG,Butaleja
+s,UG,Butambala
+s,UG,Butebo
+s,UG,Buvuma
+s,UG,Buyende
+s,UG,Central
+s,UG,Dokolo
+s,UG,Eastern
+s,UG,Gomba
+s,UG,Gulu
+s,UG,Hoima
+s,UG,Ibanda
+s,UG,Iganga
+s,UG,Isingiro
+s,UG,Jinja
+s,UG,Kaabong
+s,UG,Kabale
+s,UG,Kabarole
+s,UG,Kaberamaido
+s,UG,Kagadi
+s,UG,Kakumiro
+s,UG,Kalaki
+s,UG,Kalangala
+s,UG,Kaliro
+s,UG,Kalungu
+s,UG,Kampala
+s,UG,Kamuli
+s,UG,Kamwenge
+s,UG,Kanungu
+s,UG,Kapchorwa
+s,UG,Kapelebyong
+s,UG,Karenga
+s,UG,Kasanda
+s,UG,Kasese
+s,UG,Katakwi
+s,UG,Kayunga
+s,UG,Kazo
+s,UG,Kibaale
+s,UG,Kiboga
+s,UG,Kibuku
+s,UG,Kikuube
+s,UG,Kiruhura
+s,UG,Kiryandongo
+s,UG,Kisoro
+s,UG,Kitagwenda
+s,UG,Kitgum
+s,UG,Koboko
+s,UG,Kole
+s,UG,Kotido
+s,UG,Kumi
+s,UG,Kwania
+s,UG,Kween
+s,UG,Kyankwanzi
+s,UG,Kyegegwa
+s,UG,Kyenjojo
+s,UG,Kyotera
+s,UG,Lamwo
+s,UG,Lira
+s,UG,Luuka
+s,UG,Luwero
+s,UG,Lwengo
+s,UG,Lyantonde
+s,UG,Madi-Okollo
+s,UG,Manafwa
+s,UG,Maracha
+s,UG,Masaka
+s,UG,Masindi
+s,UG,Mayuge
+s,UG,Mbale
+s,UG,Mbarara
+s,UG,Mitooma
+s,UG,Mityana
+s,UG,Moroto
+s,UG,Moyo
+s,UG,Mpigi
+s,UG,Mubende
+s,UG,Mukono
+s,UG,Nabilatuk
+s,UG,Nakapiripirit
+s,UG,Nakaseke
+s,UG,Nakasongola
+s,UG,Namayingo
+s,UG,Namisindwa
+s,UG,Namutumba
+s,UG,Napak
+s,UG,Nebbi
+s,UG,Ngora
+s,UG,Northern
+s,UG,Ntoroko
+s,UG,Ntungamo
+s,UG,Nwoya
+s,UG,Obongi
+s,UG,Omoro
+s,UG,Otuke
+s,UG,Oyam
+s,UG,Pader
+s,UG,Pakwach
+s,UG,Pallisa
+s,UG,Rakai
+s,UG,Rubanda
+s,UG,Rubirizi
+s,UG,Rukiga
+s,UG,Rukungiri
+s,UG,Rwampara
+s,UG,Sembabule
+s,UG,Serere
+s,UG,Sheema
+s,UG,Sironko
+s,UG,Soroti
+s,UG,Tororo
+s,UG,Wakiso
+s,UG,Western
+s,UG,Yumbe
+s,UG,Zombo
+s,UM,Palmyra Atoll
+s,US,Alabama
+s,US,Alaska
+s,US,American Samoa
+s,US,Arizona
+s,US,Arkansas
+s,US,California
+s,US,Colorado
+s,US,Connecticut
+s,US,Delaware
+s,US,District of Columbia
+s,US,Florida
+s,US,Georgia
+s,US,Guam
+s,US,Hawaii
+s,US,Idaho
+s,US,Illinois
+s,US,Indiana
+s,US,Iowa
+s,US,Kansas
+s,US,Kentucky
+s,US,Louisiana
+s,US,Maine
+s,US,Maryland
+s,US,Massachusetts
+s,US,Michigan
+s,US,Minnesota
+s,US,Mississippi
+s,US,Missouri
+s,US,Montana
+s,US,Nebraska
+s,US,Nevada
+s,US,New Hampshire
+s,US,New Jersey
+s,US,New Mexico
+s,US,New York
+s,US,North Carolina
+s,US,North Dakota
+s,US,Northern Mariana Islands
+s,US,Ohio
+s,US,Oklahoma
+s,US,Oregon
+s,US,Pennsylvania
+s,US,Puerto Rico
+s,US,Rhode Island
+s,US,South Carolina
+s,US,South Dakota
+s,US,Tennessee
+s,US,Texas
+s,US,United States Minor Outlying Islands
+s,US,United States Virgin Islands
+s,US,Utah
+s,US,Vermont
+s,US,Virginia
+s,US,Washington
+s,US,West Virginia
+s,US,Wisconsin
+s,US,Wyoming
+s,UY,Artigas
+s,UY,Canelones
+s,UY,Cerro Largo
+s,UY,Colonia
+s,UY,Durazno
+s,UY,Flores
+s,UY,Florida
+s,UY,Lavalleja
+s,UY,Maldonado
+s,UY,Montevideo
+s,UY,Paysandu
+s,UY,Rio Negro
+s,UY,Rivera
+s,UY,Rocha
+s,UY,Salto
+s,UY,San Jose
+s,UY,Soriano
+s,UY,Tacuarembo
+s,UY,Treinta y Tres
+s,UZ,Andijon
+s,UZ,Buxoro
+s,UZ,Farg'ona
+s,UZ,Jizzax
+s,UZ,Namangan
+s,UZ,Navoiy
+s,UZ,Qashqadaryo
+s,UZ,Qoraqalpog'iston Respublikasi
+s,UZ,Samarqand
+s,UZ,Sirdaryo
+s,UZ,Surxondaryo
+s,UZ,Toshkent
+s,UZ,Xorazm
+s,VC,Charlotte
+s,VC,Grenadines
+s,VC,Saint Andrew
+s,VC,Saint David
+s,VC,Saint George
+s,VC,Saint Patrick
+s,VE,Amazonas
+s,VE,Anzoategui
+s,VE,Apure
+s,VE,Aragua
+s,VE,Barinas
+s,VE,Bolivar
+s,VE,Carabobo
+s,VE,Cojedes
+s,VE,Delta Amacuro
+s,VE,Distrito Capital
+s,VE,Falcon
+s,VE,Guarico
+s,VE,La Guaira
+s,VE,Lara
+s,VE,Merida
+s,VE,Miranda
+s,VE,Monagas
+s,VE,Nueva Esparta
+s,VE,Portuguesa
+s,VE,Sucre
+s,VE,Tachira
+s,VE,Trujillo
+s,VE,Yaracuy
+s,VE,Zulia
+s,VN,An Giang
+s,VN,Ba Ria - Vung Tau
+s,VN,Bac Giang
+s,VN,Bac Kan
+s,VN,Bac Lieu
+s,VN,Bac Ninh
+s,VN,Ben Tre
+s,VN,Binh Dinh
+s,VN,Binh Duong
+s,VN,Binh Phuoc
+s,VN,Binh Thuan
+s,VN,Ca Mau
+s,VN,Can Tho
+s,VN,Cao Bang
+s,VN,Da Nang
+s,VN,Dak Lak
+s,VN,Dak Nong
+s,VN,Dong Nai
+s,VN,Dong Thap
+s,VN,Gia Lai
+s,VN,Ha Giang
+s,VN,Ha Noi
+s,VN,Ha Tinh
+s,VN,Hai Duong
+s,VN,Hai Phong
+s,VN,Hau Giang
+s,VN,Ho Chi Minh
+s,VN,Hoa Binh
+s,VN,Hà Nam
+s,VN,Hưng Yên
+s,VN,Khanh Hoa
+s,VN,Kien Giang
+s,VN,Kon Tum
+s,VN,Lai Chau
+s,VN,Lam Dong
+s,VN,Lang Son
+s,VN,Lao Cai
+s,VN,Long An
+s,VN,Nam Dinh
+s,VN,Nghe An
+s,VN,Ninh Binh
+s,VN,Ninh Thuan
+s,VN,Phu Tho
+s,VN,Phú Yên
+s,VN,Quang Binh
+s,VN,Quang Nam
+s,VN,Quang Ngai
+s,VN,Quang Ninh
+s,VN,Quang Tri
+s,VN,Soc Trang
+s,VN,Son La
+s,VN,Tay Ninh
+s,VN,Thai Binh
+s,VN,Thanh Hoa
+s,VN,Thua Thien-Hue
+s,VN,Thái Nguyên
+s,VN,Tien Giang
+s,VN,Tra Vinh
+s,VN,Tuyen Quang
+s,VN,Vinh Long
+s,VN,Vinh Phuc
+s,VN,Yen Bai
+s,VN,Điện Biên
+s,VU,Malampa
+s,VU,Pénama
+s,VU,Sanma
+s,VU,Shefa
+s,VU,Tafea
+s,VU,Torba
+s,WF,Alo
+s,WF,Sigave
+s,WF,Uvea
+s,WS,A'ana
+s,WS,Aiga-i-le-Tai
+s,WS,Atua
+s,WS,Fa'asaleleaga
+s,WS,Gaga'emauga
+s,WS,Gagaifomauga
+s,WS,Palauli
+s,WS,Satupa'itea
+s,WS,Tuamasaga
+s,WS,Va'a-o-Fonoti
+s,WS,Vaisigano
+s,YE,'Adan
+s,YE,'Amran
+s,YE,Abyan
+s,YE,Ad Dali'
+s,YE,Al Bayda'
+s,YE,Al Hudaydah
+s,YE,Al Jawf
+s,YE,Al Mahrah
+s,YE,Al Mahwit
+s,YE,Amanat al 'Asimah
+s,YE,Dhamar
+s,YE,Hadramawt
+s,YE,Hajjah
+s,YE,Ibb
+s,YE,Ma'rib
+s,YE,Sa'dah
+s,YE,San'a'
+s,YE,Shabwah
+s,YE,Ta'izz
+s,ZA,Eastern Cape
+s,ZA,Free State
+s,ZA,Gauteng
+s,ZA,Kwazulu-Natal
+s,ZA,Limpopo
+s,ZA,Mpumalanga
+s,ZA,North-West
+s,ZA,Northern Cape
+s,ZA,Western Cape
+s,ZM,Central
+s,ZM,Copperbelt
+s,ZM,Eastern
+s,ZM,Luapula
+s,ZM,Lusaka
+s,ZM,Muchinga
+s,ZM,North-Western
+s,ZM,Northern
+s,ZM,Southern
+s,ZM,Western
+s,ZW,Bulawayo
+s,ZW,Harare
+s,ZW,Manicaland
+s,ZW,Mashonaland Central
+s,ZW,Mashonaland East
+s,ZW,Mashonaland West
+s,ZW,Masvingo
+s,ZW,Matabeleland North
+s,ZW,Matabeleland South
+s,ZW,Midlands

@@ -47,6 +47,7 @@ from mih.categories import (
 )
 from mih.identity.normalize import fold
 from mih.ids import utc_now
+from mih.places import country_of_group
 from mih.playback import Target, pick_streams
 
 _SPLIT_RE = re.compile(r"\s*[;|]\s*")
@@ -155,6 +156,8 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
             langs.update(json.loads(d["languages"] or "[]"))
             if d["country"]:
                 countries.add(d["country"])
+        if not countries:  # a playlist group named after a country or a part of one
+            countries.update(c for g in groups if (c := country_of_group(g)))
         all_names = [ch["canonical_name"], *names[ch["id"]]]
         extra = []
         mix = mixes.get(ch["id"])
@@ -167,7 +170,8 @@ def build_catalog(conn: sqlite3.Connection) -> list[dict]:
             extra.append(("adult", "url", 3.0, "stream or logo address"))
         inputs[ch["id"]] = {"directory": from_dir, "groups": groups, "names": all_names,
                             "guide": mix.shares() if mix else None, "extra": extra,
-                            "one_show": mix.one_show() if mix else None}  # fmt: skip
+                            "one_show": mix.one_show() if mix else None,
+                            "countries": sorted(countries)}  # fmt: skip
         top_epg = [c for c, _ in mix.raw.most_common(5)] if mix else []
         playable = sum(n for st, n in status_counts.items()
                        if st not in ("quarantine", "archived", "absent"))  # fmt: skip
@@ -218,8 +222,9 @@ def _categorize(catalog: list[dict], inputs: dict[str, dict], manual: dict[str, 
                if not d.fallback and d.categories[0] not in ("other", "adult")}  # fmt: skip
     primary |= {cid: cats[0] for cid, cats in manual.items() if cats[0] != "adult"}
     todo = {cid for cid, d in final.items() if cid not in manual and (
-        d.categories == ["other"] or (d.fallback and d.source == "name"
-                                      and d.categories == ["general"]))}  # fmt: skip
+        d.categories == ["other"] or (d.fallback and (
+            d.categories == ["regional"] or (d.source == "name" and d.categories == ["general"])
+        )))}  # fmt: skip
     stems = {ch["id"]: brand_stem(ch["name"] or "") for ch in catalog}
     for cid, (cat, stem) in brand_votes(stems, primary, todo).items():
         final[cid] = Decision([cat], "brand", {cat: THRESHOLD}, {cat: [f"brand: {stem}"]})

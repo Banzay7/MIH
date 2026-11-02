@@ -20,14 +20,17 @@ class Case:
     directory: tuple[str, ...] = ()
     guide: dict[str, float] = field(default_factory=dict)
     one_show: str | None = None  # the guide's one programme title, if any
+    countries: tuple[str, ...] = ()  # where the channel is from, if known
 
     @property
     def id(self) -> str:
         return self.names[0]
 
 
-def C(expected, *names, groups=(), directory=(), guide=None, one_show=None) -> Case:  # noqa: N802
-    return Case(expected, names, tuple(groups), tuple(directory), guide or {}, one_show)
+def C(expected, *names, groups=(), directory=(), guide=None, one_show=None,  # noqa: N802
+      countries=()) -> Case:  # fmt: skip
+    return Case(expected, names, tuple(groups), tuple(directory), guide or {}, one_show,
+                tuple(countries))  # fmt: skip
 
 
 CASES: list[Case] = [
@@ -125,6 +128,9 @@ CASES: list[Case] = [
     C("entertainment", "E! Entertainment"),
     C("entertainment", "Юмор ТВ"),
     C("entertainment", "Reality TV Channel"),
+    C("entertainment", "TVP Rozrywka"),  # was «general» by the broadcaster TVP
+    C("entertainment", "Polsat Rozrywka", groups=["Rozrywka"]),
+    C("entertainment", "Show TV Eğlence"),
     # ---- lifestyle ----
     C("lifestyle", "Food Network", directory=["cooking"]),
     C("lifestyle", "Travel Channel"),
@@ -149,9 +155,17 @@ CASES: list[Case] = [
     C("general", "ICI Radio-Canada Télé"),
     C("general", "TVRI Nasional"),
     C("general", "Channel 5", guide={"news": 0.15, "series": 0.15, "movies": 0.15}),
+    C("general", "Radio Bremen TV"),  # was «radio»
+    C("general", "hr fernsehen", groups=["IPTV-DE"]),
     # ---- regional ----
     C("regional", "ОТР", groups=["Региональные"]),
     C("regional", "Local Now", directory=["general"], groups=["Local", "Regional"]),
+    # a playlist group named after a state or province, a place of the country in the name
+    C("regional", "KTOO 360TV KTOO-TV", groups=["Alaska"]),
+    C("regional", "Ultra TV Puebla", groups=["Guanajuato"]),
+    C("regional", "TV Prato", groups=["Italy"]),
+    C("regional", "TV 1 Oberosterreich", countries=["AT"]),
+    C("regional", "Teleromagna", groups=["Emilia-Romagna"]),
     # ---- shop ----
     C("shop", "Shop 24", directory=["shop"]),
     C("shop", "QVC", groups=["Shop"]),
@@ -184,4 +198,7 @@ CASES: list[Case] = [
     # ---- nothing to go by ----
     C("other", "Talk Show Channel"),
     C("other", "XYZ 7"),
+    C("other", "CafeTV24", groups=["Italy"]),  # a country group alone says nothing
+    # guides that write genres as numbers (epgshare01 India): shares already mapped
+    C("news", "News J", guide={"news": 0.7}),
 ]
