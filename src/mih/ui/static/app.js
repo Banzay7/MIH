@@ -1461,6 +1461,8 @@ function render(content) { view.innerHTML = String(content); }
 // ---------- Help ----------
 // The user guide (#/help) and the «Как пользоваться» tips live in help/<lang>.json, one
 // file per interface language. A language without its own file reads the English one.
+// {{Русский текст}} in a help text is a button or section name: it shows as t() renders it,
+// so the guide always names a control exactly as the screen does.
 const TIP_PAGES = ["home", "search", "channels", "favorites", "coverage", "status", "settings"];
 let helpText = null;
 
@@ -1469,7 +1471,7 @@ async function loadHelp() {
   for (const lang of [...new Set([LANG, "en", "ru"])]) {
     try {
       const r = await fetch(`help/${lang}.json`);
-      if (r.ok) { helpText = await r.json(); break; }
+      if (r.ok) { helpText = JSON.parse(await r.text(), (k, v) => typeof v === "string" ? helpLabels(v) : v); break; }
     } catch { /* offline: try the next file, the shell cache may have it */ }
   }
   helpText ||= { tips: {}, sections: [] };
@@ -1477,6 +1479,8 @@ async function loadHelp() {
   if (tab && helpText.title) tab.textContent = helpText.title;
   return helpText;
 }
+
+const helpLabels = (text) => text.replace(/\{\{([^{}]+)\}\}/g, (_, key) => t(key));
 
 const helpSection = (page) => (helpText?.sections || []).some((s) => s.id === page) ? page : page === "status" ? "coverage" : "";
 
