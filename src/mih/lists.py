@@ -535,13 +535,14 @@ def build_presets(
     public_url: str | None = None,
     token: str | None = None,
     guide_max_age: timedelta = timedelta(0),
+    catalog: list[dict] | None = None,
 ) -> list[ListResult]:
     """Write every named list into ``out_dir``, then the whole catalog with the lists
     each channel is in. The catalog is built once for all.
 
     A list's playlist points players to its own guide (url-tvg) when the service knows
     its public address (MIH_PUBLIC_URL), unless the list names another ``epg_url``."""
-    catalog = build_catalog(conn)
+    catalog = build_catalog(conn) if catalog is None else catalog
     store_tags(conn, catalog)
     built = []
     for name, spec in presets.items():

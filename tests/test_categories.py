@@ -96,6 +96,25 @@ def test_catalog_uses_the_guide_airtime(conn, settings, make_source):
     assert euronews["category_source"] == "playlist"
 
 
+def test_programme_categories_are_worked_out_once_per_process(conn, settings, make_source,
+                                                              monkeypatch):  # fmt: skip
+    import mih.categories as cg
+
+    import_m3u(conn, settings, make_source("a"), fixture_bytes("provider_a.m3u"))
+    guide = "".join(_p("VTV1.vn", h, 90, "Bóng đá: trực tiếp", "Thể thao") for h in range(0, 12, 2))
+    src = create_epg_source(conn, settings, name="g", url=None)
+    import_xmltv(conn, settings, src, f"<tv>{guide}</tv>".encode(), now=NOW)
+    monkeypatch.setattr(cg, "_PROGRAMME_CACHE", {})
+    calls = []
+    real = cg.programme_categories
+    monkeypatch.setattr(cg, "programme_categories", lambda *a: calls.append(a) or real(*a))
+    first = {k: (v.minutes, dict(v.by_category)) for k, v in guide_mix(conn).items()}
+    assert len(calls) == 1  # six airings of one programme
+    second = {k: (v.minutes, dict(v.by_category)) for k, v in guide_mix(conn).items()}
+    assert second == first and len(calls) == 1  # the next rebuild looks it up
+    assert "sport" in next(iter(first.values()))[1]
+
+
 def test_adult_words_in_addresses_are_whole_words():
     from mih.categories import url_is_adult
 
