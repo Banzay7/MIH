@@ -56,6 +56,37 @@ port_in_use() {
   fi
 }
 
+to_mib() {
+  # 3g, 1536m, 512M, 2048k or plain bytes -> MiB; empty when the value is not understood.
+  local v="${1,,}"
+  case "$v" in
+    *g) awk -v n="${v%g}" 'BEGIN{if (n ~ /^[0-9.]+$/) printf "%d\n", n*1024}' ;;
+    *m) awk -v n="${v%m}" 'BEGIN{if (n ~ /^[0-9.]+$/) printf "%d\n", n}' ;;
+    *k) awk -v n="${v%k}" 'BEGIN{if (n ~ /^[0-9.]+$/) printf "%d\n", n/1024}' ;;
+    *) awk -v n="${v%b}" 'BEGIN{if (n ~ /^[0-9]+$/) printf "%d\n", n/1048576}' ;;
+  esac
+}
+
+check_limits() {
+  # Warn (never fail) when the stand's caps leave the other services on this host less than
+  # one CPU or less than half of the memory. Limits are caps, not reservations.
+  local cpus mem mem_mib host_cpus host_mib
+  cpus="$(env_value MIH_CPUS)"; cpus="${cpus:-2.0}"
+  mem="$(env_value MIH_MEM_LIMIT)"; mem="${mem:-3g}"
+  mem_mib="$(to_mib "$mem")"
+  host_cpus="$(nproc 2>/dev/null || echo 0)"
+  host_mib="$(awk '/^MemTotal:/{printf "%d\n", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)"
+  say "limits: cpus $cpus of $host_cpus, memory $mem of ${host_mib} MiB"
+  if (( host_cpus > 0 )) && awk -v c="$cpus" -v h="$host_cpus" 'BEGIN{exit !(c > h - 1)}'; then
+    say "WARN: MIH_CPUS=$cpus leaves other services less than one CPU"
+  fi
+  if [[ -z "$mem_mib" ]]; then
+    say "WARN: MIH_MEM_LIMIT=$mem is not understood (use e.g. 3g or 1536m)"
+  elif (( host_mib > 0 && mem_mib * 2 > host_mib )); then
+    say "WARN: MIH_MEM_LIMIT=$mem is more than half of this host's memory"
+  fi
+}
+
 cmd_preflight() {
   # Read-only checks: nothing is created, started or changed.
   local ok=1 port addr
@@ -114,6 +145,8 @@ cmd_preflight() {
   free -h | sed -n '1,2p' || true
   df -h "$HERE" /var/lib/docker 2>/dev/null | awk 'NR==1 || !seen[$1]++' || true
   nproc 2>/dev/null | sed 's/^/cpus: /' || true
+  check_limits
+
 
   say "== tailscale"
   if command -v tailscale >/dev/null; then tailscale ip -4 2>/dev/null | sed 's/^/tailscale ipv4: /' || true
