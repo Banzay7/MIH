@@ -752,16 +752,30 @@ async function viewChannels(params) {
   const q = params.get("q") || "";
   const epg = params.get("epg") === "1";
   const country = params.get("country") || "";
+  const topic = params.get("cat") || "";
+  const recentOnly = params.get("recent") === "1";
   const playable = prefs.playableOnly();
   render(html`<h1>${t("Каналы")}</h1>${skeleton(6)}`);
-  await Promise.all([loadChannels(), state.favoritesLoaded ? null : loadFavorites()]);
+  const [, , recent] = await Promise.all([loadChannels(), state.favoritesLoaded ? null : loadFavorites(),
+    recentOnly ? api("/recent?limit=200").catch(() => ({ items: [] })) : null]);
+  // The «Недавно открытые» list of the home page, newest first; clearing it there keeps the
+  // open-speed history (DELETE /recent only moves the list's start).
+  const recentRank = new Map((recent?.items || []).map((r, i) => [r.channel_id, i]));
   const all = [...state.channels.values()];
+  const catsOf = (c) => (c.categories?.length ? c.categories : ["other"]);
+  // Only topics that have channels; 18+ is absent while the server hides those channels.
+  const catCounts = new Map();
+  all.forEach((c) => catsOf(c).forEach((k) => catCounts.set(k, (catCounts.get(k) || 0) + 1)));
+  const topics = CATEGORIES.filter(([k]) => catCounts.has(k))
+    .map(([k, label]) => [k, `${label} (${nf.format(catCounts.get(k))})`]);
   const countriesOf = (c) => c.countries || (c.country ? [c.country] : []);
   const countries = countryOptions(all.flatMap(countriesOf));
   const needle = q.trim().toLocaleLowerCase("ru").replaceAll("ё", "е");
   const list = all.filter((c) => (!epg || c.has_epg) && (!country || countriesOf(c).includes(country)) &&
+    (!topic || catsOf(c).includes(topic)) && (!recentOnly || recentRank.has(c.id)) &&
     (!playable || c.streams !== 0) &&
     (!needle || c.canonical_name.toLocaleLowerCase("ru").replaceAll("ё", "е").includes(needle)));
+  if (recentOnly) list.sort((a, b) => recentRank.get(a.id) - recentRank.get(b.id));
   return html`<h1>${t("Каналы")}</h1>
     <form class="filters row" id="channel-filter">
       <div class="combo"><input id="channel-q" name="q" type="search" value="${q}" autocomplete="off"
@@ -771,7 +785,12 @@ async function viewChannels(params) {
       ${countries.length ? html`<select name="country" aria-label="${t("Страна")}">
         ${countries.map(([c, label]) => html`<option value="${c}" ${c === country ? raw("selected") : ""}>${label}</option>`)}
       </select>` : ""}
+      ${topics.length ? html`<select name="cat" aria-label="${t("Тематика")}">
+        <option value="">${t("Любая тематика")}</option>
+        ${topics.map(([k, label]) => html`<option value="${k}" ${k === topic ? raw("selected") : ""}>${label}</option>`)}
+      </select>` : ""}
       <label class="row small"><input type="checkbox" name="epg" value="1" ${epg ? raw("checked") : ""}> ${t("только с программой")}</label>
+      <label class="row small"><input type="checkbox" name="recent" value="1" ${recentOnly ? raw("checked") : ""}> ${t("Недавно открытые")}</label>
       <div class="row"><button class="btn tv" type="submit">${t("Показать")}</button></div>
     </form>
     <p class="small muted">${t("Найдено: {0}{1}", nf.format(list.length), playable ? t(" · без рабочих потоков скрыты (см. настройки)") : "")}</p>
@@ -1758,7 +1777,7 @@ document.addEventListener("submit", (e) => {
     const q = (f.get("q") || "").trim();
     rememberEntry("mih.channelHistory", q);
     hideHistory();
-    go("/channels", { q, country: f.get("country"), epg: f.get("epg") });
+    go("/channels", { q, country: f.get("country"), cat: f.get("cat"), epg: f.get("epg"), recent: f.get("recent") });
   } else if (e.target.id === "topic-form") {
     e.preventDefault();
     const topic = e.target.topic.value.trim();
