@@ -29,7 +29,8 @@
       "items": [
         "„{{Сейчас в эфире}}“: was gerade auf den Sendern läuft, mit Fortschrittsbalken und der nächsten Sendung.",
         "„{{Скоро начнётся}}“: Sendungen, die gleich beginnen.",
-        "Ein eigener Block „{{Избранное}}“ oben zeigt, was gerade auf Ihren Lieblingssendern läuft. Wie viele Sender auf einmal erscheinen, stellen Sie unter „{{Настройки}}“ → „{{Выдача}}“ ein."
+        "Ein eigener Block „{{Избранное}}“ oben zeigt, was gerade auf Ihren Lieblingssendern läuft. Wie viele Sender auf einmal erscheinen, stellen Sie unter „{{Настройки}}“ → „{{Выдача}}“ ein.",
+        "„{{Недавно открытые}}“: Sender, die Sie zuletzt mit „{{На ТВ}}“ eingeschaltet haben, mit ihrer Startgeschwindigkeit. „{{Очистить}}“ leert diese Liste; der Geschwindigkeitsverlauf bleibt."
       ]
     },
     {
@@ -82,7 +83,8 @@
       "items": [
         "„{{На ТВ}}“ schaltet den gewählten Sender auf dem Fernseher ein. Wie, legen Sie unter „{{Настройки}}“ → {{Кнопка «На ТВ»}} fest: über den Heim-Agenten oder direkt über Home Assistant.",
         "Für Home Assistant gibt es die Schaltfläche „{{Проверить связь с HA}}“: Sie zeigt, ob er antwortet und ob das Startskript gefunden wird.",
-        "„{{Качество при запуске}}“: „Bis 720p“ startet schneller und puffert weniger (Standard), „Beste“ liefert die höchste Qualität, „Auto“ überlässt die Wahl dem Player."
+        "„{{Качество при запуске}}“: „Bis 720p“ startet schneller und puffert weniger (Standard), „Beste“ liefert die höchste Qualität, „Auto“ überlässt die Wahl dem Player.",
+        "Jeder Start mit „{{На ТВ}}“ wird gemessen. Die Geschwindigkeit eines Senders ist der Median seiner letzten 10 Starts: ⚡ schnell, ✓ normal, 🐢 langsam, 🐢🐢 sehr langsam. Langsame Sender rücken ans Ende der Listen. Die Schwelle stellen Sie unter „{{Настройки}}“ → „{{Порог медленного открытия, секунд}}“ ein (Standard 5 s); die Senderseite zeigt den Verlauf „{{Скорость открытия на ТВ}}“."
       ]
     },
     {

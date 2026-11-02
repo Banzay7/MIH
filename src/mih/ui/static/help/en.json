@@ -29,7 +29,8 @@
       "items": [
         "“{{Сейчас в эфире}}”: what is on the channels right now, with a progress bar and what comes next.",
         "“{{Скоро начнётся}}”: programmes that are about to begin.",
-        "A separate “{{Избранное}}” block at the top shows what is on your favourite channels now. How many channels to show at once is set in “{{Настройки}}” → “{{Выдача}}”."
+        "A separate “{{Избранное}}” block at the top shows what is on your favourite channels now. How many channels to show at once is set in “{{Настройки}}” → “{{Выдача}}”.",
+        "“{{Недавно открытые}}”: channels you recently turned on with “{{На ТВ}}”, with their open speed. “{{Очистить}}” empties this list; the speed history stays."
       ]
     },
     {
@@ -82,7 +83,8 @@
       "items": [
         "“{{На ТВ}}” turns the chosen channel on on the TV. How is chosen in “{{Настройки}}” → {{Кнопка «На ТВ»}}: through the home agent or straight through Home Assistant.",
         "For Home Assistant there is a “{{Проверить связь с HA}}” button: it shows whether it answers and whether the start script is found.",
-        "“{{Качество при запуске}}”: “Up to 720p” starts faster and buffers less (the default), “Best” gives the highest quality, “Auto” leaves the choice to the player."
+        "“{{Качество при запуске}}”: “Up to 720p” starts faster and buffers less (the default), “Best” gives the highest quality, “Auto” leaves the choice to the player.",
+        "Every “{{На ТВ}}” launch is timed. A channel's speed is the median of its last 10 opens: ⚡ fast, ✓ normal, 🐢 slow, 🐢🐢 very slow. Slow channels go to the end of the lists. The threshold is set in “{{Настройки}}” → “{{Порог медленного открытия, секунд}}” (default 5 s); the channel page shows its “{{Скорость открытия на ТВ}}” history."
       ]
     },
     {

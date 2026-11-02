@@ -29,7 +29,8 @@
       "items": [
         "“{{Сейчас в эфире}}”: những gì đang chiếu trên các kênh ngay lúc này, có thanh tiến độ và chương trình tiếp theo.",
         "“{{Скоро начнётся}}”: các chương trình sắp bắt đầu.",
-        "Khối “{{Избранное}}” riêng ở trên cùng cho thấy những gì đang phát trên các kênh yêu thích của bạn. Số kênh hiển thị một lần được đặt trong “{{Настройки}}” → “{{Выдача}}”."
+        "Khối “{{Избранное}}” riêng ở trên cùng cho thấy những gì đang phát trên các kênh yêu thích của bạn. Số kênh hiển thị một lần được đặt trong “{{Настройки}}” → “{{Выдача}}”.",
+        "“{{Недавно открытые}}”: các kênh bạn vừa bật bằng “{{На ТВ}}”, kèm tốc độ mở. “{{Очистить}}” xóa danh sách này, lịch sử tốc độ vẫn được giữ."
       ]
     },
     {
@@ -82,7 +83,8 @@
       "items": [
         "“{{На ТВ}}” bật kênh đã chọn trên TV. Cách thực hiện được chọn trong “{{Настройки}}” → {{Кнопка «На ТВ»}}: qua trợ lý tại nhà hoặc trực tiếp qua Home Assistant.",
         "Với Home Assistant có nút “{{Проверить связь с HA}}”: cho biết nó có phản hồi không và có tìm thấy script bật kênh không.",
-        "“{{Качество при запуске}}”: “Tối đa 720p” bật nhanh hơn và ít giật hơn (mặc định), “Tốt nhất” cho chất lượng cao nhất, “Tự động” để trình phát tự chọn."
+        "“{{Качество при запуске}}”: “Tối đa 720p” bật nhanh hơn và ít giật hơn (mặc định), “Tốt nhất” cho chất lượng cao nhất, “Tự động” để trình phát tự chọn.",
+        "Mỗi lần bật bằng “{{На ТВ}}” đều được đo thời gian. Tốc độ của kênh là trung vị của 10 lần mở gần nhất: ⚡ nhanh, ✓ bình thường, 🐢 chậm, 🐢🐢 rất chậm. Kênh chậm bị xếp cuối danh sách. Ngưỡng được đặt trong “{{Настройки}}” → “{{Порог медленного открытия, секунд}}” (mặc định 5 giây); trang kênh có lịch sử “{{Скорость открытия на ТВ}}”."
       ]
     },
     {

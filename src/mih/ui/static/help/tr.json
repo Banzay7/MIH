@@ -29,7 +29,8 @@
       "items": [
         "“{{Сейчас в эфире}}”: kanallarda şu anda ne olduğu, ilerleme çubuğu ve sıradaki programla birlikte.",
         "“{{Скоро начнётся}}”: başlamak üzere olan programlar.",
-        "Üstteki ayrı “{{Избранное}}” bloğu favori kanallarınızda şu anda ne olduğunu gösterir. Bir seferde kaç kanal gösterileceği “{{Настройки}}” → “{{Выдача}}” bölümünden ayarlanır."
+        "Üstteki ayrı “{{Избранное}}” bloğu favori kanallarınızda şu anda ne olduğunu gösterir. Bir seferde kaç kanal gösterileceği “{{Настройки}}” → “{{Выдача}}” bölümünden ayarlanır.",
+        "“{{Недавно открытые}}”: “{{На ТВ}}” ile son açtığınız kanallar, açılma hızlarıyla birlikte. “{{Очистить}}” bu listeyi boşaltır; hız geçmişi korunur."
       ]
     },
     {
@@ -82,7 +83,8 @@
       "items": [
         "“{{На ТВ}}” seçilen kanalı televizyonda açar. Nasıl açılacağı “{{Настройки}}” → {{Кнопка «На ТВ»}} bölümünden seçilir: ev ajanı üzerinden veya doğrudan Home Assistant ile.",
         "Home Assistant için “{{Проверить связь с HA}}” düğmesi var: yanıt verip vermediğini ve başlatma betiğinin bulunup bulunmadığını gösterir.",
-        "“{{Качество при запуске}}”: “720p'ye kadar” daha hızlı başlar ve daha az arabelleğe alır (varsayılan), “En iyi” en yüksek kaliteyi verir, “Otomatik” seçimi oynatıcıya bırakır."
+        "“{{Качество при запуске}}”: “720p'ye kadar” daha hızlı başlar ve daha az arabelleğe alır (varsayılan), “En iyi” en yüksek kaliteyi verir, “Otomatik” seçimi oynatıcıya bırakır.",
+        "“{{На ТВ}}” ile her başlatma ölçülür. Kanalın hızı son 10 açılışının medyanıdır: ⚡ hızlı, ✓ normal, 🐢 yavaş, 🐢🐢 çok yavaş. Yavaş kanallar listelerin sonuna gider. Eşik “{{Настройки}}” → “{{Порог медленного открытия, секунд}}” bölümünden ayarlanır (varsayılan 5 sn); kanal sayfasında “{{Скорость открытия на ТВ}}” geçmişi bulunur."
       ]
     },
     {

@@ -29,7 +29,8 @@
       "items": [
         "“{{Сейчас в эфире}}”: o que passa nos canais agora, com barra de progresso e o que vem a seguir.",
         "“{{Скоро начнётся}}”: programas prestes a começar.",
-        "Um bloco separado “{{Избранное}}” no topo mostra o que passa agora nos seus canais favoritos. Quantos canais mostrar de uma vez é definido em “{{Настройки}}” → “{{Выдача}}”."
+        "Um bloco separado “{{Избранное}}” no topo mostra o que passa agora nos seus canais favoritos. Quantos canais mostrar de uma vez é definido em “{{Настройки}}” → “{{Выдача}}”.",
+        "“{{Недавно открытые}}”: canais que você ligou recentemente com “{{На ТВ}}”, com a velocidade de abertura. “{{Очистить}}” esvazia esta lista; o histórico de velocidade continua."
       ]
     },
     {
@@ -82,7 +83,8 @@
       "items": [
         "“{{На ТВ}}” liga o canal escolhido na TV. Como, escolhe-se em “{{Настройки}}” → {{Кнопка «На ТВ»}}: pelo agente doméstico ou diretamente pelo Home Assistant.",
         "Para o Home Assistant há o botão “{{Проверить связь с HA}}”: mostra se ele responde e se o script de início foi encontrado.",
-        "“{{Качество при запуске}}”: “Até 720p” inicia mais rápido e carrega menos (padrão), “Melhor” dá a maior qualidade, “Auto” deixa a escolha ao player."
+        "“{{Качество при запуске}}”: “Até 720p” inicia mais rápido e carrega menos (padrão), “Melhor” dá a maior qualidade, “Auto” deixa a escolha ao player.",
+        "Cada início com “{{На ТВ}}” é cronometrado. A velocidade de um canal é a mediana das últimas 10 aberturas: ⚡ rápida, ✓ normal, 🐢 lenta, 🐢🐢 muito lenta. Canais lentos vão para o fim das listas. O limite é definido em “{{Настройки}}” → “{{Порог медленного открытия, секунд}}” (padrão 5 s); a página do canal mostra o histórico “{{Скорость открытия на ТВ}}”."
       ]
     },
     {

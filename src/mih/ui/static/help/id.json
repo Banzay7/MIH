@@ -29,7 +29,8 @@
       "items": [
         "“{{Сейчас в эфире}}”: apa yang tayang di saluran saat ini, dengan bilah kemajuan dan acara berikutnya.",
         "“{{Скоро начнётся}}”: acara yang akan segera dimulai.",
-        "Blok “{{Избранное}}” terpisah di atas menampilkan apa yang tayang di saluran favorit Anda. Jumlah saluran yang ditampilkan sekaligus diatur di “{{Настройки}}” → “{{Выдача}}”."
+        "Blok “{{Избранное}}” terpisah di atas menampilkan apa yang tayang di saluran favorit Anda. Jumlah saluran yang ditampilkan sekaligus diatur di “{{Настройки}}” → “{{Выдача}}”.",
+        "“{{Недавно открытые}}”: saluran yang baru-baru ini Anda nyalakan dengan “{{На ТВ}}”, beserta kecepatan bukanya. “{{Очистить}}” mengosongkan daftar ini; riwayat kecepatan tetap tersimpan."
       ]
     },
     {
@@ -82,7 +83,8 @@
       "items": [
         "“{{На ТВ}}” menyalakan saluran pilihan di TV. Caranya dipilih di “{{Настройки}}” → {{Кнопка «На ТВ»}}: melalui agen rumah atau langsung lewat Home Assistant.",
         "Untuk Home Assistant ada tombol “{{Проверить связь с HA}}”: menunjukkan apakah ia merespons dan apakah skrip penyala ditemukan.",
-        "“{{Качество при запуске}}”: “Hingga 720p” mulai lebih cepat dan lebih jarang buffering (bawaan), “Terbaik” memberi kualitas tertinggi, “Otomatis” menyerahkan pilihan ke pemutar."
+        "“{{Качество при запуске}}”: “Hingga 720p” mulai lebih cepat dan lebih jarang buffering (bawaan), “Terbaik” memberi kualitas tertinggi, “Otomatis” menyerahkan pilihan ke pemutar.",
+        "Setiap penyalaan dengan “{{На ТВ}}” diukur waktunya. Kecepatan saluran adalah median 10 pembukaan terakhirnya: ⚡ cepat, ✓ normal, 🐢 lambat, 🐢🐢 sangat lambat. Saluran lambat ditaruh di akhir daftar. Ambangnya diatur di “{{Настройки}}” → “{{Порог медленного открытия, секунд}}” (bawaan 5 detik); halaman saluran menampilkan riwayat “{{Скорость открытия на ТВ}}”."
       ]
     },
     {

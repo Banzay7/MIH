@@ -29,7 +29,8 @@
       "items": [
         "« {{Сейчас в эфире}} » : ce qui passe sur les chaînes en ce moment, avec une barre de progression et l’émission suivante.",
         "« {{Скоро начнётся}} » : les émissions qui vont commencer.",
-        "Un bloc « {{Избранное}} » à part, en haut, montre ce qui passe sur vos chaînes favorites. Le nombre de chaînes affichées d’un coup se règle dans « {{Настройки}} » → « {{Выдача}} »."
+        "Un bloc « {{Избранное}} » à part, en haut, montre ce qui passe sur vos chaînes favorites. Le nombre de chaînes affichées d’un coup se règle dans « {{Настройки}} » → « {{Выдача}} ».",
+        "« {{Недавно открытые}} » : les chaînes que vous avez allumées récemment avec « {{На ТВ}} », avec leur vitesse d’ouverture. « {{Очистить}} » vide cette liste ; l’historique de vitesse est conservé."
       ]
     },
     {
@@ -82,7 +83,8 @@
       "items": [
         "« {{На ТВ}} » allume la chaîne choisie sur le téléviseur. La méthode se choisit dans « {{Настройки}} » → {{Кнопка «На ТВ»}} : via l’agent domestique ou directement via Home Assistant.",
         "Pour Home Assistant, le bouton « {{Проверить связь с HA}} » indique s’il répond et si le script de lancement est trouvé.",
-        "« {{Качество при запуске}} » : « Jusqu’à 720p » démarre plus vite et met moins en mémoire tampon (par défaut), « Meilleure » donne la plus haute qualité, « Auto » laisse le lecteur choisir."
+        "« {{Качество при запуске}} » : « Jusqu’à 720p » démarre plus vite et met moins en mémoire tampon (par défaut), « Meilleure » donne la plus haute qualité, « Auto » laisse le lecteur choisir.",
+        "Chaque lancement avec « {{На ТВ}} » est chronométré. La vitesse d’une chaîne est la médiane de ses 10 dernières ouvertures : ⚡ rapide, ✓ normale, 🐢 lente, 🐢🐢 très lente. Les chaînes lentes passent en fin de liste. Le seuil se règle dans « {{Настройки}} » → « {{Порог медленного открытия, секунд}} » (5 s par défaut) ; la page de la chaîne montre l’historique « {{Скорость открытия на ТВ}} »."
       ]
     },
     {
