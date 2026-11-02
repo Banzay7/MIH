@@ -1,0 +1,109 @@
+{
+  "title": "Bantuan",
+  "intro": "Cara memakai MIRTVONLINE: temukan tontonan dan nyalakan saluran dengan beberapa ketukan.",
+  "contents": "Daftar isi",
+  "more": "Selengkapnya di Bantuan",
+  "tips": {
+    "home": "Di sini ada acara yang sedang tayang dan yang segera dimulai. “{{На ТВ}}” menyalakan saluran di TV, ★ menambahkannya ke favorit. Daftar tidak memperbarui diri sendiri: tekan “{{↻ Обновить}}” saat perlu.",
+    "search": "Tulis dengan kata-kata biasa, boleh dengan waktu dan bahasa: “sepak bola besok”, “berita malam ini”, “robot bahasa Indonesia”. Anda juga bisa tidak menulis apa pun, memilih genre, lalu menekan “{{Найти}}”. Pencarian berjalan dengan Enter atau tombol “{{Найти}}”.",
+    "channels": "Semua saluran di katalog. Ketik sebagian nama, pilih negara, lalu tekan “{{Показать}}”. Halaman saluran menampilkan jadwal seminggu dan kategorinya, yang bisa Anda perbaiki.",
+    "favorites": "Di sini ada saluran dan acara yang ditandai ★. Tambahkan topik, misalnya “sepak bola”, dan Anda akan mendapat notifikasi sebelum acara seperti itu dimulai.",
+    "coverage": "Berapa saluran di katalog, berapa yang berfungsi sekarang, dan berapa yang punya jadwal acara. Diperbarui setelah setiap pemeriksaan siaran.",
+    "status": "Apa yang dikerjakan server: tugas latar belakang, jadwalnya, dan peristiwa terbaru. Tugas bisa dijalankan manual dengan tombol “{{Запустить}}”.",
+    "settings": "Di sini Anda mengubah bahasa antarmuka, saluran 18+, jumlah hasil, mode pencarian, dan tombol “{{На ТВ}}”. Dari sini juga petunjuk bisa dimunculkan kembali."
+  },
+  "sections": [
+    {
+      "id": "start",
+      "title": "Memulai",
+      "items": [
+        "Buka alamat server di browser ponsel atau komputer. Di ponsel Anda bisa menambahkannya ke layar utama: menu browser → “Tambahkan ke Layar Utama” (Add to Home Screen), dan katalog terbuka seperti aplikasi.",
+        "Jika katalog meminta token, buka “{{Настройки}}” → “{{Токен доступа к API}}”, tempel token, lalu tekan “{{Сохранить}}”. Token hanya disimpan di browser ini.",
+        "Di atas ada tujuh bagian: “{{Эфир}}”, “{{Поиск}}”, “{{Каналы}}”, “{{Избранное}}”, “{{Покрытие}}”, “{{Статус}}”, “{{Настройки}}”. Saat pertama dibuka, setiap halaman menampilkan petunjuk singkat “{{Как пользоваться}}”; “{{Понятно}}” menyembunyikannya.",
+        "Layar tidak memperbarui diri sendiri. Tombol “{{↻ Обновить}}” atau berpindah ke tab lain memuat data baru."
+      ]
+    },
+    {
+      "id": "home",
+      "title": "Sedang tayang",
+      "items": [
+        "“{{Сейчас в эфире}}”: apa yang tayang di saluran saat ini, dengan bilah kemajuan dan acara berikutnya.",
+        "“{{Скоро начнётся}}”: acara yang akan segera dimulai.",
+        "Blok “{{Избранное}}” terpisah di atas menampilkan apa yang tayang di saluran favorit Anda. Jumlah saluran yang ditampilkan sekaligus diatur di “{{Настройки}}” → “{{Выдача}}”."
+      ]
+    },
+    {
+      "id": "search",
+      "title": "Pencarian",
+      "items": [
+        "Tulis seperti Anda mengucapkannya: “berita malam ini”, “sepak bola besok”, “robot bahasa Indonesia”, “TVRI”. Pencarian memahami waktu dan bahasa sendiri dan juga menemukan bentuk kata lain.",
+        "Filter di bawah kotak pencarian: waktu (sekarang, hari ini, malam ini, besok), apa yang dicari (acara, saluran, atau semua), bahasa jadwal, dan genre. Filter hanya mengubah pilihan; pencarian berjalan dengan “{{Найти}}” atau Enter.",
+        "Daftar bahasa diawali bahasa Rusia, Vietnam, dan Inggris, lalu semua bahasa yang ada di jadwal dan katalog. Bahasa yang dipilih mempersempit acara dan saluran.",
+        "Genre tanpa kata: pilih, misalnya, “{{Спорт}}” lalu tekan “{{Найти}}”. Pencarian kosong tanpa filter menampilkan semua yang tayang sekarang dan beberapa jam ke depan.",
+        "“{{Обычный поиск}}” menemukan bentuk dan potongan kata, “{{Строгий: целые слова}}” hanya kata utuh seperti yang diketik. Mode bawaan dan ketepatan pencarian acara diatur di “{{Настройки}}”.",
+        "Pencarian sebelumnya muncul sebagai daftar di bawah kotak pencarian. Anda bisa mematikan dan menghapusnya di “{{Настройки}}” → “{{История поиска}}”.",
+        "Tombol “🔔 Ikuti topik” di bawah hasil menambahkan topik ke favorit: notifikasi datang sebelum acara yang cocok dimulai."
+      ]
+    },
+    {
+      "id": "channels",
+      "title": "Saluran dan kategori",
+      "items": [
+        "Bagian “{{Каналы}}” menampilkan seluruh katalog. Filter: sebagian nama, negara (negara utama di atas, lalu semua negara lain dengan jumlah salurannya), dan “{{только с программой}}”. Tekan “{{Показать}}”.",
+        "Saluran tanpa siaran yang berfungsi disembunyikan secara bawaan; ubah di “{{Настройки}}” → “{{Выдача}}”.",
+        "Halaman saluran menampilkan jadwal per hari dengan acara yang sedang tayang ditandai, versi saluran (misalnya “+2” dengan pergeseran waktu, atau versi regional), dan tombol “{{На ТВ}}”.",
+        "Setiap saluran punya satu kategori utama dan hingga tiga kategori tambahan. Kategori ditentukan otomatis dari direktori saluran, grup playlist, nama, merek, dan jadwal acara, lalu dihitung ulang setelah setiap pembaruan katalog.",
+        "Untuk memperbaiki kategori: halaman saluran → “{{Изменить категории}}” → pilih utama dan tambahan → “{{Сохранить}}”. Pilihan Anda lebih utama dari otomatis dan langsung berlaku di pencarian, daftar, dan ekspor. “{{Вернуть автоматические}}” membatalkannya; kategori otomatis kembali setelah pemeriksaan berikutnya, paling lama 10 menit."
+      ]
+    },
+    {
+      "id": "adult",
+      "title": "Saluran 18+",
+      "items": [
+        "Saluran dewasa dikenali otomatis, termasuk yang memakai nama polos. Pengaturannya di “{{Настройки}}” → “{{Каналы 18+}}”: “{{Скрывать}}”, “{{Скрывать, открывать по PIN}}”, atau “{{Показывать}}”. Pengaturan disimpan di server dan berlaku di semua browser.",
+        "Mode PIN: tetapkan PIN 4–8 digit dan tekan “{{Сохранить}}”. Untuk membuka saluran 18+, masukkan PIN di bagian yang sama dan tekan “Buka selama … jam”; “{{Закрыть сейчас}}” menyembunyikannya lagi. Setelah beberapa PIN salah, input dikunci selama 15 menit.",
+        "Blok “Perlu ditinjau”: buka “{{Поиск}}”, pilih genre “{{Для взрослых}}”, lalu tekan “{{Найти}}”. Di atas muncul saluran yang masuk 18+ hanya karena tanda tidak langsung, masing-masing dengan alasannya.",
+        "Untuk setiap saluran di “Perlu ditinjau”, tekan “{{Да, 18+}}” jika memang saluran dewasa, atau pilih “{{Перенести в…}}” dan kategori yang tepat. Keputusan disimpan sebagai kategori manual dan saluran keluar dari blok.",
+        "Anda juga bisa menandai saluran sebagai 18+ secara manual: halaman saluran → “{{Изменить категории}}” → “{{Для взрослых}}”."
+      ]
+    },
+    {
+      "id": "favorites",
+      "title": "Favorit dan topik",
+      "items": [
+        "★ pada saluran atau acara menambahkannya ke “{{Избранное}}”. Favorit disimpan di server dan terlihat dari semua perangkat.",
+        "Jika saluran hilang dari playlist, ia tetap di favorit dan kembali saat muncul lagi di sumber.",
+        "“{{Темы}}”: tambahkan kata, misalnya “sepak bola”, dan notifikasi datang sebelum acara yang cocok dimulai."
+      ]
+    },
+    {
+      "id": "tv",
+      "title": "Tombol “{{На ТВ}}”",
+      "items": [
+        "“{{На ТВ}}” menyalakan saluran pilihan di TV. Caranya dipilih di “{{Настройки}}” → {{Кнопка «На ТВ»}}: melalui agen rumah atau langsung lewat Home Assistant.",
+        "Untuk Home Assistant ada tombol “{{Проверить связь с HA}}”: menunjukkan apakah ia merespons dan apakah skrip penyala ditemukan.",
+        "“{{Качество при запуске}}”: “Hingga 720p” mulai lebih cepat dan lebih jarang buffering (bawaan), “Terbaik” memberi kualitas tertinggi, “Otomatis” menyerahkan pilihan ke pemutar."
+      ]
+    },
+    {
+      "id": "coverage",
+      "title": "Cakupan dan status",
+      "items": [
+        "“{{Покрытие}}” menunjukkan berapa saluran di katalog, berapa yang hidup sekarang, dan berapa yang punya jadwal, per negara dan menurut asal kategorinya.",
+        "“{{Статус}}” menampilkan tugas latar belakang (memperbarui playlist dan jadwal, memeriksa siaran, mencari playlist baru), jadwalnya, hasil jalan terakhir, dan daftar peristiwa. Tugas bisa dijalankan manual dengan tombol “{{Запустить}}”.",
+        "Katalog dibangun ulang setelah setiap pemeriksaan siaran, biasanya kurang dari satu menit. Tepat setelah server dimulai ulang, pembangunan pertama lebih lama sampai cache terisi."
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Pengaturan dan bahasa",
+      "items": [
+        "“{{Язык интерфейса}}”: 20 bahasa, dengan tiga bahasa utama (Rusia, Inggris, Vietnam) di atas daftar. Bahasa diingat di browser ini.",
+        "Teks dari server (peristiwa, ringkasan) ditampilkan dalam bahasa Rusia, Inggris, atau Vietnam; untuk bahasa antarmuka lain teks itu datang dalam bahasa Inggris.",
+        "“{{Выдача}}”: berapa yang ditampilkan sekaligus, logo saluran, apakah saluran tanpa siaran yang berfungsi disembunyikan.",
+        "“{{Подсказки}}” → “{{Показать все подсказки снова}}” memunculkan kembali petunjuk “{{Как пользоваться}}” di semua halaman.",
+        "Pengaturan hasil, pencarian, dan bahasa disimpan di browser ini; mode 18+, favorit, dan kategori manual disimpan di server."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "title": "Ajuda",
+  "intro": "Como usar o MIRTVONLINE: encontrar o que ver e ligar um canal com poucos toques.",
+  "contents": "Conteúdo",
+  "more": "Mais na ajuda",
+  "tips": {
+    "home": "Aqui está o que passa agora e o que começa em breve. “{{На ТВ}}” liga o canal na TV, ★ adiciona-o aos favoritos. A lista não se atualiza sozinha: toque em “{{↻ Обновить}}” quando precisar.",
+    "search": "Escreva com palavras normais, com hora e idioma se quiser: “futebol amanhã”, “notícias à noite”, “robôs em português”. Também pode não escrever nada, escolher um gênero e tocar em “{{Найти}}”. A pesquisa começa com Enter ou com o botão “{{Найти}}”.",
+    "channels": "Todos os canais do catálogo. Digite parte do nome, escolha um país e toque em “{{Показать}}”. A página do canal mostra a programação da semana e as categorias, que você pode corrigir.",
+    "favorites": "Aqui ficam os canais e programas marcados com ★. Adicione um tema, por exemplo “futebol”, e receberá uma notificação antes de um programa assim começar.",
+    "coverage": "Quantos canais o catálogo tem, quantos funcionam agora e quantos têm guia de programação. Atualizado após cada verificação de transmissões.",
+    "status": "O que o servidor está fazendo: tarefas em segundo plano, seus horários e os últimos eventos. Uma tarefa pode ser iniciada à mão com o botão “{{Запустить}}”.",
+    "settings": "Aqui se mudam o idioma da interface, os canais 18+, o número de resultados, o modo de pesquisa e o botão “{{На ТВ}}”. Daqui também é possível trazer as dicas de volta."
+  },
+  "sections": [
+    {
+      "id": "start",
+      "title": "Primeiros passos",
+      "items": [
+        "Abra o endereço do servidor no navegador do celular ou do computador. No celular, você pode adicioná-lo à tela inicial: menu do navegador → “Adicionar à tela inicial” (Add to Home Screen), e o catálogo abre como um app.",
+        "Se o catálogo pedir um token, abra “{{Настройки}}” → “{{Токен доступа к API}}”, cole o token e toque em “{{Сохранить}}”. O token fica só neste navegador.",
+        "No topo há sete seções: “{{Эфир}}”, “{{Поиск}}”, “{{Каналы}}”, “{{Избранное}}”, “{{Покрытие}}”, “{{Статус}}”, “{{Настройки}}”. Na primeira visita, cada página mostra uma dica curta “{{Как пользоваться}}”; “{{Понятно}}” a esconde.",
+        "As telas não se atualizam sozinhas. O botão “{{↻ Обновить}}” ou a troca de aba carrega dados novos."
+      ]
+    },
+    {
+      "id": "home",
+      "title": "No ar",
+      "items": [
+        "“{{Сейчас в эфире}}”: o que passa nos canais agora, com barra de progresso e o que vem a seguir.",
+        "“{{Скоро начнётся}}”: programas prestes a começar.",
+        "Um bloco separado “{{Избранное}}” no topo mostra o que passa agora nos seus canais favoritos. Quantos canais mostrar de uma vez é definido em “{{Настройки}}” → “{{Выдача}}”."
+      ]
+    },
+    {
+      "id": "search",
+      "title": "Pesquisa",
+      "items": [
+        "Escreva como diria: “notícias à noite”, “futebol amanhã”, “robôs em português”, “RTP1”. A pesquisa entende sozinha a hora e o idioma e encontra também outras formas de uma palavra.",
+        "Filtros sob a barra de pesquisa: hora (agora, hoje, à noite, amanhã), o que procurar (programas, canais ou tudo), idioma do guia e gênero. Os filtros só mudam a escolha; a pesquisa começa com “{{Найти}}” ou Enter.",
+        "A lista de idiomas tem russo, vietnamita e inglês no topo, depois todos os idiomas presentes no guia e no catálogo. O idioma escolhido restringe programas e canais.",
+        "Um gênero sem palavras: escolha, por exemplo, “{{Спорт}}” e toque em “{{Найти}}”. Uma pesquisa vazia sem filtros mostra tudo o que passa agora e nas próximas horas.",
+        "“{{Обычный поиск}}” encontra formas e partes de palavras, “{{Строгий: целые слова}}” só a palavra inteira como foi digitada. O modo padrão e a precisão da pesquisa de programas são definidos em “{{Настройки}}”.",
+        "As pesquisas anteriores aparecem como lista sob a barra de pesquisa. Você pode desligar e limpar isso em “{{Настройки}}” → “{{История поиска}}”.",
+        "O botão “🔔 Seguir o tema” sob os resultados adiciona o tema aos favoritos: chega uma notificação antes de começar um programa correspondente."
+      ]
+    },
+    {
+      "id": "channels",
+      "title": "Canais e categorias",
+      "items": [
+        "A seção “{{Каналы}}” mostra todo o catálogo. Filtros: parte do nome, país (os principais no topo, depois todos os outros com o número de canais) e “{{только с программой}}”. Toque em “{{Показать}}”.",
+        "Canais sem transmissões funcionando ficam ocultos por padrão; mude isso em “{{Настройки}}” → “{{Выдача}}”.",
+        "A página do canal mostra a programação por dia com o que passa agora destacado, as versões do canal (por exemplo “+2” com fuso deslocado, ou regionais) e o botão “{{На ТВ}}”.",
+        "Cada canal tem uma categoria principal e até três adicionais. Elas são definidas automaticamente a partir do diretório de canais, dos grupos das playlists, do nome, da marca e da programação, e recalculadas após cada atualização do catálogo.",
+        "Para corrigir uma categoria: página do canal → “{{Изменить категории}}” → escolha a principal e as adicionais → “{{Сохранить}}”. Sua escolha vale mais que a automática e se aplica na hora à pesquisa, às listas e às exportações. “{{Вернуть автоматические}}” desfaz a escolha; as categorias automáticas voltam após a próxima verificação, em até 10 minutos."
+      ]
+    },
+    {
+      "id": "adult",
+      "title": "Canais 18+",
+      "items": [
+        "Canais adultos são detectados automaticamente, mesmo por trás de nomes inofensivos. A configuração fica em “{{Настройки}}” → “{{Каналы 18+}}”: “{{Скрывать}}”, “{{Скрывать, открывать по PIN}}” ou “{{Показывать}}”. Ela é guardada no servidor e vale em todos os navegadores.",
+        "Modo PIN: defina um PIN de 4 a 8 dígitos e toque em “{{Сохранить}}”. Para abrir os canais 18+, digite o PIN na mesma seção e toque em “Abrir por … h”; “{{Закрыть сейчас}}” os esconde de novo. Após vários PINs errados, a entrada fica bloqueada por 15 minutos.",
+        "O bloco “Para revisar”: abra “{{Поиск}}”, escolha o gênero “{{Для взрослых}}” e toque em “{{Найти}}”. No topo aparecem os canais classificados como 18+ só por sinais indiretos, cada um com o motivo.",
+        "Para cada canal em “Para revisar”, toque em “{{Да, 18+}}” se for mesmo um canal adulto, ou escolha “{{Перенести в…}}” e a categoria certa. A decisão é salva como categoria manual e o canal sai do bloco.",
+        "Você também pode marcar um canal como 18+ à mão: página do canal → “{{Изменить категории}}” → “{{Для взрослых}}”."
+      ]
+    },
+    {
+      "id": "favorites",
+      "title": "Favoritos e temas",
+      "items": [
+        "★ num canal ou programa o adiciona a “{{Избранное}}”. Os favoritos ficam no servidor e aparecem em todos os dispositivos.",
+        "Se um canal some das playlists, ele continua nos favoritos e volta quando reaparece numa fonte.",
+        "“{{Темы}}”: adicione uma palavra, por exemplo “futebol”, e receberá uma notificação antes de começar um programa correspondente."
+      ]
+    },
+    {
+      "id": "tv",
+      "title": "O botão “{{На ТВ}}”",
+      "items": [
+        "“{{На ТВ}}” liga o canal escolhido na TV. Como, escolhe-se em “{{Настройки}}” → {{Кнопка «На ТВ»}}: pelo agente doméstico ou diretamente pelo Home Assistant.",
+        "Para o Home Assistant há o botão “{{Проверить связь с HA}}”: mostra se ele responde e se o script de início foi encontrado.",
+        "“{{Качество при запуске}}”: “Até 720p” inicia mais rápido e carrega menos (padrão), “Melhor” dá a maior qualidade, “Auto” deixa a escolha ao player."
+      ]
+    },
+    {
+      "id": "coverage",
+      "title": "Cobertura e status",
+      "items": [
+        "“{{Покрытие}}” mostra quantos canais o catálogo tem, quantos estão vivos agora e quantos têm guia, por país e pela origem da categoria.",
+        "“{{Статус}}” mostra as tarefas em segundo plano (atualizar playlists e guia, verificar transmissões, procurar novas playlists), seus horários, o resultado da última execução e o registro de eventos. Uma tarefa pode ser iniciada à mão com o botão “{{Запустить}}”.",
+        "O catálogo é reconstruído após cada verificação de transmissões, normalmente em menos de um minuto. Logo após reiniciar o servidor, a primeira construção demora mais, enquanto o cache aquece."
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Configurações e idioma",
+      "items": [
+        "“{{Язык интерфейса}}”: 20 idiomas, com os três principais (russo, inglês, vietnamita) no topo da lista. O idioma fica guardado neste navegador.",
+        "Os textos que vêm do servidor (eventos, resumos) aparecem em russo, inglês ou vietnamita; para os outros idiomas da interface, vêm em inglês.",
+        "“{{Выдача}}”: quantos mostrar de uma vez, logotipos dos canais, se ocultar canais sem transmissões funcionando.",
+        "“{{Подсказки}}” → “{{Показать все подсказки снова}}” traz de volta as dicas “{{Как пользоваться}}” em todas as páginas.",
+        "As configurações de resultados, pesquisa e idioma ficam neste navegador; o modo 18+, os favoritos e as categorias manuais ficam no servidor."
+      ]
+    }
+  ]
+}
