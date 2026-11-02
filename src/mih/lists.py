@@ -38,6 +38,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from mih import openspeed
 from mih.epg.publish import GuideEntry, guide_coverage, write_guide
 from mih.export import build_catalog, m3u_entry, write_atomic
 from mih.health.policy import parse_ts
@@ -263,6 +264,9 @@ def build_list(
                              "level": best[2] if best else "dead", "reason": reason,
                              "last_error": best[4] if best else None})  # fmt: skip
 
+    # Channels slow to open on the TV go to the end of the list (mih.openspeed).
+    included = openspeed.slow_last(included, lambda x: x["channel"]["id"],
+                                   openspeed.slow_ids(conn))  # fmt: skip
     return {
         "generated_at": utc_now(),
         "filter": asdict(flt),

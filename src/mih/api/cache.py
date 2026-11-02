@@ -43,7 +43,10 @@ _VERSION_SQL = (
     " (SELECT max(rowid) FROM source_snapshots), (SELECT max(rowid) FROM epg_snapshots),"
     " (SELECT max(rowid) FROM health_runs),"
     " (SELECT count(*) || '/' || COALESCE(max(rowid), 0) FROM favorites),"
-    " (SELECT count(*) || '/' || COALESCE(max(rowid), 0) FROM tracked_topics)"
+    " (SELECT count(*) || '/' || COALESCE(max(rowid), 0) FROM tracked_topics),"
+    # Open times and the slow threshold move the order of the channel lists.
+    " (SELECT count(*) || '/' || COALESCE(max(id), 0) FROM open_times),"
+    " (SELECT max(updated_at) FROM app_settings WHERE key = 'open_slow_s')"
 )
 
 
