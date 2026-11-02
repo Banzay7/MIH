@@ -1,10 +1,10 @@
 # MIRTVONLINE "На ТВ" for Android TV / Google TV through the Home Assistant Companion app.
 # Paste into scripts.yaml, replace <device> with your TV's name in Home Assistant, then
 # Developer tools -> YAML -> Check configuration and reload scripts. Server settings:
-#   MIH_HA_SCRIPT=tv_play_channel
+#   MIH_HA_SCRIPT=mih_play (the default)
 #   MIH_HA_NOTIFY=notify.mobile_app_<device>
 # No ADB: commands go to the Companion app on the TV as notification commands.
-tv_play_channel:
+mih_play:
   alias: "MIRTVONLINE: channel on the TV"
   mode: restart
   fields:
