@@ -634,6 +634,7 @@ function reviewCard(c) {
       ${(c.reasons || []).map((r) => html`<div class="small muted">${reviewReason(r)}</div>`)}
     </div>
     <div class="actions row">
+      ${tvButton(c.id)}
       <button class="btn" type="button" data-review-ok="${c.id}" data-cats="${cats.join(",")}">${t("Да, 18+")}</button>
       <select data-review-move="${c.id}" aria-label="${t("Перенести в категорию")}">
         <option value="">${t("Перенести в…")}</option>
