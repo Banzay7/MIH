@@ -6,7 +6,7 @@
 
 1. **Связь сервера с Home Assistant.** Сервер должен открывать адрес HA, например `http://homeassistant.local:8123` в той же сети, адрес HA в Tailscale (`http://100.x.y.z:8123`) или внешний адрес Nabu Casa. Проверка с сервера: `curl -s -o /dev/null -w '%{http_code}\n' <адрес>/api/` отвечает `401` (адрес доступен, токена ещё нет).
 2. **Долгоживущий токен HA.** В Home Assistant: нажмите своё имя внизу слева → вкладка **Security** (Безопасность) → **Long-lived access tokens** (Долгосрочные токены доступа) → **Create token** (Создать токен) → введите имя, например `mirtvonline` → **OK** → скопируйте токен (он показывается один раз). Токен вписывается только в `.env` на сервере, его не нужно пересылать в чат или класть в git.
-3. **Скрипт в HA**, который включает канал. Свой готовый скрипт подходит: укажите его имя в `MIH_HA_SCRIPT`. Для Android TV и Google TV есть готовый пример через Companion: [examples/ha/tv_play_channel.yaml](examples/ha/tv_play_channel.yaml) (ниже раздел «Android TV и Google TV через Companion»).
+3. **Скрипт в HA**, который включает канал. Свой готовый скрипт подходит: укажите его имя в `MIH_HA_SCRIPT`. Для Android TV и Google TV есть готовый пример через Companion: [examples/ha/mih_play.yaml](examples/ha/mih_play.yaml) (ниже раздел «Android TV и Google TV через Companion»).
 
 ## Настройки
 
@@ -60,7 +60,7 @@ mih_play:
 
 Рабочий способ для Android TV и Google TV: приложение **Home Assistant Companion** на телевизоре. Скрипт отправляет ему команды через сервис уведомлений `notify.mobile_app_<device>`: `command_activity` открывает поток в плеере, `command_media` нажимает «Play». ADB не нужен: ни отладка по сети на ТВ, ни открытые на нём порты.
 
-Готовый скрипт: [examples/ha/tv_play_channel.yaml](examples/ha/tv_play_channel.yaml). В нём замените `<device>` на имя вашего ТВ в Home Assistant, а на сервере задайте `MIH_HA_SCRIPT=tv_play_channel` и `MIH_HA_NOTIFY=notify.mobile_app_<device>`.
+Готовый скрипт: [examples/ha/mih_play.yaml](examples/ha/mih_play.yaml). В нём замените `<device>` на имя вашего ТВ в Home Assistant, а на сервере задайте `MIH_HA_SCRIPT=mih_play` и `MIH_HA_NOTIFY=notify.mobile_app_<device>`.
 
 **Сервис уведомлений у каждой установки свой.** Его имя берётся из имени устройства при входе в Companion. Не переносите чужое имя из примеров и не зашивайте его в скрипт: скрипт берёт его из `notify_service`. После повторного входа или перерегистрации Companion имя может измениться, а старый сервис пропадает. Тогда HA принимает команду, но ТВ ничего не делает. Как проверить:
 
