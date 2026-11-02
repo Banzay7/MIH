@@ -169,6 +169,18 @@ CASES: list[Case] = [
     C("adult", "Alba XXX 1"),
     C("adult", "Beate Uhse"),
     C("adult", "Babes TV"),
+    # 18+ audit of the stand, 2026-11-01: brands and glued words
+    C("adult", "EroLuxe Blonde"),
+    C("adult", "PassionXXX HD"),
+    C("adult", "FrenchLover"),
+    C("adult", "Nu.ART TV"),
+    C("adult", "Velilla TV Anal UHD"),
+    # ... and adult words in names of ordinary channels
+    C("music", "Stingray Pop Adult", directory=["music"]),
+    C("kids", "Pluto TV Adult Animation", directory=["animation"]),
+    C("series", "VF Секс в большом городе", groups=["Сериалы"]),
+    C("sport", "Velilla TV EuroCup 2024", groups=["Sport"]),
+    C("regional", "Pervyy Tulskiy", groups=["Regional"]),
     # ---- nothing to go by ----
     C("other", "Talk Show Channel"),
     C("other", "XYZ 7"),

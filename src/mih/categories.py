@@ -77,14 +77,33 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
               "hustler", "brazzers", "dorcel", "penthouse", "redlight", "red light",
               "nguoi lon", "интим", "русская ночь", "ню арт", "шалун", "babes tv",
               "barely legal", "private tv", "vivid red", "vivid tv", "xy max", "exxxotica",
-              "o la la", "o-la-la", "beate uhse", "evil angel", "fap tv"),
+              "o la la", "o-la-la", "beate uhse", "evil angel", "fap tv",
+              # adult brands seen on the stand behind harmless-looking names
+              "eroluxe", "extasy", "frenchlover", "french lover", "nuart",
+              "nu art", "nu.art", "passionxxx",
+              # explicit words: every channel named with one is adult
+              "bdsm", "fetish", "milf", "hentai", "lesbian", "bisexual", "transsexual",
+              "shemale", "gangbang", "blowjob", "creampie", "gloryhole", "cuckold", "anal",
+              "penetration", "gilf", "pervy", "pervers", "hardcore sex", "lethal hardcore",
+              "эротик", "erotisch", "erotycz", "erotico", "erotique"),
 }  # fmt: skip
+
+# Adult keywords found inside a word too: «PassionXXX», «TVPlayXXX», «Pornhub».
+INFIX_KEYS: frozenset[str] = frozenset({"xxx", "porn", "порн"})
+
+# Names and genres with an adult word that are not adult channels: radio formats, cartoons
+# for grown-ups, series titles. Taken out before the adult keywords are looked up.
+_NOT_ADULT_RE = re.compile(
+    r"(?<!\w)(adult contemporary|pop adult|adult (animation|swim|cartoons?)"
+    r"|секс в большом городе|sex and the city|sex education|sex clinic)(?!\w)"
+)
 
 # Short keywords that are a word of their own ("nick", not "nickname"; "fm", not "fmovies").
 WHOLE_KEYS: frozenset[str] = frozenset({
     "24", "nick", "toon", "baby", "nhl", "nba", "nfl", "mlb", "fifa", "ufc", "wwe", "axn",
     "hbo", "cine", "kino", "dizi", "rock", "hits", "jazz", "vh1", "fm", "dab",
     "pets", "tbn", "ewtn", "golf", "radio", "радио", "drama", "info", "action", "school",
+    "anal", "pervy",
 })  # fmt: skip
 
 # Big national broadcasters: a word of their name says «general» when nothing more specific
@@ -144,6 +163,8 @@ _NON_WORD = re.compile(r"[^\w+]+")
 
 
 def _pattern(key: str) -> str:
+    if key in INFIX_KEYS:
+        return re.escape(fold(key))
     return r"(?<![\w])" + re.escape(fold(key)) + (r"(?![\w])" if key in WHOLE_KEYS else "")
 
 
@@ -179,6 +200,8 @@ def keyword_hits(texts: list[str]) -> dict[str, str]:
     words = _NOT_RADIO_RE.sub(" ", " " + " ".join(fold(t) for t in texts if t) + " ")
     out = {}
     for cat, (strong, weak) in _KEY_RE.items():
+        if cat == "adult":
+            words = _NOT_ADULT_RE.sub(" ", words)
         if strong.search(words):
             out[cat] = "strong"
         elif weak.search(words):
@@ -485,20 +508,35 @@ def url_is_adult(url: str | None) -> bool:
     return bool(url) and bool(_URL_RE.search(url.casefold()))
 
 
-def adult_name_keys(conn: sqlite3.Connection) -> set[str]:
-    """Name keys of the directory's adult channels, blocked ones included: a playlist
-    channel with such a name is adult even when it is not linked to the directory."""
+def compact_key(name: str) -> str:
+    """A name key without spaces: «French Lover» and «FrenchLover» meet."""
     from mih.identity.normalize import split_name
 
-    keys = set()
-    for r in conn.execute(
-        "SELECT name, alt_names FROM directory_channels WHERE is_nsfw = 1 OR blocked = 'nsfw'"
-    ):
+    return split_name(name).key.replace(" ", "") if name else ""
+
+
+def adult_name_keys(conn: sqlite3.Connection) -> set[str]:
+    """Compact name keys of the directory's adult channels, blocked ones included: a
+    playlist channel with such a name is adult even when it is not linked to the directory.
+    A name that an ordinary directory channel has too («Cinema», «Allegro») says nothing."""
+    keys, ordinary = set(), set()
+    for r in conn.execute("SELECT name, alt_names, is_nsfw, blocked FROM directory_channels"):
+        bucket = keys if r["is_nsfw"] or r["blocked"] == "nsfw" else ordinary
         for n in (r["name"], *json.loads(r["alt_names"] or "[]")):
-            k = split_name(n).key if n else ""
+            k = compact_key(n)
             if k and len(k) >= 4:  # too short a key would catch ordinary channels
-                keys.add(k)
-    return keys
+                bucket.add(k)
+    return keys - ordinary
+
+
+def adult_by_name(names: list[str], keys: set[str], *, linked_ordinary: bool,
+                  guide: dict[str, float] | None) -> bool:  # fmt: skip
+    """True when a channel's name is a directory adult channel's name. Not for a channel
+    the directory already knows as an ordinary one, nor for one whose guide is long
+    enough and has no adult programmes at all («Happy Channel» of Romania runs series)."""
+    if linked_ordinary or (guide and not guide.get("adult")):
+        return False
+    return any(compact_key(n) in keys for n in names if n)
 
 
 def neighbour_votes(members: dict[str, set[str]], adult: set[str], *, share: float,
